@@ -1,0 +1,54 @@
+name: offerline
+services:
+  db:
+    image: mysql:8.4
+    command:
+      - --innodb-buffer-pool-size=128M
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_DATABASE: offerline
+      MYSQL_USER: offerline
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+    volumes:
+      - offerline_mysql:/var/lib/mysql
+    networks:
+      - internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u offerline -p$${MYSQL_PASSWORD} --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  app:
+    build: .
+    environment:
+      NODE_ENV: production
+      APP_PORT: "3002"
+      APP_ORIGIN: ${APP_ORIGIN:?Set APP_ORIGIN in .env}
+      ALLOW_HTTP: ${ALLOW_HTTP:-false}
+      REGISTRATION_OPEN: ${REGISTRATION_OPEN:-true}
+      DATABASE_URL: mysql://offerline:${MYSQL_PASSWORD}@db:3306/offerline
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  internal:
+    internal: true
+
+volumes:
+  offerline_mysql: {}
