@@ -406,8 +406,16 @@ export function PipelineView({
                           {rec.stages.map((st, idx) => {
                             const isOpen =
                               popover?.record.id === rec.id && popover?.stageIndex === idx;
+                            const isFirst = idx === 0;
                             const isLast = idx === rec.stages.length - 1;
-                            const lineClass =
+                            const prevStatus = idx > 0 ? rec.stages[idx - 1].status : null;
+                            const leftLineClass =
+                              prevStatus === "pass"
+                                ? "line-pass"
+                                : prevStatus === "skip"
+                                  ? "line-skip"
+                                  : "line-pending";
+                            const rightLineClass =
                               st.status === "pass"
                                 ? "line-pass"
                                 : st.status === "skip"
@@ -418,11 +426,12 @@ export function PipelineView({
                                 key={st.id}
                                 type="button"
                                 role="listitem"
-                                className={`tl-node st-${st.status}${isOpen ? " is-selected" : ""}${isLast ? " is-last" : ""}`}
+                                className={`tl-node st-${st.status}${isOpen ? " is-selected" : ""}${isFirst ? " is-first" : ""}${isLast ? " is-last" : ""}`}
                                 onClick={(e) => openStagePopover(e, rec, idx, st)}
                                 title={`${st.name} · ${STAGE_STATUS_LABELS[st.status]}（点击切换状态）`}
                               >
                                 <span className="tl-dot-row">
+                                  {!isFirst && <span className={`tl-arm tl-arm-left ${leftLineClass}`} />}
                                   <span className="tl-dot">
                                     {st.status === "pass" && (
                                       <svg viewBox="0 0 12 12" className="tl-mark" aria-hidden="true">
@@ -445,7 +454,7 @@ export function PipelineView({
                                       </svg>
                                     )}
                                   </span>
-                                  {!isLast && <span className={`tl-connector ${lineClass}`} />}
+                                  {!isLast && <span className={`tl-arm tl-arm-right ${rightLineClass}`} />}
                                 </span>
                                 <span className="tl-label">{st.name}</span>
                               </button>

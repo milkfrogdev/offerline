@@ -678,7 +678,7 @@ textarea {
   gap: 14px;
 }
 
-/* ==================== Company Logos (无外框、干净裸显) ==================== */
+/* ==================== Company Logos (无外框高清原版官标) ==================== */
 .company-logo {
   display: inline-flex;
   align-items: center;
@@ -688,36 +688,38 @@ textarea {
 }
 
 .company-logo-md {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
 }
 
 .company-logo-sm {
-  width: 19px;
-  height: 19px;
+  width: 18px;
+  height: 18px;
 }
 
-.company-logo .brand-svg {
-  width: 21px;
-  height: 21px;
+.company-logo .brand-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 4px;
   display: block;
 }
 
-.company-logo-sm .brand-svg {
-  width: 17px;
-  height: 17px;
+:root[data-theme="dark"] .company-logo.invert-dark .brand-img {
+  filter: invert(1) brightness(1.08);
 }
 
 .company-logo.is-monogram {
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 700;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  font-size: 11px;
+  font-weight: 600;
   color: var(--text-2);
-  background: var(--surface-2);
+  background: transparent;
 }
 
 .company-logo-sm.is-monogram {
-  font-size: 10.5px;
+  font-size: 10px;
 }
 
 /* ==================== Company Cards & Timeline Track ==================== */
@@ -870,14 +872,15 @@ textarea {
 .position-list {
   display: flex;
   flex-direction: column;
+  padding-left: 32px;
 }
 
 .position-row {
   display: grid;
-  grid-template-columns: 184px minmax(0, 1fr) 82px;
+  grid-template-columns: 118px minmax(0, 1fr) 76px;
   align-items: center;
-  gap: 16px;
-  padding: 15px 0;
+  gap: 12px;
+  padding: 14px 0;
   border-bottom: 1px solid var(--line);
 }
 
@@ -936,7 +939,8 @@ textarea {
 
 .tl-node {
   flex: 1 1 0;
-  min-width: 58px;
+  min-width: 54px;
+  max-width: 86px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -944,8 +948,14 @@ textarea {
   position: relative;
 }
 
+.tl-node.is-first {
+  flex: 0 0 46px;
+  min-width: 46px;
+}
+
 .tl-node.is-last {
-  flex: 0.72 1 0;
+  flex: 0 0 58px;
+  min-width: 58px;
 }
 
 .tl-dot-row {
@@ -982,22 +992,30 @@ textarea {
   display: block;
 }
 
-.tl-connector {
+.tl-arm {
   position: absolute;
   top: 50%;
-  left: calc(50% + 9px);
-  right: calc(-50% + 9px);
   height: 1.5px;
   transform: translateY(-50%);
   background: var(--tl-line);
   z-index: 1;
 }
 
-.tl-connector.line-pass {
+.tl-arm-left {
+  left: 0;
+  right: calc(50% + 9px);
+}
+
+.tl-arm-right {
+  left: calc(50% + 9px);
+  right: 0;
+}
+
+.tl-arm.line-pass {
   background: var(--ok-dot);
 }
 
-.tl-connector.line-skip {
+.tl-arm.line-skip {
   background: transparent;
   border-top: 1.5px dashed var(--tl-skip);
   height: 0;
@@ -2084,6 +2102,10 @@ textarea {
 
   .auth-headline {
     font-size: 24px;
+  }
+
+  .position-list {
+    padding-left: 0;
   }
 
   .position-row {
