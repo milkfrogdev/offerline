@@ -1,14 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   createDefaultStageDrafts,
   createStageDraftsFromNames,
   inferStageType,
   STAGE_TEMPLATES,
-  STAGE_TYPE_LABELS,
 } from "../../shared/stages";
 import {
   EVENT_KINDS,
-  STAGE_TYPES,
   type ApplicationRecord,
   type EmailParseResult,
   type EventKind,
@@ -18,11 +16,11 @@ import {
   type NoteFeeling,
   type ScheduleEvent,
   type StageDraft,
-  type StageType,
 } from "../../shared/types";
 import { api } from "../api";
 import { canUseWebCrypto, decryptJson, encryptJson } from "../crypto";
-import { IconCheck, IconClose, IconCopy, IconPlus, IconRefresh, IconTrash } from "./Icons";
+import { CompanyLogo, suggestCompanies } from "./CompanyLogo";
+import { IconCheck, IconClose, IconCopy, IconPlus, IconRefresh } from "./Icons";
 
 const PROVIDER_ORDER: MailProvider[] = ["qq", "163", "126", "gmail", "outlook", "exmail", "custom"];
 
@@ -121,17 +119,141 @@ function ModalShell({
   );
 }
 
+/* ==================== 通用：带实时图标预览与联想的公司输入框 ==================== */
+function CompanyCombobox({
+  value,
+  url,
+  existingCompanies,
+  onChange,
+  onPickExistingUrl,
+  placeholder = "输入公司名或缩写，如 字节、腾讯、jd",
+}: {
+  value: string;
+  url?: string;
+  existingCompanies: { company: string; url?: string }[];
+  onChange: (next: string) => void;
+  onPickExistingUrl?: (url: string) => void;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  const suggestions = useMemo(
+    () => suggestCompanies(value, existingCompanies),
+    [value, existingCompanies],
+  );
+
+  useEffect(() => {
+    setActiveIdx(0);
+  }, [value]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocDown = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDocDown);
+    return () => document.removeEventListener("mousedown", onDocDown);
+  }, [open]);
+
+  function pick(item: { name: string; url?: string }) {
+    onChange(item.name);
+    if (item.url && onPickExistingUrl) {
+      onPickExistingUrl(item.url);
+    }
+    setOpen(false);
+  }
+
+  return (
+    <div className="combo-wrap" ref={wrapRef}>
+      <div className="combo-input-box">
+        <span className="combo-logo-slot">
+          <CompanyLogo company={value || "O"} url={url} size="sm" />
+        </span>
+        <input
+          type="text"
+          className="combo-input"
+          placeholder={placeholder}
+          value={value}
+          onFocus={() => setOpen(true)}
+          onChange={(e) => {
+            onChange(e.target.value);
+            setOpen(true);
+          }}
+          onKeyDown={(e) => {
+            if (!open || !suggestions.length) return;
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setActiveIdx((i) => (i + 1) % suggestions.length);
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setActiveIdx((i) => (i - 1 + suggestions.length) % suggestions.length);
+            } else if (e.key === "Enter" && open) {
+              const exact = suggestions.find(
+                (s) => s.name.toLowerCase() === value.trim().toLowerCase(),
+              );
+              if (!exact && suggestions[activeIdx]) {
+                e.preventDefault();
+                pick(suggestions[activeIdx]);
+              }
+            } else if (e.key === "Escape") {
+              setOpen(false);
+            }
+          }}
+          required
+        />
+      </div>
+
+      {open && suggestions.length > 0 && (
+        <div className="combo-dropdown" role="listbox">
+          {suggestions.map((item, idx) => (
+            <button
+              key={`${item.existing ? "e" : "b"}-${item.name}`}
+              type="button"
+              role="option"
+              aria-selected={idx === activeIdx}
+              className={`combo-option${idx === activeIdx ? " active" : ""}`}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                pick(item);
+              }}
+              onMouseEnter={() => setActiveIdx(idx)}
+            >
+              <CompanyLogo company={item.name} url={item.url} size="sm" />
+              <span className="combo-option-name">{item.name}</span>
+              {item.existing && <span className="combo-option-tag">已投递</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function calcChipInputWidth(text: string): string {
+  let units = 1.4;
+  for (const ch of text) {
+    units += /[\u3000-\u9fff\uff00-\uffef]/.test(ch) ? 2.05 : 1.05;
+  }
+  return `${Math.max(4.5, Math.min(24, Number(units.toFixed(1))))}ch`;
+}
+
 /* ==================== 1. 新增 / 编辑投递 ==================== */
 export function RecordModal({
   editing,
   presetCompany,
   presetUrl,
+  existingCompanies,
   onClose,
   onSaved,
 }: {
   editing: ApplicationRecord | null;
   presetCompany?: string;
   presetUrl?: string;
+  existingCompanies: { company: string; url?: string }[];
   onClose: () => void;
   onSaved: (record: ApplicationRecord, isEdit: boolean) => void;
 }) {
@@ -143,23 +265,34 @@ export function RecordModal({
       ? editing.stages.map((s) => ({ id: s.id, name: s.name, type: s.type, status: s.status }))
       : createDefaultStageDrafts(),
   );
+  const [newStageName, setNewStageName] = useState("");
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  function moveStage(index: number, delta: -1 | 1) {
-    const target = index + delta;
-    if (target < 0 || target >= stages.length) return;
-    const copy = [...stages];
-    const [item] = copy.splice(index, 1);
-    copy.splice(target, 0, item);
-    setStages(copy);
+  function reorderStage(from: number, to: number) {
+    if (from === to || from < 0 || to < 0 || from >= stages.length || to >= stages.length) return;
+    setStages((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
   }
 
-  function addStage() {
+  function appendStage() {
+    const trimmed = newStageName.trim();
+    if (!trimmed) return;
     setStages((prev) => [
       ...prev,
-      { id: `custom-${Date.now()}-${prev.length}`, name: "", type: "interview" },
+      {
+        id: `custom-${Date.now()}-${prev.length}`,
+        name: trimmed,
+        type: inferStageType({ name: trimmed }),
+      },
     ]);
+    setNewStageName("");
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -168,7 +301,7 @@ export function RecordModal({
     const cleanedStages = stages.map((s, idx) => ({
       id: s.id || `stage-${idx + 1}`,
       name: s.name.trim(),
-      type: s.type || inferStageType({ name: s.name }),
+      type: inferStageType({ name: s.name }),
     }));
     if (cleanedStages.some((s) => !s.name)) {
       setError("阶段名称不能为空。");
@@ -202,17 +335,18 @@ export function RecordModal({
     <ModalShell title={editing ? "编辑投递与流程" : "添加投递"} onClose={onClose} wide>
       <form className="modal-form" onSubmit={handleSubmit}>
         <div className="form-row-2">
-          <label className="field">
+          <div className="field">
             <span className="field-label">公司名称</span>
-            <input
-              type="text"
-              className="input"
-              placeholder="例如：字节跳动、腾讯、美团"
+            <CompanyCombobox
               value={company}
-              onChange={(e) => setCompany(e.target.value)}
-              required
+              url={url}
+              existingCompanies={existingCompanies}
+              onChange={setCompany}
+              onPickExistingUrl={(u) => {
+                if (!url.trim()) setUrl(u);
+              }}
             />
-          </label>
+          </div>
           <label className="field">
             <span className="field-label">投递岗位</span>
             <input
@@ -227,7 +361,7 @@ export function RecordModal({
         </div>
 
         <label className="field">
-          <span className="field-label">官网投递进度链接（可选）</span>
+          <span className="field-label">官网投递进度链接（推荐填写，便于跳转与匹配图标）</span>
           <input
             type="url"
             className="input"
@@ -239,7 +373,10 @@ export function RecordModal({
 
         <div className="stage-editor-block">
           <div className="stage-editor-head">
-            <span className="field-label">面试流程阶段</span>
+            <div className="stage-head-left">
+              <span className="field-label">面试流程阶段（{stages.length}）</span>
+              <span className="stage-drag-hint">按住拖拽调序，点名称直接修改</span>
+            </div>
             <div className="template-switches">
               {STAGE_TEMPLATES.map((tpl) => (
                 <button
@@ -254,79 +391,106 @@ export function RecordModal({
             </div>
           </div>
 
-          <div className="stage-editor-list">
+          <div
+            className="stage-flow"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => {
+              if (dragIndex !== null && dropIndex !== null) {
+                reorderStage(dragIndex, dropIndex);
+              }
+              setDragIndex(null);
+              setDropIndex(null);
+            }}
+          >
             {stages.map((st, idx) => (
-              <div key={st.id || idx} className="stage-editor-row">
+              <div
+                key={st.id || idx}
+                draggable
+                onDragStart={(e) => {
+                  setDragIndex(idx);
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", String(idx));
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (dragIndex !== null && dragIndex !== idx) {
+                    setDropIndex(idx);
+                  }
+                }}
+                onDragEnd={() => {
+                  setDragIndex(null);
+                  setDropIndex(null);
+                }}
+                className={`stage-chip${dragIndex === idx ? " is-dragging" : ""}${dropIndex === idx && dragIndex !== idx ? " is-drop-target" : ""}`}
+              >
+                <span className="stage-grip" title="按住拖动调整顺序" aria-hidden="true">
+                  <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor">
+                    <circle cx="3" cy="3" r="1.1" />
+                    <circle cx="7" cy="3" r="1.1" />
+                    <circle cx="3" cy="7" r="1.1" />
+                    <circle cx="7" cy="7" r="1.1" />
+                    <circle cx="3" cy="11" r="1.1" />
+                    <circle cx="7" cy="11" r="1.1" />
+                  </svg>
+                </span>
                 <input
                   type="text"
-                  className="input input-sm"
-                  placeholder="阶段名称"
+                  className="stage-chip-input"
                   value={st.name}
+                  style={{ width: calcChipInputWidth(st.name) }}
+                  aria-label={`阶段 ${idx + 1}`}
                   onChange={(e) => {
                     const val = e.target.value;
                     setStages((prev) =>
                       prev.map((item, i) =>
                         i === idx
-                          ? { ...item, name: val, type: item.type || inferStageType({ name: val }) }
+                          ? { ...item, name: val, type: inferStageType({ name: val }) }
                           : item,
                       ),
                     );
                   }}
                   required
                 />
-                <select
-                  className="select-minimal select-sm"
-                  value={st.type || inferStageType(st)}
-                  onChange={(e) => {
-                    const val = e.target.value as StageType;
-                    setStages((prev) =>
-                      prev.map((item, i) => (i === idx ? { ...item, type: val } : item)),
-                    );
-                  }}
-                >
-                  {STAGE_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {STAGE_TYPE_LABELS[t]}
-                    </option>
-                  ))}
-                </select>
-                <div className="stage-order-ops">
+                {stages.length > 1 && (
                   <button
                     type="button"
-                    className="subtle-btn"
-                    disabled={idx === 0}
-                    onClick={() => moveStage(idx, -1)}
-                    title="上移"
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    className="subtle-btn"
-                    disabled={idx === stages.length - 1}
-                    onClick={() => moveStage(idx, 1)}
-                    title="下移"
-                  >
-                    ↓
-                  </button>
-                  <button
-                    type="button"
-                    className="row-icon-btn danger"
-                    disabled={stages.length <= 1}
+                    className="stage-chip-del"
                     onClick={() => setStages((prev) => prev.filter((_, i) => i !== idx))}
-                    title="删除阶段"
+                    title="移除该阶段"
+                    aria-label={`移除 ${st.name}`}
                   >
-                    <IconTrash size={13} />
+                    <IconClose size={12} />
                   </button>
-                </div>
+                )}
               </div>
             ))}
-          </div>
 
-          <button type="button" className="btn btn-ghost btn-sm" onClick={addStage}>
-            <IconPlus size={13} />
-            <span>新增阶段</span>
-          </button>
+            <div className="stage-chip stage-chip-add">
+              <input
+                type="text"
+                className="stage-add-input"
+                placeholder="+ 新阶段，回车添加"
+                value={newStageName}
+                onChange={(e) => setNewStageName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    appendStage();
+                  }
+                }}
+              />
+              {newStageName.trim() && (
+                <button
+                  type="button"
+                  className="stage-add-confirm"
+                  onClick={appendStage}
+                  aria-label="确认添加阶段"
+                >
+                  <IconPlus size={12} />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         {error && <div className="form-error">{error}</div>}
@@ -797,10 +961,12 @@ export function MailSettingsModal({
 /* ==================== 3. 新建日程 ==================== */
 export function EventModal({
   preset,
+  existingCompanies,
   onClose,
   onCreated,
 }: {
   preset?: { recordId?: string; company?: string; position?: string; stageName?: string };
+  existingCompanies: { company: string; url?: string }[];
   onClose: () => void;
   onCreated: (ev: ScheduleEvent) => void;
 }) {
@@ -863,16 +1029,15 @@ export function EventModal({
     <ModalShell title="新建面试 / 笔试日程" onClose={onClose}>
       <form className="modal-form" onSubmit={handleSubmit}>
         <div className="form-row-2">
-          <label className="field">
+          <div className="field">
             <span className="field-label">公司</span>
-            <input
-              type="text"
-              className="input"
+            <CompanyCombobox
               value={company}
-              onChange={(e) => setCompany(e.target.value)}
-              required
+              existingCompanies={existingCompanies}
+              onChange={setCompany}
+              placeholder="输入公司名或缩写"
             />
-          </label>
+          </div>
           <label className="field">
             <span className="field-label">岗位</span>
             <input
@@ -1054,11 +1219,13 @@ export function CalendarSubscribeModal({ onClose }: { onClose: () => void }) {
 export function NoteModal({
   editing,
   preset,
+  existingCompanies,
   onClose,
   onSaved,
 }: {
   editing: InterviewNote | null;
   preset?: { recordId?: string; company?: string; position?: string; stageName?: string };
+  existingCompanies: { company: string; url?: string }[];
   onClose: () => void;
   onSaved: (note: InterviewNote, isEdit: boolean) => void;
 }) {
@@ -1109,17 +1276,15 @@ export function NoteModal({
     <ModalShell title={editing ? "编辑面经记录" : "记录面经"} onClose={onClose} wide>
       <form className="modal-form" onSubmit={handleSubmit}>
         <div className="form-row-2">
-          <label className="field">
+          <div className="field">
             <span className="field-label">公司</span>
-            <input
-              type="text"
-              className="input"
-              placeholder="例如：字节跳动"
+            <CompanyCombobox
               value={company}
-              onChange={(e) => setCompany(e.target.value)}
-              required
+              existingCompanies={existingCompanies}
+              onChange={setCompany}
+              placeholder="例如：字节跳动"
             />
-          </label>
+          </div>
           <label className="field">
             <span className="field-label">岗位</span>
             <input

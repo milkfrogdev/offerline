@@ -28,6 +28,7 @@ import {
   type StageStatus,
   type UserProfile,
 } from "../shared/types.js";
+import { resolveSiteBrandIcon } from "./brand-icon.js";
 import { buildIcsCalendar } from "./ics.js";
 import { parseRecruitmentEmail } from "./mail-parser.js";
 import {
@@ -329,6 +330,25 @@ export async function buildApp({
   app.get("/api/health", async () => {
     await store.ping();
     return { ok: true };
+  });
+
+  app.get("/api/brand-icon", async (req, reply) => {
+    const user = await requireUser(req);
+    await enforceLimit(`brand-icon:${user.id}`, 120, 60_000);
+    const { url } = req.query as { url?: string };
+    const clean = sanitizeExternalUrl(url);
+    if (!clean) {
+      return reply.status(400).send({ error: "无效的站点链接。" });
+    }
+    const icon = await resolveSiteBrandIcon(clean);
+    if (!icon) {
+      return reply.status(404).send({ error: "未找到可用图标。" });
+    }
+    reply
+      .header("Content-Type", icon.contentType)
+      .header("Cache-Control", "private, max-age=86400")
+      .header("Content-Security-Policy", "sandbox");
+    return reply.send(icon.body);
   });
 
   app.get("/api/session", async (req) => ({

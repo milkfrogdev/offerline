@@ -428,8 +428,9 @@ textarea {
 }
 
 .page-container {
-  max-width: 1080px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: 1380px;
+  margin: 0;
   padding: 0 28px;
   display: flex;
   flex-direction: column;
@@ -940,7 +941,7 @@ textarea {
 .tl-node {
   flex: 1 1 0;
   min-width: 54px;
-  max-width: 86px;
+  max-width: 112px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1927,6 +1928,92 @@ textarea {
   word-break: break-all;
 }
 
+/* ==================== Company Combobox ==================== */
+.combo-wrap {
+  position: relative;
+}
+
+.combo-input-box {
+  height: 36px;
+  padding: 0 10px 0 9px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: border-color 0.14s ease;
+}
+
+.combo-input-box:focus-within {
+  border-color: var(--accent);
+}
+
+.combo-logo-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.combo-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 13.5px;
+  color: var(--text);
+}
+
+.combo-input::placeholder {
+  color: var(--text-3);
+}
+
+.combo-dropdown {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 95;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  max-height: 236px;
+  overflow-y: auto;
+}
+
+.combo-option {
+  width: 100%;
+  height: 34px;
+  padding: 0 9px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  color: var(--text);
+  text-align: left;
+}
+
+.combo-option:hover,
+.combo-option.active {
+  background: var(--surface-2);
+}
+
+.combo-option-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.combo-option-tag {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+/* ==================== Draggable Flow Stage Chips ==================== */
 .stage-editor-block {
   display: flex;
   flex-direction: column;
@@ -1942,30 +2029,130 @@ textarea {
   flex-wrap: wrap;
 }
 
+.stage-head-left {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.stage-drag-hint {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
 .template-switches {
   display: flex;
   gap: 4px;
 }
 
-.stage-editor-list {
+.stage-flow {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 260px;
-  overflow-y: auto;
-}
-
-.stage-editor-row {
-  display: grid;
-  grid-template-columns: 1fr 116px auto;
+  flex-wrap: wrap;
   gap: 8px;
-  align-items: center;
+  padding: 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
 }
 
-.stage-order-ops {
-  display: flex;
+.stage-chip {
+  height: 34px;
+  padding: 0 8px 0 7px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 5px;
+  transition: border-color 0.12s ease, opacity 0.12s ease;
+}
+
+.stage-chip:hover {
+  border-color: var(--text-2);
+}
+
+.stage-chip:focus-within {
+  border-color: var(--accent);
+}
+
+.stage-chip.is-dragging {
+  opacity: 0.42;
+}
+
+.stage-chip.is-drop-target {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.stage-grip {
+  color: var(--text-3);
+  display: inline-flex;
+  align-items: center;
+  cursor: grab;
+  padding: 2px 1px;
+  flex-shrink: 0;
+}
+
+.stage-grip:active {
+  cursor: grabbing;
+}
+
+.stage-chip-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--text);
+  min-width: 44px;
+  padding: 0;
+}
+
+.stage-chip-del {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.stage-chip-del:hover {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+
+.stage-chip-add {
+  border-style: dashed;
+  border-color: var(--line-strong);
+  background: transparent;
+  padding: 0 8px;
+}
+
+.stage-add-input {
+  width: 118px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.stage-add-input::placeholder {
+  color: var(--text-3);
+}
+
+.stage-add-confirm {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: var(--ink);
+  color: var(--on-ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .copy-field {

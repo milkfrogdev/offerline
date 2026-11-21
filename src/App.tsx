@@ -114,6 +114,18 @@ export function App() {
       .finally(() => setLoading(false));
   }, [loadAllData]);
 
+  const existingCompanies = useMemo(() => {
+    const map = new Map<string, string | undefined>();
+    for (const r of records) {
+      const name = r.company.trim();
+      if (!name) continue;
+      if (!map.has(name) || (!map.get(name) && r.url)) {
+        map.set(name, r.url);
+      }
+    }
+    return [...map.entries()].map(([company, url]) => ({ company, url }));
+  }, [records]);
+
   const metrics = useMemo(() => computePipelineMetrics(records), [records]);
 
   const pendingEventCount = useMemo(
@@ -406,6 +418,7 @@ export function App() {
           editing={recordModal.editing}
           presetCompany={recordModal.presetCompany}
           presetUrl={recordModal.presetUrl}
+          existingCompanies={existingCompanies}
           onClose={() => setRecordModal({ open: false, editing: null })}
           onSaved={(saved, isEdit) => {
             setRecords((prev) =>
@@ -432,6 +445,7 @@ export function App() {
       {eventModal.open && (
         <EventModal
           preset={eventModal.preset}
+          existingCompanies={existingCompanies}
           onClose={() => setEventModal({ open: false })}
           onCreated={(ev) => {
             setEvents((prev) => [...prev, ev]);
@@ -446,6 +460,7 @@ export function App() {
         <NoteModal
           editing={noteModal.editing}
           preset={noteModal.preset}
+          existingCompanies={existingCompanies}
           onClose={() => setNoteModal({ open: false, editing: null })}
           onSaved={(saved, isEdit) => {
             setNotes((prev) =>

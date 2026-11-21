@@ -333,7 +333,7 @@ export function PipelineView({
               >
                 <div className="company-head">
                   <div className="company-ident">
-                    <CompanyLogo company={group.company} size="md" />
+                    <CompanyLogo company={group.company} url={group.url} size="md" />
                     <div className="company-title-wrap">
                       <h2 className="company-name">{group.company}</h2>
                       <span className="company-count">{group.records.length} 个岗位</span>

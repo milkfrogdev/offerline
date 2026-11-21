@@ -173,6 +173,21 @@ describe("OfferLine 服务端安全、日程、邮箱与面经集成测试", () 
         headers: { cookie: cookieB },
       });
       expect(notesB.json().items).toHaveLength(0);
+
+      // 7. 官网图标代理拒绝内网/回环地址（SSRF 防护）
+      const ssrfRes = await app.inject({
+        method: "GET",
+        url: `/api/brand-icon?url=${encodeURIComponent("http://127.0.0.1:8080/")}`,
+        headers: { cookie: cookieA },
+      });
+      expect(ssrfRes.statusCode).toBe(404);
+
+      const badScheme = await app.inject({
+        method: "GET",
+        url: `/api/brand-icon?url=${encodeURIComponent("file:///etc/passwd")}`,
+        headers: { cookie: cookieA },
+      });
+      expect(badScheme.statusCode).toBe(400);
     } finally {
       await app.close();
       await store.close();
