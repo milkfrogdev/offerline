@@ -99,10 +99,14 @@ function ModalShell({
   }, [onClose]);
 
   return (
-    <div className="modal-backdrop" onMouseDown={onClose}>
+    <div
+      className="modal-backdrop"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
         className={`modal-panel${wide ? " modal-wide" : ""}`}
-        onMouseDown={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -179,6 +183,7 @@ function CompanyCombobox({
           placeholder={placeholder}
           value={value}
           onFocus={() => setOpen(true)}
+          onBlur={() => setOpen(false)}
           onChange={(e) => {
             onChange(e.target.value);
             setOpen(true);
@@ -233,14 +238,6 @@ function CompanyCombobox({
   );
 }
 
-function calcChipInputWidth(text: string): string {
-  let units = 1.4;
-  for (const ch of text) {
-    units += /[\u3000-\u9fff\uff00-\uffef]/.test(ch) ? 2.05 : 1.05;
-  }
-  return `${Math.max(4.5, Math.min(24, Number(units.toFixed(1))))}ch`;
-}
-
 /* ==================== 1. 新增 / 编辑投递 ==================== */
 export function RecordModal({
   editing,
@@ -265,21 +262,60 @@ export function RecordModal({
       ? editing.stages.map((s) => ({ id: s.id, name: s.name, type: s.type, status: s.status }))
       : createDefaultStageDrafts(),
   );
+  const [customizingStages, setCustomizingStages] = useState(Boolean(editing));
   const [newStageName, setNewStageName] = useState("");
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const [dragState, setDragState] = useState<{ from: number; over: number } | null>(null);
+  const listRef = useRef<HTMLOListElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  function reorderStage(from: number, to: number) {
-    if (from === to || from < 0 || to < 0 || from >= stages.length || to >= stages.length) return;
-    setStages((prev) => {
-      const next = [...prev];
-      const [moved] = next.splice(from, 1);
-      next.splice(to, 0, moved);
-      return next;
-    });
-  }
+  const activeTemplateId = useMemo(() => {
+    const names = stages.map((s) => s.name.trim());
+    return (
+      STAGE_TEMPLATES.find(
+        (t) => t.names.length === names.length && t.names.every((n, i) => n === names[i]),
+      )?.id || null
+    );
+  }, [stages]);
+
+  useEffect(() => {
+    if (!dragState) return;
+    const onMove = (e: PointerEvent) => {
+      const list = listRef.current;
+      if (!list) return;
+      const items = [...list.querySelectorAll<HTMLLIElement>(".vstage-row")];
+      let target = items.length - 1;
+      for (let i = 0; i < items.length; i++) {
+        const rect = items[i].getBoundingClientRect();
+        if (e.clientY < rect.top + rect.height / 2) {
+          target = i;
+          break;
+        }
+      }
+      setDragState((prev) => (prev ? { ...prev, over: target } : null));
+    };
+    const onUp = () => {
+      setDragState((cur) => {
+        if (cur && cur.from !== cur.over) {
+          setStages((prev) => {
+            const next = [...prev];
+            const [moved] = next.splice(cur.from, 1);
+            next.splice(cur.over, 0, moved);
+            return next;
+          });
+        }
+        return null;
+      });
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+  }, [dragState !== null]);
 
   function appendStage() {
     const trimmed = newStageName.trim();
@@ -374,123 +410,153 @@ export function RecordModal({
         <div className="stage-editor-block">
           <div className="stage-editor-head">
             <div className="stage-head-left">
-              <span className="field-label">面试流程阶段（{stages.length}）</span>
-              <span className="stage-drag-hint">按住拖拽调序，点名称直接修改</span>
+              <span className="field-label">面试流程（{stages.length} 步）</span>
+              <div className="template-seg">
+                {STAGE_TEMPLATES.map((tpl) => (
+                  <button
+                    key={tpl.id}
+                    type="button"
+                    className={`template-seg-btn${activeTemplateId === tpl.id ? " active" : ""}`}
+                    onClick={() => setStages(createStageDraftsFromNames(tpl.names))}
+                  >
+                    {tpl.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="template-switches">
-              {STAGE_TEMPLATES.map((tpl) => (
-                <button
-                  key={tpl.id}
-                  type="button"
-                  className="subtle-btn"
-                  onClick={() => setStages(createStageDraftsFromNames(tpl.names))}
-                >
-                  {tpl.label}
-                </button>
-              ))}
-            </div>
+
+            <button
+              type="button"
+              className="btn-link muted"
+              onClick={() => setCustomizingStages((v) => !v)}
+            >
+              {customizingStages ? "收起自定义" : "自定义顺序与阶段"}
+            </button>
           </div>
 
-          <div
-            className="stage-flow"
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={() => {
-              if (dragIndex !== null && dropIndex !== null) {
-                reorderStage(dragIndex, dropIndex);
-              }
-              setDragIndex(null);
-              setDropIndex(null);
-            }}
-          >
-            {stages.map((st, idx) => (
-              <div
-                key={st.id || idx}
-                draggable
-                onDragStart={(e) => {
-                  setDragIndex(idx);
-                  e.dataTransfer.effectAllowed = "move";
-                  e.dataTransfer.setData("text/plain", String(idx));
-                }}
-                onDragOver={(e) => {
+          {!customizingStages ? (
+            <div
+              className="stage-preview-rail"
+              onClick={() => setCustomizingStages(true)}
+              title="点击自定义阶段顺序与名称"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  if (dragIndex !== null && dragIndex !== idx) {
-                    setDropIndex(idx);
-                  }
-                }}
-                onDragEnd={() => {
-                  setDragIndex(null);
-                  setDropIndex(null);
-                }}
-                className={`stage-chip${dragIndex === idx ? " is-dragging" : ""}${dropIndex === idx && dragIndex !== idx ? " is-drop-target" : ""}`}
-              >
-                <span className="stage-grip" title="按住拖动调整顺序" aria-hidden="true">
-                  <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor">
-                    <circle cx="3" cy="3" r="1.1" />
-                    <circle cx="7" cy="3" r="1.1" />
-                    <circle cx="3" cy="7" r="1.1" />
-                    <circle cx="7" cy="7" r="1.1" />
-                    <circle cx="3" cy="11" r="1.1" />
-                    <circle cx="7" cy="11" r="1.1" />
-                  </svg>
-                </span>
+                  setCustomizingStages(true);
+                }
+              }}
+            >
+              {stages.map((st, idx) => (
+                <React.Fragment key={st.id || idx}>
+                  <span className="preview-step">
+                    <span className={`preview-dot${idx === 0 ? " first" : ""}`} />
+                    <span className="preview-name">{st.name}</span>
+                  </span>
+                  {idx < stages.length - 1 && <span className="preview-sep" aria-hidden="true" />}
+                </React.Fragment>
+              ))}
+            </div>
+          ) : (
+            <div className="vstage-box">
+              <ol className="vstage-list" ref={listRef}>
+                {stages.map((st, idx) => {
+                  const isDragging = dragState?.from === idx;
+                  const isOverBefore =
+                    dragState !== null && dragState.from !== idx && dragState.over === idx && dragState.from > idx;
+                  const isOverAfter =
+                    dragState !== null && dragState.from !== idx && dragState.over === idx && dragState.from < idx;
+                  return (
+                    <li
+                      key={st.id || idx}
+                      className={`vstage-row${isDragging ? " is-dragging" : ""}${isOverBefore ? " drop-before" : ""}${isOverAfter ? " drop-after" : ""}`}
+                    >
+                      <button
+                        type="button"
+                        className="vstage-grip"
+                        title="按住上下拖动调整顺序"
+                        aria-label={`拖动第 ${idx + 1} 步`}
+                        onPointerDown={(e) => {
+                          e.preventDefault();
+                          setDragState({ from: idx, over: idx });
+                        }}
+                      >
+                        <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor" aria-hidden="true">
+                          <circle cx="3" cy="3" r="1.1" />
+                          <circle cx="7" cy="3" r="1.1" />
+                          <circle cx="3" cy="7" r="1.1" />
+                          <circle cx="7" cy="7" r="1.1" />
+                          <circle cx="3" cy="11" r="1.1" />
+                          <circle cx="7" cy="11" r="1.1" />
+                        </svg>
+                      </button>
+
+                      <span className="vstage-axis" aria-hidden="true">
+                        <span className="vstage-num">{idx + 1}</span>
+                      </span>
+
+                      <input
+                        type="text"
+                        className="vstage-input"
+                        value={st.name}
+                        aria-label={`第 ${idx + 1} 阶段名称`}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setStages((prev) =>
+                            prev.map((item, i) =>
+                              i === idx
+                                ? { ...item, name: val, type: inferStageType({ name: val }) }
+                                : item,
+                            ),
+                          );
+                        }}
+                        required
+                      />
+
+                      {stages.length > 1 && (
+                        <button
+                          type="button"
+                          className="vstage-del"
+                          onClick={() => setStages((prev) => prev.filter((_, i) => i !== idx))}
+                          title="移除该阶段"
+                          aria-label={`移除 ${st.name}`}
+                        >
+                          <IconClose size={13} />
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+
+              <div className="vstage-add-row">
+                <IconPlus size={13} />
                 <input
                   type="text"
-                  className="stage-chip-input"
-                  value={st.name}
-                  style={{ width: calcChipInputWidth(st.name) }}
-                  aria-label={`阶段 ${idx + 1}`}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setStages((prev) =>
-                      prev.map((item, i) =>
-                        i === idx
-                          ? { ...item, name: val, type: inferStageType({ name: val }) }
-                          : item,
-                      ),
-                    );
+                  className="vstage-add-input"
+                  placeholder="新增阶段名称，按回车添加…"
+                  value={newStageName}
+                  onChange={(e) => setNewStageName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      appendStage();
+                    }
                   }}
-                  required
                 />
-                {stages.length > 1 && (
+                {newStageName.trim() && (
                   <button
                     type="button"
-                    className="stage-chip-del"
-                    onClick={() => setStages((prev) => prev.filter((_, i) => i !== idx))}
-                    title="移除该阶段"
-                    aria-label={`移除 ${st.name}`}
+                    className="btn btn-ghost btn-sm"
+                    onClick={appendStage}
                   >
-                    <IconClose size={12} />
+                    添加
                   </button>
                 )}
               </div>
-            ))}
-
-            <div className="stage-chip stage-chip-add">
-              <input
-                type="text"
-                className="stage-add-input"
-                placeholder="+ 新阶段，回车添加"
-                value={newStageName}
-                onChange={(e) => setNewStageName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    appendStage();
-                  }
-                }}
-              />
-              {newStageName.trim() && (
-                <button
-                  type="button"
-                  className="stage-add-confirm"
-                  onClick={appendStage}
-                  aria-label="确认添加阶段"
-                >
-                  <IconPlus size={12} />
-                </button>
-              )}
             </div>
-          </div>
+          )}
         </div>
 
         {error && <div className="form-error">{error}</div>}

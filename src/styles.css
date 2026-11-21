@@ -1708,7 +1708,7 @@ textarea {
 }
 
 .modal-panel.modal-wide {
-  max-width: 680px;
+  max-width: 720px;
 }
 
 .modal-head {
@@ -2013,146 +2013,296 @@ textarea {
   color: var(--text-3);
 }
 
-/* ==================== Draggable Flow Stage Chips ==================== */
+/* ==================== Single-Row Timeline Preview + Vertical Draggable Timeline Editor ==================== */
 .stage-editor-block {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding-top: 6px;
+  padding-top: 4px;
 }
 
 .stage-editor-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
 .stage-head-left {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-.stage-drag-hint {
+.template-seg {
+  display: inline-flex;
+  background: var(--surface-2);
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  gap: 2px;
+}
+
+.template-seg-btn {
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 4px;
   font-size: 12px;
-  color: var(--text-3);
+  color: var(--text-2);
+  white-space: nowrap;
 }
 
-.template-switches {
+.template-seg-btn:hover {
+  color: var(--text);
+}
+
+.template-seg-btn.active {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* 收起态：单行不换行横向微型时间线预览 */
+.stage-preview-rail {
   display: flex;
+  align-items: center;
   gap: 4px;
-}
-
-.stage-flow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 12px;
+  padding: 12px 12px;
   background: var(--bg);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
+  overflow-x: auto;
+  scrollbar-width: none;
+  cursor: pointer;
+  transition: border-color 0.14s ease;
 }
 
-.stage-chip {
-  height: 34px;
-  padding: 0 8px 0 7px;
-  background: var(--surface);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-sm);
+.stage-preview-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.stage-preview-rail:hover {
+  border-color: var(--line-strong);
+}
+
+.preview-step {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  transition: border-color 0.12s ease, opacity 0.12s ease;
-}
-
-.stage-chip:hover {
-  border-color: var(--text-2);
-}
-
-.stage-chip:focus-within {
-  border-color: var(--accent);
-}
-
-.stage-chip.is-dragging {
-  opacity: 0.42;
-}
-
-.stage-chip.is-drop-target {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.stage-grip {
-  color: var(--text-3);
-  display: inline-flex;
-  align-items: center;
-  cursor: grab;
-  padding: 2px 1px;
+  gap: 4px;
   flex-shrink: 0;
 }
 
-.stage-grip:active {
+.preview-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1.5px solid var(--tl-pending-ring);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.preview-dot.first {
+  background: var(--ok-dot);
+  border-color: var(--ok-dot);
+}
+
+.preview-name {
+  font-size: 11.5px;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.preview-sep {
+  flex: 1 1 6px;
+  min-width: 6px;
+  max-width: 16px;
+  height: 1px;
+  background: var(--tl-line);
+}
+
+/* 展开态：极简纵向单列时间轴 Pointer 拖拽列表（零折行、零套娃框） */
+.vstage-box {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.vstage-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  max-height: 296px;
+  overflow-y: auto;
+}
+
+.vstage-row {
+  position: relative;
+  height: 36px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: background 0.1s ease, opacity 0.1s ease;
+}
+
+.vstage-row:hover {
+  background: var(--surface-2);
+}
+
+.vstage-row.is-dragging {
+  opacity: 0.35;
+  background: var(--surface-2);
+}
+
+.vstage-row.drop-before::before,
+.vstage-row.drop-after::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  height: 2px;
+  background: var(--accent);
+}
+
+.vstage-row.drop-before::before {
+  top: 0;
+}
+
+.vstage-row.drop-after::after {
+  bottom: 0;
+}
+
+.vstage-grip {
+  width: 18px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+  cursor: grab;
+  touch-action: none;
+  flex-shrink: 0;
+}
+
+.vstage-grip:hover {
+  color: var(--text);
+}
+
+.vstage-grip:active {
   cursor: grabbing;
 }
 
-.stage-chip-input {
+.vstage-axis {
+  position: relative;
+  width: 20px;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.vstage-axis::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: var(--tl-line);
+  transform: translateX(-50%);
+}
+
+.vstage-row:first-child .vstage-axis::before {
+  top: 50%;
+}
+
+.vstage-row:last-child .vstage-axis::before {
+  bottom: 50%;
+}
+
+.vstage-num {
+  position: relative;
+  z-index: 1;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vstage-input {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  font-size: 13.5px;
+  color: var(--text);
+  outline: none;
+}
+
+.vstage-input:focus {
+  background: var(--surface);
+  border-color: var(--accent);
+}
+
+.vstage-del {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+  opacity: 0;
+  transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.vstage-row:hover .vstage-del,
+.vstage-row:focus-within .vstage-del {
+  opacity: 1;
+}
+
+.vstage-del:hover {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+
+.vstage-add-row {
+  height: 38px;
+  padding: 0 12px 0 15px;
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-3);
+}
+
+.vstage-add-input {
+  flex: 1;
+  min-width: 0;
   border: none;
   outline: none;
   background: transparent;
   font-size: 13px;
   color: var(--text);
-  min-width: 44px;
-  padding: 0;
 }
 
-.stage-chip-del {
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.vstage-add-input::placeholder {
   color: var(--text-3);
-  flex-shrink: 0;
-}
-
-.stage-chip-del:hover {
-  background: var(--bad-soft);
-  color: var(--bad);
-}
-
-.stage-chip-add {
-  border-style: dashed;
-  border-color: var(--line-strong);
-  background: transparent;
-  padding: 0 8px;
-}
-
-.stage-add-input {
-  width: 118px;
-  border: none;
-  outline: none;
-  background: transparent;
-  font-size: 12.5px;
-  color: var(--text);
-}
-
-.stage-add-input::placeholder {
-  color: var(--text-3);
-}
-
-.stage-add-confirm {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  background: var(--ink);
-  color: var(--on-ink);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .copy-field {
