@@ -1,10 +1,5 @@
 import React, { useEffect, useState } from "react";
-import type {
-  MailAccountPublic,
-  MainTab,
-  MetricFilter,
-  UserProfile,
-} from "../../shared/types";
+import type { MailAccountPublic, MainTab, UserProfile } from "../../shared/types";
 import {
   IconBrand,
   IconCalendar,
@@ -19,22 +14,11 @@ import {
   IconSun,
 } from "./Icons";
 
-export interface SidebarMetrics {
-  total: number;
-  active: number;
-  interviewed: number;
-  offered: number;
-  failed: number;
-  interviewRate: number;
-}
-
 export function Sidebar({
   user,
   activeTab,
   onChangeTab,
-  metrics,
-  metricFilter,
-  onSelectMetricFilter,
+  recordCount,
   pendingEventCount,
   upcomingEventCount,
   noteCount,
@@ -48,9 +32,7 @@ export function Sidebar({
   user: UserProfile;
   activeTab: MainTab;
   onChangeTab: (tab: MainTab) => void;
-  metrics: SidebarMetrics;
-  metricFilter: MetricFilter;
-  onSelectMetricFilter: (filter: MetricFilter) => void;
+  recordCount: number;
   pendingEventCount: number;
   upcomingEventCount: number;
   noteCount: number;
@@ -73,25 +55,12 @@ export function Sidebar({
   }, [mobileOpen]);
 
   const scheduleBadge = pendingEventCount > 0 ? pendingEventCount : upcomingEventCount;
+  const userInitial = (user.username.trim().slice(0, 1) || "U").toUpperCase();
 
   function selectTab(tab: MainTab) {
     onChangeTab(tab);
     setMobileOpen(false);
   }
-
-  function handleFilterClick(f: MetricFilter) {
-    onSelectMetricFilter(f);
-    setMobileOpen(false);
-  }
-
-  const filterRows: { key: MetricFilter; label: string; count: number; dot: string }[] = [
-    { key: "active", label: "进行中", count: metrics.active, dot: "accent" },
-    { key: "interview", label: "已进面试", count: metrics.interviewed, dot: "ink" },
-    { key: "offer", label: "Offer", count: metrics.offered, dot: "ok" },
-    { key: "failed", label: "已挂", count: metrics.failed, dot: "muted" },
-  ];
-
-  const userInitial = (user.username.trim().slice(0, 1) || "U").toUpperCase();
 
   const navContent = (
     <>
@@ -99,10 +68,7 @@ export function Sidebar({
         <button
           type="button"
           className="brand-btn"
-          onClick={() => {
-            onSelectMetricFilter("all");
-            selectTab("pipeline");
-          }}
+          onClick={() => selectTab("pipeline")}
           aria-label="OfferLine 首页"
         >
           <span className="brand-mark">
@@ -125,15 +91,12 @@ export function Sidebar({
       <nav className="sidebar-nav" aria-label="主导航">
         <button
           type="button"
-          className={`side-item${activeTab === "pipeline" && metricFilter === "all" ? " active" : ""}`}
-          onClick={() => {
-            onSelectMetricFilter("all");
-            selectTab("pipeline");
-          }}
+          className={`side-item${activeTab === "pipeline" ? " active" : ""}`}
+          onClick={() => selectTab("pipeline")}
         >
           <IconPipeline size={15} />
-          <span className="side-item-label">全部投递</span>
-          {metrics.total > 0 && <span className="side-count">{metrics.total}</span>}
+          <span className="side-item-label">投递</span>
+          {recordCount > 0 && <span className="side-count">{recordCount}</span>}
         </button>
 
         <button
@@ -160,41 +123,6 @@ export function Sidebar({
           {noteCount > 0 && <span className="side-count">{noteCount}</span>}
         </button>
       </nav>
-
-      {/* 无框融体状态筛选 + 极简转化率 */}
-      <div className="sidebar-group">
-        <div className="sidebar-group-label">状态筛选</div>
-        <div className="sidebar-filters">
-          {filterRows.map((row) => {
-            const selected = activeTab === "pipeline" && metricFilter === row.key;
-            return (
-              <button
-                key={row.key}
-                type="button"
-                className={`side-filter-row${selected ? " active" : ""}`}
-                onClick={() => handleFilterClick(row.key)}
-              >
-                <span className={`status-pip pip-${row.dot}`} aria-hidden="true" />
-                <span className="side-item-label">{row.label}</span>
-                <span className="side-count">{row.count}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="sidebar-rate-inline">
-          <div className="sidebar-rate-head">
-            <span>进面转化</span>
-            <span className="sidebar-rate-val">{metrics.interviewRate}%</span>
-          </div>
-          <div className="sidebar-rate-bar" aria-hidden="true">
-            <div
-              className="sidebar-rate-fill"
-              style={{ width: `${Math.min(100, metrics.interviewRate)}%` }}
-            />
-          </div>
-        </div>
-      </div>
 
       <div className="sidebar-foot">
         <button

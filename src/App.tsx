@@ -1,11 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { computePipelineMetrics } from "../shared/stages";
 import type {
   ApplicationRecord,
   InterviewNote,
   MailAccountPublic,
   MainTab,
-  MetricFilter,
   ScheduleEvent,
   StageStatus,
   UserProfile,
@@ -40,7 +38,6 @@ export function App() {
   const [registrationOpen, setRegistrationOpen] = useState(true);
 
   const [activeTab, setActiveTab] = useState<MainTab>("pipeline");
-  const [metricFilter, setMetricFilter] = useState<MetricFilter>("all");
   const [records, setRecords] = useState<ApplicationRecord[]>([]);
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [notes, setNotes] = useState<InterviewNote[]>([]);
@@ -125,8 +122,6 @@ export function App() {
     }
     return [...map.entries()].map(([company, url]) => ({ company, url }));
   }, [records]);
-
-  const metrics = useMemo(() => computePipelineMetrics(records), [records]);
 
   const pendingEventCount = useMemo(
     () => events.filter((e) => e.status === "pending_confirm").length,
@@ -306,12 +301,7 @@ export function App() {
         user={user}
         activeTab={activeTab}
         onChangeTab={setActiveTab}
-        metrics={metrics}
-        metricFilter={metricFilter}
-        onSelectMetricFilter={(f) => {
-          setMetricFilter((cur) => (activeTab === "pipeline" && cur === f && f !== "all" ? "all" : f));
-          setActiveTab("pipeline");
-        }}
+        recordCount={records.length}
         pendingEventCount={pendingEventCount}
         upcomingEventCount={upcomingEventCount}
         noteCount={notes.length}
@@ -329,8 +319,6 @@ export function App() {
             records={records}
             events={events}
             notes={notes}
-            metricFilter={metricFilter}
-            onClearMetricFilter={() => setMetricFilter("all")}
             onAddRecord={() => setRecordModal({ open: true, editing: null })}
             onAddForCompany={(company, url) =>
               setRecordModal({ open: true, editing: null, presetCompany: company, presetUrl: url })

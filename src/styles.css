@@ -43,7 +43,7 @@
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 12px;
-  --sidebar-w: 236px;
+  --sidebar-w: 208px;
 }
 
 :root[data-theme="dark"] {
@@ -666,6 +666,112 @@ textarea {
 
 .tone-bad {
   color: var(--bad);
+}
+
+/* 列表正上方极简单行状态过滤条 */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid var(--line);
+  margin-top: -4px;
+  flex-wrap: wrap;
+}
+
+.filter-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.filter-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.filter-tab {
+  position: relative;
+  height: 36px;
+  padding: 0 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 450;
+  color: var(--text-2);
+  white-space: nowrap;
+  transition: color 0.12s ease;
+}
+
+.filter-tab:first-child {
+  padding-left: 2px;
+}
+
+.filter-tab:hover {
+  color: var(--text);
+}
+
+.filter-tab.active {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.filter-tab.active::after {
+  content: "";
+  position: absolute;
+  left: 11px;
+  right: 11px;
+  bottom: -1px;
+  height: 2px;
+  background: var(--text);
+}
+
+.filter-tab:first-child.active::after {
+  left: 2px;
+}
+
+.filter-tab-count {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+
+.filter-tab.active .filter-tab-count {
+  color: var(--text-2);
+}
+
+.filter-bar-rate {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-3);
+  padding-bottom: 2px;
+  white-space: nowrap;
+}
+
+.filter-bar-rate-val {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+}
+
+.filter-bar-rate-track {
+  width: 52px;
+  height: 3px;
+  border-radius: 99px;
+  background: var(--tl-line);
+  overflow: hidden;
+  display: inline-block;
+}
+
+.filter-bar-rate-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: var(--text-2);
+  display: block;
 }
 
 /* ==================== Schedule Notice Banner ==================== */

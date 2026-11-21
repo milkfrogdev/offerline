@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  computePipelineMetrics,
   groupAndSortCompanies,
   hasEnteredInterview,
   isRecordFailed,
@@ -46,14 +47,6 @@ const STAGE_ACTIONS: { status: StageStatus; label: string; tone?: string }[] = [
   { status: "pending", label: "重置待定" },
 ];
 
-const FILTER_LABELS: Record<MetricFilter, string> = {
-  all: "全部投递",
-  active: "进行中",
-  interview: "已进面试",
-  offer: "Offer",
-  failed: "已挂",
-};
-
 function formatShortDate(iso: string): string {
   if (!iso) return "";
   const d = new Date(iso);
@@ -78,8 +71,6 @@ export function PipelineView({
   records,
   events,
   notes,
-  metricFilter,
-  onClearMetricFilter,
   onAddRecord,
   onAddForCompany,
   onEditRecord,
@@ -95,8 +86,6 @@ export function PipelineView({
   records: ApplicationRecord[];
   events: ScheduleEvent[];
   notes: InterviewNote[];
-  metricFilter: MetricFilter;
-  onClearMetricFilter: () => void;
   onAddRecord: () => void;
   onAddForCompany: (company: string, url?: string) => void;
   onEditRecord: (record: ApplicationRecord) => void;
@@ -111,9 +100,12 @@ export function PipelineView({
 }) {
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortMode>("progress");
+  const [metricFilter, setMetricFilter] = useState<MetricFilter>("all");
   const [popover, setPopover] = useState<PopoverTarget | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  const metrics = useMemo(() => computePipelineMetrics(records), [records]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -427,6 +419,14 @@ export function PipelineView({
     );
   }
 
+  const filterTabs: { key: MetricFilter; label: string; count: number }[] = [
+    { key: "all", label: "全部", count: metrics.total },
+    { key: "active", label: "进行中", count: metrics.active },
+    { key: "interview", label: "已进面试", count: metrics.interviewed },
+    { key: "offer", label: "Offer", count: metrics.offered },
+    { key: "failed", label: "已挂", count: metrics.failed },
+  ];
+
   return (
     <div className="page-container">
       {/* 顶部极简操作栏 */}
@@ -443,17 +443,6 @@ export function PipelineView({
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
-          {metricFilter !== "all" && (
-            <button
-              type="button"
-              className="filter-clear-btn"
-              onClick={onClearMetricFilter}
-              title="点击恢复全部投递"
-            >
-              <span>{FILTER_LABELS[metricFilter]}</span>
-              <span aria-hidden="true">×</span>
-            </button>
-          )}
         </div>
 
         <div className="toolbar-actions">
@@ -474,6 +463,36 @@ export function PipelineView({
             <IconPlus size={14} />
             <span>添加投递</span>
           </button>
+        </div>
+      </div>
+
+      {/* 列表就近筛选条（Linear/GitHub 式单行轻下划线筛选 + 右侧轻转化率） */}
+      <div className="filter-bar" role="tablist" aria-label="按状态筛选投递">
+        <div className="filter-tabs">
+          {filterTabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={metricFilter === tab.key}
+              className={`filter-tab${metricFilter === tab.key ? " active" : ""}`}
+              onClick={() => setMetricFilter(tab.key)}
+            >
+              <span>{tab.label}</span>
+              <span className="filter-tab-count">{tab.count}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="filter-bar-rate" title="已进入面试的投递占比">
+          <span>进面率</span>
+          <span className="filter-bar-rate-val">{metrics.interviewRate}%</span>
+          <span className="filter-bar-rate-track" aria-hidden="true">
+            <span
+              className="filter-bar-rate-fill"
+              style={{ width: `${Math.min(100, metrics.interviewRate)}%` }}
+            />
+          </span>
         </div>
       </div>
 
