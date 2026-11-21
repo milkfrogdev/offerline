@@ -390,7 +390,7 @@ export function PipelineView({
                     title="记录面经"
                     aria-label="记录面经"
                   >
-                    <IconNote size={14} />
+                    <IconNote size={15} />
                   </button>
                   <button
                     type="button"
@@ -399,7 +399,7 @@ export function PipelineView({
                     title="编辑岗位与阶段"
                     aria-label="编辑岗位"
                   >
-                    <IconEdit size={14} />
+                    <IconEdit size={15} />
                   </button>
                   <button
                     type="button"
@@ -408,7 +408,7 @@ export function PipelineView({
                     title="删除该岗位"
                     aria-label="删除岗位"
                   >
-                    <IconTrash size={14} />
+                    <IconTrash size={15} />
                   </button>
                 </div>
               </div>
