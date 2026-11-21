@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  computePipelineMetrics,
   groupAndSortCompanies,
   hasEnteredInterview,
   isRecordFailed,
@@ -46,6 +45,14 @@ const STAGE_ACTIONS: { status: StageStatus; label: string; tone?: string }[] = [
   { status: "pending", label: "重置待定" },
 ];
 
+const FILTER_LABELS: Record<MetricFilter, string> = {
+  all: "全部投递",
+  active: "进行中",
+  interview: "已进面试",
+  offer: "Offer",
+  failed: "已挂",
+};
+
 function formatShortDate(iso: string): string {
   if (!iso) return "";
   const d = new Date(iso);
@@ -70,6 +77,8 @@ export function PipelineView({
   records,
   events,
   notes,
+  metricFilter,
+  onClearMetricFilter,
   onAddRecord,
   onAddForCompany,
   onEditRecord,
@@ -85,6 +94,8 @@ export function PipelineView({
   records: ApplicationRecord[];
   events: ScheduleEvent[];
   notes: InterviewNote[];
+  metricFilter: MetricFilter;
+  onClearMetricFilter: () => void;
   onAddRecord: () => void;
   onAddForCompany: (company: string, url?: string) => void;
   onEditRecord: (record: ApplicationRecord) => void;
@@ -99,7 +110,6 @@ export function PipelineView({
 }) {
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortMode>("progress");
-  const [metricFilter, setMetricFilter] = useState<MetricFilter>("all");
   const [popover, setPopover] = useState<PopoverTarget | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -136,8 +146,6 @@ export function PipelineView({
       window.removeEventListener("scroll", onScroll, true);
     };
   }, [popover]);
-
-  const metrics = useMemo(() => computePipelineMetrics(records), [records]);
 
   const noteCountByRecord = useMemo(() => {
     const map = new Map<string, number>();
@@ -180,10 +188,6 @@ export function PipelineView({
       .sort((a, b) => a.startAt.localeCompare(b.startAt))[0];
   }, [events]);
 
-  function toggleFilter(next: MetricFilter) {
-    setMetricFilter((cur) => (cur === next ? "all" : next));
-  }
-
   function openStagePopover(
     e: React.MouseEvent<HTMLButtonElement>,
     record: ApplicationRecord,
@@ -214,16 +218,29 @@ export function PipelineView({
     <div className="page-container">
       {/* 顶部极简操作栏 */}
       <div className="toolbar">
-        <div className="search-box">
-          <IconSearch size={15} />
-          <input
-            ref={searchRef}
-            type="search"
-            className="search-input"
-            placeholder="搜索公司或职位…（按 / 聚焦）"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
+        <div className="toolbar-left-group">
+          <div className="search-box">
+            <IconSearch size={15} />
+            <input
+              ref={searchRef}
+              type="search"
+              className="search-input"
+              placeholder="搜索公司或职位…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+          {metricFilter !== "all" && (
+            <button
+              type="button"
+              className="filter-clear-btn"
+              onClick={onClearMetricFilter}
+              title="点击恢复全部投递"
+            >
+              <span>{FILTER_LABELS[metricFilter]}</span>
+              <span aria-hidden="true">×</span>
+            </button>
+          )}
         </div>
 
         <div className="toolbar-actions">
@@ -246,57 +263,6 @@ export function PipelineView({
           </button>
         </div>
       </div>
-
-      {/* 无框单行指标带 */}
-      <section className="metrics-strip" aria-label="求职概览">
-        <button
-          type="button"
-          className={`metric-cell${metricFilter === "all" ? " active" : ""}`}
-          onClick={() => setMetricFilter("all")}
-        >
-          <span className="metric-num">{metrics.total}</span>
-          <span className="metric-label">投递总数</span>
-        </button>
-        <button
-          type="button"
-          className={`metric-cell${metricFilter === "active" ? " active" : ""}`}
-          onClick={() => toggleFilter("active")}
-        >
-          <span className="metric-num tone-accent">{metrics.active}</span>
-          <span className="metric-label">进行中</span>
-        </button>
-        <button
-          type="button"
-          className={`metric-cell${metricFilter === "interview" ? " active" : ""}`}
-          onClick={() => toggleFilter("interview")}
-        >
-          <span className="metric-num">{metrics.interviewed}</span>
-          <span className="metric-label">已进面试</span>
-        </button>
-        <button
-          type="button"
-          className={`metric-cell${metricFilter === "offer" ? " active" : ""}`}
-          onClick={() => toggleFilter("offer")}
-        >
-          <span className="metric-num tone-ok">{metrics.offered}</span>
-          <span className="metric-label">Offer</span>
-        </button>
-        <button
-          type="button"
-          className={`metric-cell${metricFilter === "failed" ? " active" : ""}`}
-          onClick={() => toggleFilter("failed")}
-        >
-          <span className="metric-num tone-bad">{metrics.failed}</span>
-          <span className="metric-label">已挂</span>
-        </button>
-        <div className="metric-cell static">
-          <span className="metric-num">
-            {metrics.interviewRate}
-            <span className="metric-unit">%</span>
-          </span>
-          <span className="metric-label">面试转化率</span>
-        </div>
-      </section>
 
       {/* 克制的日程 / 邮箱提醒带（无待办时不渲染） */}
       {(pendingEmailEvents.length > 0 || nextUpcomingEvent) && (
@@ -348,11 +314,6 @@ export function PipelineView({
         <div className="empty-panel">
           <p className="empty-title">
             {records.length === 0 ? "还没有投递记录" : "没有符合当前筛选条件的公司"}
-          </p>
-          <p className="empty-desc">
-            {records.length === 0
-              ? "添加第一条面试记录，或者连接邮箱自动解析面试通知。"
-              : "试试清空搜索词或切换上方状态筛选。"}
           </p>
           {records.length === 0 && (
             <button type="button" className="btn btn-primary" onClick={onAddRecord}>
@@ -441,21 +402,52 @@ export function PipelineView({
                           </div>
                         </div>
 
-                        <div className="stage-track" role="list" aria-label={`${rec.position} 流程`}>
+                        <div className="timeline-track" role="list" aria-label={`${rec.position} 流程`}>
                           {rec.stages.map((st, idx) => {
                             const isOpen =
                               popover?.record.id === rec.id && popover?.stageIndex === idx;
+                            const isLast = idx === rec.stages.length - 1;
+                            const lineClass =
+                              st.status === "pass"
+                                ? "line-pass"
+                                : st.status === "skip"
+                                  ? "line-skip"
+                                  : "line-pending";
                             return (
                               <button
                                 key={st.id}
                                 type="button"
                                 role="listitem"
-                                className={`stage-seg st-${st.status}${isOpen ? " is-selected" : ""}`}
+                                className={`tl-node st-${st.status}${isOpen ? " is-selected" : ""}${isLast ? " is-last" : ""}`}
                                 onClick={(e) => openStagePopover(e, rec, idx, st)}
                                 title={`${st.name} · ${STAGE_STATUS_LABELS[st.status]}（点击切换状态）`}
                               >
-                                <span className="stage-bar" />
-                                <span className="stage-label">{st.name}</span>
+                                <span className="tl-dot-row">
+                                  <span className="tl-dot">
+                                    {st.status === "pass" && (
+                                      <svg viewBox="0 0 12 12" className="tl-mark" aria-hidden="true">
+                                        <path d="M2.6 6.2 5 8.5 9.5 3.6" stroke="currentColor" strokeWidth="1.7" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                                      </svg>
+                                    )}
+                                    {st.status === "fail" && (
+                                      <svg viewBox="0 0 12 12" className="tl-mark" aria-hidden="true">
+                                        <path d="M3.5 3.5 8.5 8.5M8.5 3.5 3.5 8.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                                      </svg>
+                                    )}
+                                    {st.status === "rejected" && (
+                                      <svg viewBox="0 0 12 12" className="tl-mark" aria-hidden="true">
+                                        <path d="M3.2 6h5.6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                                      </svg>
+                                    )}
+                                    {st.status === "skip" && (
+                                      <svg viewBox="0 0 12 12" className="tl-mark" aria-hidden="true">
+                                        <path d="M3.5 8.5 8.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                                      </svg>
+                                    )}
+                                  </span>
+                                  {!isLast && <span className={`tl-connector ${lineClass}`} />}
+                                </span>
+                                <span className="tl-label">{st.name}</span>
                               </button>
                             );
                           })}
@@ -465,7 +457,12 @@ export function PipelineView({
                           <button
                             type="button"
                             className="row-icon-btn"
-                            onClick={() => onWriteNoteForStage(rec, rec.stages.find((s) => s.status === "current")?.name || "一面")}
+                            onClick={() =>
+                              onWriteNoteForStage(
+                                rec,
+                                rec.stages.find((s) => s.status === "current")?.name || "一面",
+                              )
+                            }
                             title="记录面经"
                             aria-label="记录面经"
                           >

@@ -58,7 +58,7 @@ import {
 interface BrandSpec {
   match: RegExp;
   icon?: SimpleIcon;
-  custom?: "microsoft" | "amazon" | "openai" | "jd" | "pdd" | "didi" | "feishu";
+  custom?: "tencent" | "microsoft" | "amazon" | "openai" | "jd" | "pdd" | "didi" | "feishu";
   hex: string;
   invertInDark?: boolean;
 }
@@ -66,7 +66,8 @@ interface BrandSpec {
 const BRAND_CATALOG: BrandSpec[] = [
   { match: /微信|wechat/i, icon: siWechat, hex: "07C160" },
   { match: /混元|hunyuan/i, icon: siTencenthy, hex: "0052D9" },
-  { match: /腾讯|tencent|\bqq\b/i, icon: siQq, hex: "12B7F5" },
+  { match: /\bqq\b/i, icon: siQq, hex: "12B7F5" },
+  { match: /腾讯|tencent/i, custom: "tencent", hex: "0052D9" },
   { match: /飞书|lark|feishu/i, custom: "feishu", hex: "00D6B9" },
   { match: /抖音|tiktok/i, icon: siTiktok, hex: "161615", invertInDark: true },
   { match: /字节|bytedance/i, icon: siBytedance, hex: "325AB4" },
@@ -126,6 +127,13 @@ const BRAND_CATALOG: BrandSpec[] = [
 ];
 
 function CustomBrandSvg({ kind }: { kind: NonNullable<BrandSpec["custom"]> }) {
+  if (kind === "tencent") {
+    return (
+      <svg viewBox="0 0 24 24" className="brand-svg" aria-hidden="true">
+        <path d="M3.2 5h18.4l-1.5 4H14l-3.2 10.5H6.4L9.6 9H1.8L3.2 5Z" fill="#0052D9" />
+      </svg>
+    );
+  }
   if (kind === "microsoft") {
     return (
       <svg viewBox="0 0 24 24" className="brand-svg" aria-hidden="true">

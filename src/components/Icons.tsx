@@ -228,3 +228,35 @@ export function IconChevron({ size = 14 }: IconProps) {
     </svg>
   );
 }
+
+export function IconPipeline({ size = 15 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="3.5" y="5" width="17" height="4.5" rx="1.5" stroke="currentColor" strokeWidth="1.7" />
+      <rect x="3.5" y="14.5" width="17" height="4.5" rx="1.5" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M8.5 5v4.5M14.5 14.5V19" stroke="currentColor" strokeWidth="1.7" />
+    </svg>
+  );
+}
+
+export function IconMenu({ size = 17 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4.5 7h15M4.5 12h15M4.5 17h15" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function IconLogout({ size = 14 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M14.5 16.5v1A2.5 2.5 0 0 1 12 20H6.5A2.5 2.5 0 0 1 4 17.5v-11A2.5 2.5 0 0 1 6.5 4H12a2.5 2.5 0 0 1 2.5 2.5v1M10 12h10m0 0-3-3m3 3-3 3"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
