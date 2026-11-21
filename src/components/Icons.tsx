@@ -260,3 +260,45 @@ export function IconLogout({ size = 14 }: IconProps) {
     </svg>
   );
 }
+
+export function IconStar({ size = 14, filled = false }: IconProps & { filled?: boolean }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} aria-hidden="true">
+      <path
+        d="m12 3.4 2.55 5.17 5.7.83-4.12 4.02.97 5.68L12 16.42l-5.1 2.68.97-5.68-4.12-4.02 5.7-.83L12 3.4Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function IconArrowUp({ size = 13 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 18V6m0 0-4.5 4.5M12 6l4.5 4.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function IconArrowDown({ size = 13 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 6v12m0 0-4.5-4.5M12 18l4.5-4.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function IconGrip({ size = 14 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+      <circle cx="5.5" cy="3.5" r="1.2" />
+      <circle cx="10.5" cy="3.5" r="1.2" />
+      <circle cx="5.5" cy="8" r="1.2" />
+      <circle cx="10.5" cy="8" r="1.2" />
+      <circle cx="5.5" cy="12.5" r="1.2" />
+      <circle cx="10.5" cy="12.5" r="1.2" />
+    </svg>
+  );
+}

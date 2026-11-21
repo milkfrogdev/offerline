@@ -7,6 +7,7 @@ import {
   isRecordTerminated,
   STAGE_STATUS_LABELS,
   visitFreshness,
+  type CompanyGroup,
 } from "../../shared/stages";
 import type {
   ApplicationRecord,
@@ -23,9 +24,9 @@ import {
   IconEdit,
   IconExternal,
   IconNote,
-  IconPin,
   IconPlus,
   IconSearch,
+  IconStar,
   IconTrash,
 } from "./Icons";
 
@@ -176,6 +177,18 @@ export function PipelineView({
     [filteredRecords, sortBy],
   );
 
+  // 分区呈现：重点关注（置顶）/ 推进中 / 已结束，不再靠蓝色外边框区分置顶
+  const sections = useMemo(() => {
+    const pinned = groups.filter((g) => g.pinned);
+    const active = groups.filter((g) => !g.pinned && !g.allTerminated);
+    const ended = groups.filter((g) => !g.pinned && g.allTerminated);
+    const list: { key: string; label: string; starred?: boolean; items: CompanyGroup[] }[] = [];
+    if (pinned.length) list.push({ key: "pinned", label: "重点关注", starred: true, items: pinned });
+    if (active.length) list.push({ key: "active", label: "推进中", items: active });
+    if (ended.length) list.push({ key: "ended", label: "已结束", items: ended });
+    return list;
+  }, [groups]);
+
   const pendingEmailEvents = useMemo(
     () => events.filter((e) => e.status === "pending_confirm"),
     [events],
@@ -213,6 +226,206 @@ export function PipelineView({
     const top = spaceBelow > 190 ? popover.rect.bottom + 8 : Math.max(margin, popover.rect.top - 176);
     return { left, top, width };
   }, [popover]);
+
+  function renderCompanyCard(group: CompanyGroup) {
+    const fresh = visitFreshness(group.lastVisitedAt);
+    return (
+      <article
+        key={group.company}
+        className={`company-card${group.allTerminated && !group.pinned ? " is-ended" : ""}`}
+      >
+        <div className="company-head">
+          <div className="company-ident">
+            <CompanyLogo company={group.company} url={group.url} size="md" />
+            <div className="company-title-wrap">
+              <h2 className="company-name">{group.company}</h2>
+              <span className="company-count">{group.records.length} 个岗位</span>
+            </div>
+          </div>
+
+          <div className="company-meta">
+            <span className={`freshness-text fresh-${fresh.level}`}>{fresh.text}</span>
+            {group.url && (
+              <button
+                type="button"
+                className="meta-link"
+                onClick={() => void onVisitCompany(group.company, group.url)}
+                title="打开官网投递进度并刷新访问时间"
+              >
+                <span>官网进度</span>
+                <IconExternal size={12} />
+              </button>
+            )}
+            <div className="company-hover-ops">
+              <button
+                type="button"
+                className="subtle-btn"
+                onClick={() => onAddForCompany(group.company, group.url)}
+                title="为该公司新增岗位"
+              >
+                <IconPlus size={13} />
+                <span>加岗</span>
+              </button>
+              <button
+                type="button"
+                className={`star-btn${group.pinned ? " is-starred" : ""}`}
+                onClick={() => void onPinCompany(group.company, !group.pinned)}
+                title={group.pinned ? "取消重点关注" : "设为重点关注（置顶）"}
+                aria-label={group.pinned ? "取消置顶" : "置顶该公司"}
+              >
+                <IconStar size={14} filled={group.pinned} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="position-list">
+          {group.records.map((rec) => {
+            const ended = isRecordTerminated(rec.stages);
+            const recNotes = noteCountByRecord.get(rec.id) || 0;
+            return (
+              <div key={rec.id} className={`position-row${ended ? " is-ended" : ""}`}>
+                <div className="position-info">
+                  <div className="position-name" title={rec.position}>
+                    {rec.position}
+                  </div>
+                  <div className="position-sub">
+                    <span>{formatShortDate(rec.createdAt)}</span>
+                    {recNotes > 0 && (
+                      <button
+                        type="button"
+                        className="inline-note-btn"
+                        onClick={() => onOpenNotesForRecord(rec.company)}
+                      >
+                        <IconNote size={12} />
+                        <span>面经 {recNotes}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="timeline-track" role="list" aria-label={`${rec.position} 流程`}>
+                  {rec.stages.map((st, idx) => {
+                    const isOpen = popover?.record.id === rec.id && popover?.stageIndex === idx;
+                    const isFirst = idx === 0;
+                    const isLast = idx === rec.stages.length - 1;
+                    const prevStatus = idx > 0 ? rec.stages[idx - 1].status : null;
+                    const leftLineClass =
+                      prevStatus === "pass"
+                        ? "line-pass"
+                        : prevStatus === "skip"
+                          ? "line-skip"
+                          : "line-pending";
+                    const rightLineClass =
+                      st.status === "pass"
+                        ? "line-pass"
+                        : st.status === "skip"
+                          ? "line-skip"
+                          : "line-pending";
+                    return (
+                      <button
+                        key={st.id}
+                        type="button"
+                        role="listitem"
+                        className={`tl-node st-${st.status}${isOpen ? " is-selected" : ""}${isFirst ? " is-first" : ""}${isLast ? " is-last" : ""}`}
+                        onClick={(e) => openStagePopover(e, rec, idx, st)}
+                        title={`${st.name} · ${STAGE_STATUS_LABELS[st.status]}（点击切换状态）`}
+                      >
+                        <span className="tl-dot-row">
+                          {!isFirst && <span className={`tl-arm tl-arm-left ${leftLineClass}`} />}
+                          <span className="tl-dot">
+                            {st.status === "pass" && (
+                              <svg viewBox="0 0 12 12" className="tl-mark" aria-hidden="true">
+                                <path
+                                  d="M2.6 6.2 5 8.5 9.5 3.6"
+                                  stroke="currentColor"
+                                  strokeWidth="1.7"
+                                  fill="none"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                            )}
+                            {st.status === "fail" && (
+                              <svg viewBox="0 0 12 12" className="tl-mark" aria-hidden="true">
+                                <path
+                                  d="M3.5 3.5 8.5 8.5M8.5 3.5 3.5 8.5"
+                                  stroke="currentColor"
+                                  strokeWidth="1.6"
+                                  strokeLinecap="round"
+                                />
+                              </svg>
+                            )}
+                            {st.status === "rejected" && (
+                              <svg viewBox="0 0 12 12" className="tl-mark" aria-hidden="true">
+                                <path
+                                  d="M3.2 6h5.6"
+                                  stroke="currentColor"
+                                  strokeWidth="1.7"
+                                  strokeLinecap="round"
+                                />
+                              </svg>
+                            )}
+                            {st.status === "skip" && (
+                              <svg viewBox="0 0 12 12" className="tl-mark" aria-hidden="true">
+                                <path
+                                  d="M3.5 8.5 8.5 3.5"
+                                  stroke="currentColor"
+                                  strokeWidth="1.5"
+                                  strokeLinecap="round"
+                                />
+                              </svg>
+                            )}
+                          </span>
+                          {!isLast && <span className={`tl-arm tl-arm-right ${rightLineClass}`} />}
+                        </span>
+                        <span className="tl-label">{st.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="row-ops">
+                  <button
+                    type="button"
+                    className="row-icon-btn"
+                    onClick={() =>
+                      onWriteNoteForStage(
+                        rec,
+                        rec.stages.find((s) => s.status === "current")?.name || "一面",
+                      )
+                    }
+                    title="记录面经"
+                    aria-label="记录面经"
+                  >
+                    <IconNote size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className="row-icon-btn"
+                    onClick={() => onEditRecord(rec)}
+                    title="编辑岗位与阶段"
+                    aria-label="编辑岗位"
+                  >
+                    <IconEdit size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className="row-icon-btn danger"
+                    onClick={() => onDeleteRecord(rec)}
+                    title="删除该岗位"
+                    aria-label="删除岗位"
+                  >
+                    <IconTrash size={14} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </article>
+    );
+  }
 
   return (
     <div className="page-container">
@@ -309,7 +522,7 @@ export function PipelineView({
         </section>
       )}
 
-      {/* 公司聚合列表 */}
+      {/* 分区公司聚合列表 */}
       {groups.length === 0 ? (
         <div className="empty-panel">
           <p className="empty-title">
@@ -323,186 +536,23 @@ export function PipelineView({
           )}
         </div>
       ) : (
-        <div className="company-list">
-          {groups.map((group) => {
-            const fresh = visitFreshness(group.lastVisitedAt);
-            return (
-              <article
-                key={group.company}
-                className={`company-card${group.pinned ? " is-pinned" : ""}${group.allTerminated ? " is-ended" : ""}`}
-              >
-                <div className="company-head">
-                  <div className="company-ident">
-                    <CompanyLogo company={group.company} url={group.url} size="md" />
-                    <div className="company-title-wrap">
-                      <h2 className="company-name">{group.company}</h2>
-                      <span className="company-count">{group.records.length} 个岗位</span>
-                      {group.pinned && <span className="company-pin-tag">已置顶</span>}
-                    </div>
-                  </div>
-
-                  <div className="company-meta">
-                    <span className={`freshness-text fresh-${fresh.level}`}>{fresh.text}</span>
-                    {group.url && (
-                      <button
-                        type="button"
-                        className="meta-link"
-                        onClick={() => void onVisitCompany(group.company, group.url)}
-                        title="打开官网投递进度并刷新访问时间"
-                      >
-                        <span>官网进度</span>
-                        <IconExternal size={12} />
-                      </button>
-                    )}
-                    <div className="company-hover-ops">
-                      <button
-                        type="button"
-                        className="subtle-btn"
-                        onClick={() => onAddForCompany(group.company, group.url)}
-                        title="为该公司新增岗位"
-                      >
-                        <IconPlus size={13} />
-                        <span>加岗</span>
-                      </button>
-                      <button
-                        type="button"
-                        className={`subtle-btn${group.pinned ? " is-active" : ""}`}
-                        onClick={() => void onPinCompany(group.company, !group.pinned)}
-                        title={group.pinned ? "取消置顶" : "置顶该公司"}
-                      >
-                        <IconPin size={13} filled={group.pinned} />
-                        <span>{group.pinned ? "取消置顶" : "置顶"}</span>
-                      </button>
-                    </div>
-                  </div>
+        <div className="pipeline-sections">
+          {sections.map((sec) => (
+            <section key={sec.key} className="pipeline-group">
+              {sections.length > 1 && (
+                <div className="pipeline-group-head">
+                  {sec.starred && (
+                    <span className="group-star-icon" aria-hidden="true">
+                      <IconStar size={12} filled />
+                    </span>
+                  )}
+                  <span className="pipeline-group-title">{sec.label}</span>
+                  <span className="pipeline-group-count">{sec.items.length}</span>
                 </div>
-
-                <div className="position-list">
-                  {group.records.map((rec) => {
-                    const ended = isRecordTerminated(rec.stages);
-                    const recNotes = noteCountByRecord.get(rec.id) || 0;
-                    return (
-                      <div key={rec.id} className={`position-row${ended ? " is-ended" : ""}`}>
-                        <div className="position-info">
-                          <div className="position-name" title={rec.position}>
-                            {rec.position}
-                          </div>
-                          <div className="position-sub">
-                            <span>{formatShortDate(rec.createdAt)}</span>
-                            {recNotes > 0 && (
-                              <button
-                                type="button"
-                                className="inline-note-btn"
-                                onClick={() => onOpenNotesForRecord(rec.company)}
-                              >
-                                <IconNote size={12} />
-                                <span>面经 {recNotes}</span>
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="timeline-track" role="list" aria-label={`${rec.position} 流程`}>
-                          {rec.stages.map((st, idx) => {
-                            const isOpen =
-                              popover?.record.id === rec.id && popover?.stageIndex === idx;
-                            const isFirst = idx === 0;
-                            const isLast = idx === rec.stages.length - 1;
-                            const prevStatus = idx > 0 ? rec.stages[idx - 1].status : null;
-                            const leftLineClass =
-                              prevStatus === "pass"
-                                ? "line-pass"
-                                : prevStatus === "skip"
-                                  ? "line-skip"
-                                  : "line-pending";
-                            const rightLineClass =
-                              st.status === "pass"
-                                ? "line-pass"
-                                : st.status === "skip"
-                                  ? "line-skip"
-                                  : "line-pending";
-                            return (
-                              <button
-                                key={st.id}
-                                type="button"
-                                role="listitem"
-                                className={`tl-node st-${st.status}${isOpen ? " is-selected" : ""}${isFirst ? " is-first" : ""}${isLast ? " is-last" : ""}`}
-                                onClick={(e) => openStagePopover(e, rec, idx, st)}
-                                title={`${st.name} · ${STAGE_STATUS_LABELS[st.status]}（点击切换状态）`}
-                              >
-                                <span className="tl-dot-row">
-                                  {!isFirst && <span className={`tl-arm tl-arm-left ${leftLineClass}`} />}
-                                  <span className="tl-dot">
-                                    {st.status === "pass" && (
-                                      <svg viewBox="0 0 12 12" className="tl-mark" aria-hidden="true">
-                                        <path d="M2.6 6.2 5 8.5 9.5 3.6" stroke="currentColor" strokeWidth="1.7" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                                      </svg>
-                                    )}
-                                    {st.status === "fail" && (
-                                      <svg viewBox="0 0 12 12" className="tl-mark" aria-hidden="true">
-                                        <path d="M3.5 3.5 8.5 8.5M8.5 3.5 3.5 8.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                                      </svg>
-                                    )}
-                                    {st.status === "rejected" && (
-                                      <svg viewBox="0 0 12 12" className="tl-mark" aria-hidden="true">
-                                        <path d="M3.2 6h5.6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-                                      </svg>
-                                    )}
-                                    {st.status === "skip" && (
-                                      <svg viewBox="0 0 12 12" className="tl-mark" aria-hidden="true">
-                                        <path d="M3.5 8.5 8.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                                      </svg>
-                                    )}
-                                  </span>
-                                  {!isLast && <span className={`tl-arm tl-arm-right ${rightLineClass}`} />}
-                                </span>
-                                <span className="tl-label">{st.name}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-
-                        <div className="row-ops">
-                          <button
-                            type="button"
-                            className="row-icon-btn"
-                            onClick={() =>
-                              onWriteNoteForStage(
-                                rec,
-                                rec.stages.find((s) => s.status === "current")?.name || "一面",
-                              )
-                            }
-                            title="记录面经"
-                            aria-label="记录面经"
-                          >
-                            <IconNote size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            className="row-icon-btn"
-                            onClick={() => onEditRecord(rec)}
-                            title="编辑岗位与阶段"
-                            aria-label="编辑岗位"
-                          >
-                            <IconEdit size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            className="row-icon-btn danger"
-                            onClick={() => onDeleteRecord(rec)}
-                            title="删除该岗位"
-                            aria-label="删除岗位"
-                          >
-                            <IconTrash size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </article>
-            );
-          })}
+              )}
+              <div className="company-list">{sec.items.map(renderCompanyCard)}</div>
+            </section>
+          ))}
         </div>
       )}
 

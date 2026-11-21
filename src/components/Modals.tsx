@@ -1,8 +1,27 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { restrictToParentElement, restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
   createDefaultStageDrafts,
   createStageDraftsFromNames,
   inferStageType,
+  STAGE_STATUS_LABELS,
   STAGE_TEMPLATES,
 } from "../../shared/stages";
 import {
@@ -20,7 +39,17 @@ import {
 import { api } from "../api";
 import { canUseWebCrypto, decryptJson, encryptJson } from "../crypto";
 import { CompanyLogo, suggestCompanies } from "./CompanyLogo";
-import { IconCheck, IconClose, IconCopy, IconPlus, IconRefresh } from "./Icons";
+import {
+  IconArrowDown,
+  IconArrowUp,
+  IconCheck,
+  IconClose,
+  IconCopy,
+  IconGrip,
+  IconPlus,
+  IconRefresh,
+  IconTrash,
+} from "./Icons";
 
 const PROVIDER_ORDER: MailProvider[] = ["qq", "163", "126", "gmail", "outlook", "exmail", "custom"];
 
@@ -238,6 +267,107 @@ function CompanyCombobox({
   );
 }
 
+/* ==================== 可精准拖拽的单个阶段行 ==================== */
+function SortableStageRow({
+  stage,
+  index,
+  total,
+  showStatus,
+  onRename,
+  onMove,
+  onRemove,
+}: {
+  stage: StageDraft & { id: string };
+  index: number;
+  total: number;
+  showStatus: boolean;
+  onRename: (name: string) => void;
+  onMove: (delta: -1 | 1) => void;
+  onRemove: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: stage.id,
+  });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const inferredType = inferStageType({ name: stage.name, type: stage.type });
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className={`vstage-row${isDragging ? " is-dragging" : ""}`}
+    >
+      <button
+        type="button"
+        className="vstage-grip"
+        title="按住上下拖动调整顺序"
+        aria-label={`拖动第 ${index + 1} 步`}
+        {...attributes}
+        {...listeners}
+      >
+        <IconGrip size={14} />
+      </button>
+
+      <span className="vstage-axis" aria-hidden="true">
+        <span className={`vstage-num type-${inferredType}`}>{index + 1}</span>
+      </span>
+
+      <input
+        type="text"
+        className="vstage-input"
+        value={stage.name}
+        aria-label={`第 ${index + 1} 阶段名称`}
+        onChange={(e) => onRename(e.target.value)}
+        required
+      />
+
+      {showStatus && stage.status && stage.status !== "pending" && (
+        <span className={`vstage-status st-${stage.status}`}>
+          {STAGE_STATUS_LABELS[stage.status]}
+        </span>
+      )}
+
+      <div className="vstage-ops">
+        <button
+          type="button"
+          className="vstage-op-btn"
+          disabled={index === 0}
+          onClick={() => onMove(-1)}
+          title="上移"
+          aria-label={`上移 ${stage.name}`}
+        >
+          <IconArrowUp size={13} />
+        </button>
+        <button
+          type="button"
+          className="vstage-op-btn"
+          disabled={index === total - 1}
+          onClick={() => onMove(1)}
+          title="下移"
+          aria-label={`下移 ${stage.name}`}
+        >
+          <IconArrowDown size={13} />
+        </button>
+        <button
+          type="button"
+          className="vstage-op-btn danger"
+          disabled={total <= 1}
+          onClick={onRemove}
+          title="删除阶段"
+          aria-label={`删除 ${stage.name}`}
+        >
+          <IconTrash size={13} />
+        </button>
+      </div>
+    </li>
+  );
+}
+
 /* ==================== 1. 新增 / 编辑投递 ==================== */
 export function RecordModal({
   editing,
@@ -257,17 +387,25 @@ export function RecordModal({
   const [company, setCompany] = useState(editing?.company || presetCompany || "");
   const [position, setPosition] = useState(editing?.position || "");
   const [url, setUrl] = useState(editing?.url || presetUrl || "");
-  const [stages, setStages] = useState<StageDraft[]>(() =>
+  const [stages, setStages] = useState<(StageDraft & { id: string })[]>(() =>
     editing
-      ? editing.stages.map((s) => ({ id: s.id, name: s.name, type: s.type, status: s.status }))
-      : createDefaultStageDrafts(),
+      ? editing.stages.map((s, i) => ({
+          id: s.id || `stage-${i + 1}`,
+          name: s.name,
+          type: s.type,
+          status: s.status,
+        }))
+      : createDefaultStageDrafts().map((d, i) => ({ ...d, id: d.id || `default-${i + 1}` })),
   );
   const [customizingStages, setCustomizingStages] = useState(Boolean(editing));
   const [newStageName, setNewStageName] = useState("");
-  const [dragState, setDragState] = useState<{ from: number; over: number } | null>(null);
-  const listRef = useRef<HTMLOListElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const activeTemplateId = useMemo(() => {
     const names = stages.map((s) => s.name.trim());
@@ -278,44 +416,22 @@ export function RecordModal({
     );
   }, [stages]);
 
-  useEffect(() => {
-    if (!dragState) return;
-    const onMove = (e: PointerEvent) => {
-      const list = listRef.current;
-      if (!list) return;
-      const items = [...list.querySelectorAll<HTMLLIElement>(".vstage-row")];
-      let target = items.length - 1;
-      for (let i = 0; i < items.length; i++) {
-        const rect = items[i].getBoundingClientRect();
-        if (e.clientY < rect.top + rect.height / 2) {
-          target = i;
-          break;
-        }
-      }
-      setDragState((prev) => (prev ? { ...prev, over: target } : null));
-    };
-    const onUp = () => {
-      setDragState((cur) => {
-        if (cur && cur.from !== cur.over) {
-          setStages((prev) => {
-            const next = [...prev];
-            const [moved] = next.splice(cur.from, 1);
-            next.splice(cur.over, 0, moved);
-            return next;
-          });
-        }
-        return null;
-      });
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
-    return () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
-    };
-  }, [dragState !== null]);
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setStages((prev) => {
+      const oldIndex = prev.findIndex((s) => s.id === active.id);
+      const newIndex = prev.findIndex((s) => s.id === over.id);
+      if (oldIndex === -1 || newIndex === -1) return prev;
+      return arrayMove(prev, oldIndex, newIndex);
+    });
+  }
+
+  function moveStage(index: number, delta: -1 | 1) {
+    const target = index + delta;
+    if (target < 0 || target >= stages.length) return;
+    setStages((prev) => arrayMove(prev, index, target));
+  }
 
   function appendStage() {
     const trimmed = newStageName.trim();
@@ -417,7 +533,14 @@ export function RecordModal({
                     key={tpl.id}
                     type="button"
                     className={`template-seg-btn${activeTemplateId === tpl.id ? " active" : ""}`}
-                    onClick={() => setStages(createStageDraftsFromNames(tpl.names))}
+                    onClick={() =>
+                      setStages(
+                        createStageDraftsFromNames(tpl.names).map((d, i) => ({
+                          ...d,
+                          id: `${tpl.id}-${i + 1}`,
+                        })),
+                      )
+                    }
                   >
                     {tpl.label}
                   </button>
@@ -460,82 +583,47 @@ export function RecordModal({
             </div>
           ) : (
             <div className="vstage-box">
-              <ol className="vstage-list" ref={listRef}>
-                {stages.map((st, idx) => {
-                  const isDragging = dragState?.from === idx;
-                  const isOverBefore =
-                    dragState !== null && dragState.from !== idx && dragState.over === idx && dragState.from > idx;
-                  const isOverAfter =
-                    dragState !== null && dragState.from !== idx && dragState.over === idx && dragState.from < idx;
-                  return (
-                    <li
-                      key={st.id || idx}
-                      className={`vstage-row${isDragging ? " is-dragging" : ""}${isOverBefore ? " drop-before" : ""}${isOverAfter ? " drop-after" : ""}`}
-                    >
-                      <button
-                        type="button"
-                        className="vstage-grip"
-                        title="按住上下拖动调整顺序"
-                        aria-label={`拖动第 ${idx + 1} 步`}
-                        onPointerDown={(e) => {
-                          e.preventDefault();
-                          setDragState({ from: idx, over: idx });
-                        }}
-                      >
-                        <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor" aria-hidden="true">
-                          <circle cx="3" cy="3" r="1.1" />
-                          <circle cx="7" cy="3" r="1.1" />
-                          <circle cx="3" cy="7" r="1.1" />
-                          <circle cx="7" cy="7" r="1.1" />
-                          <circle cx="3" cy="11" r="1.1" />
-                          <circle cx="7" cy="11" r="1.1" />
-                        </svg>
-                      </button>
-
-                      <span className="vstage-axis" aria-hidden="true">
-                        <span className="vstage-num">{idx + 1}</span>
-                      </span>
-
-                      <input
-                        type="text"
-                        className="vstage-input"
-                        value={st.name}
-                        aria-label={`第 ${idx + 1} 阶段名称`}
-                        onChange={(e) => {
-                          const val = e.target.value;
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={stages.map((s) => s.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <ol className="vstage-list">
+                    {stages.map((st, idx) => (
+                      <SortableStageRow
+                        key={st.id}
+                        stage={st}
+                        index={idx}
+                        total={stages.length}
+                        showStatus={Boolean(editing)}
+                        onRename={(val) =>
                           setStages((prev) =>
                             prev.map((item, i) =>
                               i === idx
                                 ? { ...item, name: val, type: inferStageType({ name: val }) }
                                 : item,
                             ),
-                          );
-                        }}
-                        required
+                          )
+                        }
+                        onMove={(delta) => moveStage(idx, delta)}
+                        onRemove={() => setStages((prev) => prev.filter((_, i) => i !== idx))}
                       />
-
-                      {stages.length > 1 && (
-                        <button
-                          type="button"
-                          className="vstage-del"
-                          onClick={() => setStages((prev) => prev.filter((_, i) => i !== idx))}
-                          title="移除该阶段"
-                          aria-label={`移除 ${st.name}`}
-                        >
-                          <IconClose size={13} />
-                        </button>
-                      )}
-                    </li>
-                  );
-                })}
-              </ol>
+                    ))}
+                  </ol>
+                </SortableContext>
+              </DndContext>
 
               <div className="vstage-add-row">
-                <IconPlus size={13} />
+                <IconPlus size={14} />
                 <input
                   type="text"
                   className="vstage-add-input"
-                  placeholder="新增阶段名称，按回车添加…"
+                  placeholder="输入新阶段名称，按回车添加…"
                   value={newStageName}
                   onChange={(e) => setNewStageName(e.target.value)}
                   onKeyDown={(e) => {
@@ -545,15 +633,14 @@ export function RecordModal({
                     }
                   }}
                 />
-                {newStageName.trim() && (
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={appendStage}
-                  >
-                    添加
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className="vstage-add-btn"
+                  disabled={!newStageName.trim()}
+                  onClick={appendStage}
+                >
+                  添加
+                </button>
               </div>
             </div>
           )}
