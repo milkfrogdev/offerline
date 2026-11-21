@@ -258,15 +258,15 @@ export function PipelineView({
                 <IconPlus size={13} />
                 <span>加岗</span>
               </button>
-              <button
-                type="button"
-                className={`star-btn${group.pinned ? " is-starred" : ""}`}
-                onClick={() => void onPinCompany(group.company, !group.pinned)}
-                title={group.pinned ? "取消重点关注" : "设为重点关注（置顶）"}
-                aria-label={group.pinned ? "取消置顶" : "置顶该公司"}
-              >
-                <IconStar size={14} filled={group.pinned} />
-              </button>
+                <button
+                  type="button"
+                  className={`star-btn${group.pinned ? " is-starred" : ""}`}
+                  onClick={() => void onPinCompany(group.company, !group.pinned)}
+                  title={group.pinned ? "取消重点关注" : "设为重点关注（置顶）"}
+                  aria-label={group.pinned ? "取消置顶" : "置顶该公司"}
+                >
+                  <IconStar size={16} filled={group.pinned} />
+                </button>
             </div>
           </div>
         </div>
@@ -390,7 +390,7 @@ export function PipelineView({
                     title="记录面经"
                     aria-label="记录面经"
                   >
-                    <IconNote size={15} />
+                    <IconNote size={16} />
                   </button>
                   <button
                     type="button"
@@ -399,7 +399,7 @@ export function PipelineView({
                     title="编辑岗位与阶段"
                     aria-label="编辑岗位"
                   >
-                    <IconEdit size={15} />
+                    <IconEdit size={16} />
                   </button>
                   <button
                     type="button"
@@ -408,7 +408,7 @@ export function PipelineView({
                     title="删除该岗位"
                     aria-label="删除岗位"
                   >
-                    <IconTrash size={15} />
+                    <IconTrash size={16} />
                   </button>
                 </div>
               </div>

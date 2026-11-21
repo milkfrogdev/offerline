@@ -1048,7 +1048,7 @@ textarea {
 }
 
 .freshness-text {
-  font-size: 12.5px;
+  font-size: 13px;
   white-space: nowrap;
 }
 
@@ -1075,8 +1075,8 @@ textarea {
 .meta-link {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12.5px;
+  gap: 5px;
+  font-size: 13px;
   color: var(--text-2);
   white-space: nowrap;
 }
@@ -1098,7 +1098,7 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--text-3);
   white-space: nowrap;
   transition: background 0.14s ease, color 0.14s ease;
@@ -1332,8 +1332,8 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 12px;
-  opacity: 0.45;
+  gap: 10px;
+  opacity: 0.52;
   transition: opacity 0.14s ease;
 }
 
@@ -1343,9 +1343,9 @@ textarea {
 }
 
 .row-icon-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 7px;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1465,7 +1465,8 @@ textarea {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  padding: 16px 20px;
+  box-shadow: var(--card-elevation);
+  padding: 18px 22px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1574,7 +1575,8 @@ textarea {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
-  padding: 14px 18px;
+  box-shadow: var(--card-elevation);
+  padding: 16px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1583,7 +1585,7 @@ textarea {
 }
 
 .event-card.is-pending {
-  border-color: var(--accent-line);
+  border-color: var(--line-strong);
 }
 
 .event-main {
@@ -1662,7 +1664,7 @@ textarea {
 .event-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   flex-shrink: 0;
 }
 
@@ -1677,7 +1679,8 @@ textarea {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  padding: 16px 20px;
+  box-shadow: var(--card-elevation);
+  padding: 18px 22px;
   cursor: pointer;
   transition: border-color 0.14s ease;
 }
@@ -1743,7 +1746,7 @@ textarea {
 .note-card-ops {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 10px;
 }
 
 .note-card-body {
