@@ -6,6 +6,7 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { z } from "zod";
 import {
+  advanceStagesToTarget,
   applyStageStatusChange,
   buildInitialStages,
   createDefaultStageDrafts,
@@ -14,21 +15,37 @@ import {
   validateStageDrafts,
 } from "../shared/stages.js";
 import {
+  EVENT_KINDS,
+  EVENT_STATUSES,
+  MAIL_PROVIDERS,
+  NOTE_FEELINGS,
   PRIORITY_LEVELS,
   STAGE_STATUSES,
   type ApplicationRecord,
+  type InterviewNote,
+  type ScheduleEvent,
   type Stage,
   type StageStatus,
   type UserProfile,
 } from "../shared/types.js";
+import { buildIcsCalendar } from "./ics.js";
+import { parseRecruitmentEmail } from "./mail-parser.js";
 import {
+  matchRecordForEmail,
+  syncUserMailbox,
+  testImapConnection,
+} from "./mail-sync.js";
+import {
+  decryptSecret,
+  deriveMasterKey,
+  encryptSecret,
   hashPassword,
   randomToken,
   sanitizeExternalUrl,
   sha256Hex,
   verifyPassword,
 } from "./security.js";
-import type { Store } from "./store.js";
+import { toPublicMailAccount, type Store } from "./store.js";
 
 class ApiError extends Error {
   constructor(
@@ -104,6 +121,82 @@ const updateRecordSchema = z
   })
   .strict();
 
+const createEventSchema = z
+  .object({
+    recordId: z.string().max(64).optional(),
+    company: z.string().trim().min(1, "请填写公司名称").max(100),
+    position: z.string().trim().max(100).optional(),
+    stageName: z.string().trim().max(40).optional(),
+    title: z.string().trim().min(1, "请填写日程标题").max(160),
+    kind: z.enum(EVENT_KINDS).default("interview"),
+    startAt: z.string().min(8).max(40),
+    endAt: z.string().max(40).optional(),
+    location: z.string().trim().max(500).optional(),
+    source: z.enum(["email", "manual"]).default("manual"),
+    status: z.enum(EVENT_STATUSES).default("confirmed"),
+    notes: z.string().max(4000).optional(),
+  })
+  .strict();
+
+const updateEventSchema = z
+  .object({
+    recordId: z.string().max(64).nullable().optional(),
+    company: z.string().trim().min(1).max(100).optional(),
+    position: z.string().trim().max(100).optional(),
+    stageName: z.string().trim().max(40).nullable().optional(),
+    title: z.string().trim().min(1).max(160).optional(),
+    kind: z.enum(EVENT_KINDS).optional(),
+    startAt: z.string().min(8).max(40).optional(),
+    endAt: z.string().max(40).nullable().optional(),
+    location: z.string().trim().max(500).nullable().optional(),
+    status: z.enum(EVENT_STATUSES).optional(),
+    notes: z.string().max(4000).optional(),
+  })
+  .strict();
+
+const createNoteSchema = z
+  .object({
+    recordId: z.string().max(64).optional(),
+    company: z.string().trim().min(1, "请填写公司名称").max(100),
+    position: z.string().trim().max(100).optional(),
+    stageName: z.string().trim().min(1, "请填写面试轮次").max(40),
+    interviewedAt: z.string().max(32).optional(),
+    feeling: z.enum(NOTE_FEELINGS).default("normal"),
+    content: z.string().trim().min(1, "请填写面经内容").max(30000),
+  })
+  .strict();
+
+const updateNoteSchema = z
+  .object({
+    recordId: z.string().max(64).nullable().optional(),
+    company: z.string().trim().min(1).max(100).optional(),
+    position: z.string().trim().max(100).optional(),
+    stageName: z.string().trim().min(1).max(40).optional(),
+    interviewedAt: z.string().max(32).nullable().optional(),
+    feeling: z.enum(NOTE_FEELINGS).optional(),
+    content: z.string().trim().min(1).max(30000).optional(),
+  })
+  .strict();
+
+const mailConfigSchema = z
+  .object({
+    enabled: z.boolean(),
+    provider: z.enum(MAIL_PROVIDERS).default("qq"),
+    host: z.string().trim().min(3, "请填写 IMAP 服务器地址").max(160),
+    port: z.number().int().min(1).max(65535).default(993),
+    secure: z.boolean().default(true),
+    email: z.string().trim().min(3, "请填写邮箱地址").max(160),
+    password: z.string().max(256).optional(),
+    folder: z.string().trim().min(1).max(64).default("INBOX"),
+    pollIntervalMin: z.number().int().min(5).max(180).default(10),
+    lookbackDays: z.number().int().min(1).max(30).default(7),
+    llmEnabled: z.boolean().default(false),
+    llmBaseUrl: z.string().trim().max(240).default(""),
+    llmModel: z.string().trim().max(100).default(""),
+    llmApiKey: z.string().max(256).optional(),
+  })
+  .strict();
+
 export type AppOptions = {
   store: Store;
   origin: string;
@@ -111,6 +204,7 @@ export type AppOptions = {
   allowHttp?: boolean;
   registrationOpen?: boolean;
   staticRoot?: string;
+  mailSecret?: string;
 };
 
 export async function buildApp({
@@ -120,6 +214,9 @@ export async function buildApp({
   allowHttp = false,
   registrationOpen = true,
   staticRoot = resolve("dist/web"),
+  mailSecret = process.env.MAIL_ENCRYPTION_KEY ||
+    process.env.SESSION_SECRET ||
+    "offerline-local-dev-mail-key",
 }: AppOptions) {
   const parsedOrigin = new URL(origin);
   const https = parsedOrigin.protocol === "https:";
@@ -131,16 +228,21 @@ export async function buildApp({
     throw new Error("APP_ORIGIN must be HTTPS in production unless ALLOW_HTTP=true");
   }
   const secure = production && https;
+  const masterKey = deriveMasterKey(mailSecret);
 
   const app = Fastify({
     logger: false,
     bodyLimit: 1_048_576,
     trustProxy: secure ? (_addr: string, hop: number) => hop === 0 : false,
-    requestTimeout: 15_000,
+    requestTimeout: 30_000,
   });
 
   await app.register(cookie);
-  const cookieName = secure ? "__Host-offerline" : production ? "offerline-http" : "offerline-dev";
+  const cookieName = secure
+    ? "__Host-offerline"
+    : production
+      ? "offerline-http"
+      : "offerline-dev";
   const cookieOpts = {
     path: "/",
     httpOnly: true,
@@ -185,7 +287,7 @@ export async function buildApp({
       .header("X-Frame-Options", "DENY")
       .header(
         "Content-Security-Policy",
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'",
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'",
       );
     if (secure) {
       reply.header("Strict-Transport-Security", "max-age=31536000");
@@ -215,9 +317,11 @@ export async function buildApp({
         .status(400)
         .send({ error: err.issues[0]?.message || "参数格式无效。", code: "VALIDATION_ERROR" });
     }
-    const status = err.statusCode && err.statusCode >= 400 && err.statusCode < 500 ? err.statusCode : 500;
+    const status =
+      err.statusCode && err.statusCode >= 400 && err.statusCode < 500 ? err.statusCode : 500;
     return reply.status(status).send({
-      error: status === 413 ? "提交内容过大。" : status === 400 ? "请求格式不正确。" : "服务暂时不可用。",
+      error:
+        status === 413 ? "提交内容过大。" : status === 400 ? "请求格式不正确。" : "服务暂时不可用。",
       code: "SERVER_ERROR",
     });
   });
@@ -297,6 +401,7 @@ export async function buildApp({
     return { ok: true };
   });
 
+  // ===== Application Records =====
   app.get("/api/records", async (req) => {
     const user = await requireUser(req);
     return { items: await store.listRecords(user.id) };
@@ -526,6 +631,466 @@ export async function buildApp({
 
     const count = await store.importRecords(user.id, sanitized, body.mode);
     return { ok: true, count };
+  });
+
+  // ===== Schedule Events & ICS =====
+  app.get("/api/events", async (req) => {
+    const user = await requireUser(req);
+    return { items: await store.listEvents(user.id) };
+  });
+
+  app.post("/api/events", async (req, reply) => {
+    const user = await requireUser(req);
+    const body = createEventSchema.parse(req.body);
+    if (Number.isNaN(Date.parse(body.startAt))) {
+      throw new ApiError(400, "开始时间格式无效。", "INVALID_DATE");
+    }
+    const startIso = new Date(body.startAt).toISOString();
+    const endIso =
+      body.endAt && !Number.isNaN(Date.parse(body.endAt))
+        ? new Date(body.endAt).toISOString()
+        : new Date(Date.parse(startIso) + 60 * 60_000).toISOString();
+
+    const now = new Date().toISOString();
+    const event: ScheduleEvent = {
+      id: randomUUID(),
+      userId: user.id,
+      recordId: body.recordId || undefined,
+      company: body.company,
+      position: body.position || "",
+      stageName: body.stageName || undefined,
+      title: body.title,
+      kind: body.kind,
+      startAt: startIso,
+      endAt: endIso,
+      location: body.location || undefined,
+      source: body.source,
+      status: body.status,
+      syncedToRecord: false,
+      notes: body.notes || "",
+      createdAt: now,
+      updatedAt: now,
+    };
+    await store.insertEvent(user.id, event);
+    reply.status(201);
+    return event;
+  });
+
+  app.patch("/api/events/:id", async (req) => {
+    const user = await requireUser(req);
+    const { id } = req.params as { id: string };
+    const existing = await store.getEvent(id, user.id);
+    if (!existing) throw new ApiError(404, "未找到该日程。", "NOT_FOUND");
+
+    const body = updateEventSchema.parse(req.body);
+    let nextStart = existing.startAt;
+    if (body.startAt !== undefined) {
+      if (Number.isNaN(Date.parse(body.startAt))) {
+        throw new ApiError(400, "开始时间格式无效。", "INVALID_DATE");
+      }
+      nextStart = new Date(body.startAt).toISOString();
+    }
+    let nextEnd = existing.endAt;
+    if (body.endAt !== undefined) {
+      nextEnd =
+        body.endAt === null || !body.endAt.trim()
+          ? undefined
+          : !Number.isNaN(Date.parse(body.endAt))
+            ? new Date(body.endAt).toISOString()
+            : existing.endAt;
+    }
+
+    const updated: ScheduleEvent = {
+      ...existing,
+      recordId: body.recordId === undefined ? existing.recordId : body.recordId || undefined,
+      company: body.company ?? existing.company,
+      position: body.position ?? existing.position,
+      stageName: body.stageName === undefined ? existing.stageName : body.stageName || undefined,
+      title: body.title ?? existing.title,
+      kind: body.kind ?? existing.kind,
+      startAt: nextStart,
+      endAt: nextEnd,
+      location: body.location === undefined ? existing.location : body.location || undefined,
+      status: body.status ?? existing.status,
+      notes: body.notes !== undefined ? body.notes : existing.notes || "",
+      updatedAt: new Date().toISOString(),
+    };
+    await store.updateEvent(user.id, updated);
+    return updated;
+  });
+
+  app.delete("/api/events/:id", async (req) => {
+    const user = await requireUser(req);
+    const { id } = req.params as { id: string };
+    const ok = await store.deleteEvent(id, user.id);
+    if (!ok) throw new ApiError(404, "未找到该日程。", "NOT_FOUND");
+    return { ok: true };
+  });
+
+  app.post("/api/events/:id/sync-record", async (req) => {
+    const user = await requireUser(req);
+    const { id } = req.params as { id: string };
+    const event = await store.getEvent(id, user.id);
+    if (!event) throw new ApiError(404, "未找到该日程。", "NOT_FOUND");
+
+    const now = new Date().toISOString();
+    const records = await store.listRecords(user.id);
+    let targetRecord = event.recordId
+      ? records.find((r) => r.id === event.recordId)
+      : matchRecordForEmail(records, event.company, event.position);
+
+    const outcome: "current" | "pass" | "fail" =
+      event.kind === "offer"
+        ? "pass"
+        : event.stageName === "流程终止"
+          ? "fail"
+          : "current";
+
+    if (!targetRecord) {
+      const stages = advanceStagesToTarget(
+        buildInitialStages(createDefaultStageDrafts()),
+        event.stageName || "一面",
+        outcome,
+      );
+      targetRecord = {
+        id: randomUUID(),
+        userId: user.id,
+        company: event.company,
+        position: event.position || "研发岗位",
+        stages,
+        status: "active",
+        priority: "normal",
+        pinned: false,
+        notes: "",
+        createdAt: now,
+        updatedAt: now,
+      };
+      await store.insertRecord(user.id, targetRecord);
+    } else {
+      targetRecord = {
+        ...targetRecord,
+        stages: advanceStagesToTarget(
+          targetRecord.stages,
+          event.stageName || "一面",
+          outcome,
+        ),
+        updatedAt: now,
+      };
+      await store.updateRecord(user.id, targetRecord);
+    }
+
+    const updatedEvent: ScheduleEvent = {
+      ...event,
+      recordId: targetRecord.id,
+      status: event.status === "pending_confirm" ? "confirmed" : event.status,
+      syncedToRecord: true,
+      updatedAt: now,
+    };
+    await store.updateEvent(user.id, updatedEvent);
+    return { event: updatedEvent, record: targetRecord };
+  });
+
+  app.get("/api/events/:id/ics", async (req, reply) => {
+    const user = await requireUser(req);
+    const { id } = req.params as { id: string };
+    const event = await store.getEvent(id, user.id);
+    if (!event) throw new ApiError(404, "未找到该日程。", "NOT_FOUND");
+    const ics = buildIcsCalendar([event], `OfferLine · ${event.company}`);
+    reply
+      .header("Content-Type", "text/calendar; charset=utf-8")
+      .header("Content-Disposition", `attachment; filename="offerline-${event.id.slice(0, 8)}.ics"`);
+    return ics;
+  });
+
+  app.get("/api/calendar/token", async (req) => {
+    const user = await requireUser(req);
+    const stored = await store.getUserById(user.id);
+    if (!stored) throw new ApiError(401, "用户不存在。", "LOGIN_REQUIRED");
+    let token = stored.calendarToken;
+    if (!token) {
+      token = randomToken();
+      await store.setUserCalendarToken(user.id, token);
+    }
+    return {
+      token,
+      subscribeUrl: `${origin}/api/calendar/${token}.ics`,
+    };
+  });
+
+  app.post("/api/calendar/token/rotate", async (req) => {
+    const user = await requireUser(req);
+    const token = randomToken();
+    await store.setUserCalendarToken(user.id, token);
+    return {
+      token,
+      subscribeUrl: `${origin}/api/calendar/${token}.ics`,
+    };
+  });
+
+  app.get("/api/calendar/:file", async (req, reply) => {
+    const { file } = req.params as { file: string };
+    if (!file.endsWith(".ics")) {
+      throw new ApiError(404, "日历订阅不存在。", "NOT_FOUND");
+    }
+    const token = file.slice(0, -4);
+    if (!/^[\w-]{32,96}$/.test(token)) {
+      throw new ApiError(404, "日历订阅令牌无效。", "NOT_FOUND");
+    }
+    const user = await store.getUserByCalendarToken(token);
+    if (!user) throw new ApiError(404, "日历订阅已失效。", "NOT_FOUND");
+    const events = await store.listEvents(user.id);
+    const ics = buildIcsCalendar(events, `OfferLine 面试日程 (${user.username})`);
+    reply
+      .header("Content-Type", "text/calendar; charset=utf-8")
+      .header("Cache-Control", "private, max-age=300");
+    return ics;
+  });
+
+  // ===== Mail Listener & Parser =====
+  app.get("/api/mail/config", async (req) => {
+    const user = await requireUser(req);
+    const account = await store.getMailAccount(user.id);
+    return toPublicMailAccount(account);
+  });
+
+  app.put("/api/mail/config", async (req) => {
+    const user = await requireUser(req);
+    const body = mailConfigSchema.parse(req.body);
+    const existing = await store.getMailAccount(user.id);
+
+    const passwordEnc =
+      body.password && body.password.trim()
+        ? encryptSecret(body.password.trim(), masterKey)
+        : existing?.passwordEnc || "";
+    if (!passwordEnc) {
+      throw new ApiError(400, "首次配置请填写邮箱 IMAP 授权码。", "PASSWORD_REQUIRED");
+    }
+
+    const llmKeyEnc =
+      body.llmApiKey && body.llmApiKey.trim()
+        ? encryptSecret(body.llmApiKey.trim(), masterKey)
+        : existing?.llmKeyEnc || "";
+
+    const now = new Date().toISOString();
+    await store.upsertMailAccount({
+      userId: user.id,
+      enabled: body.enabled,
+      provider: body.provider,
+      host: body.host,
+      port: body.port,
+      secure: body.secure,
+      email: body.email,
+      passwordEnc,
+      folder: body.folder || "INBOX",
+      pollIntervalMin: body.pollIntervalMin,
+      lookbackDays: body.lookbackDays,
+      lastUid: existing?.lastUid ?? 0,
+      llmEnabled: body.llmEnabled,
+      llmBaseUrl: body.llmBaseUrl,
+      llmModel: body.llmModel,
+      llmKeyEnc,
+      lastSyncedAt: existing?.lastSyncedAt,
+      lastError: existing?.lastError,
+      lastMatchedCount: existing?.lastMatchedCount ?? 0,
+      updatedAt: now,
+    });
+
+    return toPublicMailAccount(await store.getMailAccount(user.id));
+  });
+
+  app.delete("/api/mail/config", async (req) => {
+    const user = await requireUser(req);
+    await store.deleteMailAccount(user.id);
+    return toPublicMailAccount(null);
+  });
+
+  app.post("/api/mail/test", async (req) => {
+    const user = await requireUser(req);
+    await enforceLimit(`mail-test:${user.id}`, 12, 10 * 60_000);
+    const body = z
+      .object({
+        host: z.string().trim().min(3).max(160),
+        port: z.number().int().min(1).max(65535).default(993),
+        secure: z.boolean().default(true),
+        email: z.string().trim().min(3).max(160),
+        password: z.string().max(256).optional(),
+        folder: z.string().trim().max(64).default("INBOX"),
+      })
+      .strict()
+      .parse(req.body);
+
+    let password = body.password?.trim() || "";
+    if (!password) {
+      const existing = await store.getMailAccount(user.id);
+      if (!existing?.passwordEnc) {
+        throw new ApiError(400, "请填写邮箱 IMAP 授权码后再测试。", "PASSWORD_REQUIRED");
+      }
+      password = decryptSecret(existing.passwordEnc, masterKey);
+    }
+
+    const res = await testImapConnection({
+      host: body.host,
+      port: body.port,
+      secure: body.secure,
+      email: body.email,
+      password,
+      folder: body.folder,
+    });
+    if (!res.ok) {
+      throw new ApiError(400, res.error, "IMAP_TEST_FAILED");
+    }
+    return res;
+  });
+
+  app.post("/api/mail/sync", async (req) => {
+    const user = await requireUser(req);
+    await enforceLimit(`mail-sync:${user.id}`, 10, 5 * 60_000);
+    try {
+      const summary = await syncUserMailbox(store, user.id, masterKey);
+      return {
+        summary,
+        config: toPublicMailAccount(await store.getMailAccount(user.id)),
+        events: await store.listEvents(user.id),
+      };
+    } catch (err) {
+      throw new ApiError(
+        400,
+        err instanceof Error ? err.message : "邮箱同步失败。",
+        "MAIL_SYNC_FAILED",
+      );
+    }
+  });
+
+  app.post("/api/mail/parse-preview", async (req) => {
+    const user = await requireUser(req);
+    const body = z
+      .object({
+        subject: z.string().max(300).default(""),
+        from: z.string().max(200).default(""),
+        text: z.string().trim().min(5, "请粘贴邮件内容").max(20000),
+        createEvent: z.boolean().default(false),
+      })
+      .strict()
+      .parse(req.body);
+
+    const account = await store.getMailAccount(user.id);
+    let llm = null;
+    if (account?.llmEnabled && account.llmBaseUrl && account.llmModel && account.llmKeyEnc) {
+      try {
+        llm = {
+          baseUrl: account.llmBaseUrl,
+          model: account.llmModel,
+          apiKey: decryptSecret(account.llmKeyEnc, masterKey),
+        };
+      } catch {
+        llm = null;
+      }
+    }
+
+    const parsed = await parseRecruitmentEmail(
+      {
+        subject: body.subject,
+        from: body.from,
+        text: body.text,
+        date: new Date(),
+      },
+      llm,
+    );
+
+    if (!body.createEvent || !parsed.matched) {
+      return { parsed, event: null };
+    }
+
+    const now = new Date().toISOString();
+    const records = await store.listRecords(user.id);
+    const matchedRecord = matchRecordForEmail(records, parsed.company, parsed.position);
+    const startAt = parsed.startAt || now;
+    const endAt = parsed.endAt || new Date(Date.parse(startAt) + 60 * 60_000).toISOString();
+    const event: ScheduleEvent = {
+      id: randomUUID(),
+      userId: user.id,
+      recordId: matchedRecord?.id,
+      company: matchedRecord?.company || parsed.company,
+      position:
+        parsed.position !== "待确认岗位" ? parsed.position : matchedRecord?.position || "",
+      stageName: parsed.stageName,
+      title: parsed.title,
+      kind: parsed.kind,
+      startAt,
+      endAt,
+      location: parsed.location,
+      source: "email",
+      mailSubject: body.subject.slice(0, 280) || undefined,
+      mailFrom: body.from.slice(0, 180) || undefined,
+      mailSnippet: parsed.snippet,
+      status: "confirmed",
+      syncedToRecord: false,
+      notes: "",
+      createdAt: now,
+      updatedAt: now,
+    };
+    await store.insertEvent(user.id, event);
+    return { parsed, event };
+  });
+
+  // ===== Interview Notes (面经记录) =====
+  app.get("/api/notes", async (req) => {
+    const user = await requireUser(req);
+    return { items: await store.listNotes(user.id) };
+  });
+
+  app.post("/api/notes", async (req, reply) => {
+    const user = await requireUser(req);
+    const body = createNoteSchema.parse(req.body);
+    const now = new Date().toISOString();
+    const note: InterviewNote = {
+      id: randomUUID(),
+      userId: user.id,
+      recordId: body.recordId || undefined,
+      company: body.company,
+      position: body.position || "",
+      stageName: body.stageName,
+      interviewedAt: body.interviewedAt?.trim() || now.slice(0, 10),
+      feeling: body.feeling,
+      content: body.content,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await store.insertNote(user.id, note);
+    reply.status(201);
+    return note;
+  });
+
+  app.patch("/api/notes/:id", async (req) => {
+    const user = await requireUser(req);
+    const { id } = req.params as { id: string };
+    const existing = await store.getNote(id, user.id);
+    if (!existing) throw new ApiError(404, "未找到该面经记录。", "NOT_FOUND");
+    const body = updateNoteSchema.parse(req.body);
+    const updated: InterviewNote = {
+      ...existing,
+      recordId: body.recordId === undefined ? existing.recordId : body.recordId || undefined,
+      company: body.company ?? existing.company,
+      position: body.position ?? existing.position,
+      stageName: body.stageName ?? existing.stageName,
+      interviewedAt:
+        body.interviewedAt === undefined
+          ? existing.interviewedAt
+          : body.interviewedAt || undefined,
+      feeling: body.feeling ?? existing.feeling,
+      content: body.content ?? existing.content,
+      updatedAt: new Date().toISOString(),
+    };
+    await store.updateNote(user.id, updated);
+    return updated;
+  });
+
+  app.delete("/api/notes/:id", async (req) => {
+    const user = await requireUser(req);
+    const { id } = req.params as { id: string };
+    const ok = await store.deleteNote(id, user.id);
+    if (!ok) throw new ApiError(404, "未找到该面经记录。", "NOT_FOUND");
+    return { ok: true };
   });
 
   if (existsSync(staticRoot)) {

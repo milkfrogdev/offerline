@@ -14,6 +14,37 @@ export type StageStatus = (typeof STAGE_STATUSES)[number];
 export const PRIORITY_LEVELS = ["high", "normal", "low"] as const;
 export type PriorityLevel = (typeof PRIORITY_LEVELS)[number];
 
+export const EVENT_KINDS = [
+  "interview",
+  "written_test",
+  "assessment",
+  "offer",
+  "other",
+] as const;
+export type EventKind = (typeof EVENT_KINDS)[number];
+
+export const EVENT_STATUSES = [
+  "pending_confirm",
+  "confirmed",
+  "completed",
+  "dismissed",
+] as const;
+export type EventStatus = (typeof EVENT_STATUSES)[number];
+
+export const NOTE_FEELINGS = ["great", "normal", "hard"] as const;
+export type NoteFeeling = (typeof NOTE_FEELINGS)[number];
+
+export const MAIL_PROVIDERS = [
+  "qq",
+  "163",
+  "126",
+  "gmail",
+  "outlook",
+  "exmail",
+  "custom",
+] as const;
+export type MailProvider = (typeof MAIL_PROVIDERS)[number];
+
 export interface Stage {
   id: string;
   name: string;
@@ -54,10 +85,85 @@ export interface ApplicationRecord {
   lastVisitedAt?: string;
   pinned: boolean;
   notes?: string;
-  /** 可选：客户端用口令加密的私密详情（薪资、笔记等），服务器无法解密 */
+  /** 可选：客户端口令加密的私密详情 */
   sealed?: EncryptedEnvelope;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ScheduleEvent {
+  id: string;
+  userId?: number;
+  recordId?: string;
+  company: string;
+  position: string;
+  stageName?: string;
+  title: string;
+  kind: EventKind;
+  startAt: string;
+  endAt?: string;
+  location?: string;
+  source: "email" | "manual";
+  mailMessageId?: string;
+  mailSubject?: string;
+  mailFrom?: string;
+  mailSnippet?: string;
+  status: EventStatus;
+  syncedToRecord: boolean;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InterviewNote {
+  id: string;
+  userId?: number;
+  recordId?: string;
+  company: string;
+  position: string;
+  stageName: string;
+  interviewedAt?: string;
+  feeling: NoteFeeling;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MailAccountPublic {
+  configured: boolean;
+  enabled: boolean;
+  provider: MailProvider;
+  host: string;
+  port: number;
+  secure: boolean;
+  email: string;
+  hasPassword: boolean;
+  folder: string;
+  pollIntervalMin: number;
+  lookbackDays: number;
+  llmEnabled: boolean;
+  llmBaseUrl: string;
+  llmModel: string;
+  hasLlmKey: boolean;
+  lastSyncedAt?: string;
+  lastError?: string;
+  lastMatchedCount: number;
+}
+
+export interface EmailParseResult {
+  matched: boolean;
+  confidence: number;
+  company: string;
+  position: string;
+  stageName: string;
+  title: string;
+  kind: EventKind;
+  actionHint: "schedule" | "pass" | "fail" | "offer" | "applied";
+  startAt?: string;
+  endAt?: string;
+  location?: string;
+  snippet: string;
+  reason?: string;
 }
 
 export interface UserProfile {
@@ -67,6 +173,6 @@ export interface UserProfile {
   createdAt?: string;
 }
 
-export type SortMode = "progress" | "followup" | "visited" | "updated" | "created" | "company";
-export type ViewMode = "table" | "board";
-export type FilterStatus = "all" | "active" | "archived";
+export type SortMode = "progress" | "visited" | "created" | "updated" | "company";
+export type MainTab = "pipeline" | "schedule" | "notes";
+export type MetricFilter = "all" | "active" | "interview" | "offer" | "failed";

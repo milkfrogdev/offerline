@@ -1,4 +1,11 @@
-import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+  scryptSync,
+  timingSafeEqual,
+} from "node:crypto";
 
 export function hashPassword(password: string): string {
   const salt = randomBytes(16).toString("hex");
@@ -21,6 +28,31 @@ export function randomToken(): string {
 
 export function sha256Hex(value: string): string {
   return createHash("sha256").update(value).digest("hex");
+}
+
+export function deriveMasterKey(secret: string): Buffer {
+  return createHash("sha256").update(`offerline:mail-secret:${secret}`).digest();
+}
+
+export function encryptSecret(plaintext: string, masterKey: Buffer): string {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", masterKey, iv);
+  const enc = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `v1:${iv.toString("base64url")}:${tag.toString("base64url")}:${enc.toString("base64url")}`;
+}
+
+export function decryptSecret(payload: string, masterKey: Buffer): string {
+  const parts = payload.split(":");
+  if (parts.length !== 4 || parts[0] !== "v1") {
+    throw new Error("INVALID_ENCRYPTED_SECRET");
+  }
+  const iv = Buffer.from(parts[1], "base64url");
+  const tag = Buffer.from(parts[2], "base64url");
+  const enc = Buffer.from(parts[3], "base64url");
+  const decipher = createDecipheriv("aes-256-gcm", masterKey, iv);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(enc), decipher.final()]).toString("utf8");
 }
 
 export function sanitizeExternalUrl(raw?: unknown): string | null {

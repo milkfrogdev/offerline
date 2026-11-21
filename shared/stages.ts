@@ -23,6 +23,24 @@ export const DEFAULT_STAGE_NAMES = [
   "正式offer",
 ] as const;
 
+export const STAGE_TEMPLATES: { id: string; label: string; names: readonly string[] }[] = [
+  {
+    id: "standard",
+    label: "标准十阶段",
+    names: DEFAULT_STAGE_NAMES,
+  },
+  {
+    id: "social",
+    label: "社招精简",
+    names: ["投递", "简历筛选", "一面", "二面", "HR面", "正式offer"],
+  },
+  {
+    id: "global",
+    label: "外企多轮",
+    names: ["投递", "OA", "电面", "技术一面", "技术二面", "HM面", "正式offer"],
+  },
+];
+
 export const STAGE_STATUS_LABELS: Record<StageStatus, string> = {
   pending: "待进行",
   current: "进行中",
@@ -40,7 +58,7 @@ export const STAGE_TYPE_LABELS: Record<StageType, string> = {
 };
 
 export const PRIORITY_LABELS: Record<PriorityLevel, string> = {
-  high: "高意向",
+  high: "重点",
   normal: "常规",
   low: "保底",
 };
@@ -50,9 +68,18 @@ export function inferStageType(stage: Pick<StageDraft, "name" | "type">): StageT
     return stage.type;
   }
   const normalized = stage.name.trim().toLowerCase();
-  if (normalized === "投递") return "application";
-  if (["一面", "二面", "三面", "hr面"].includes(normalized)) return "interview";
-  if (normalized === "正式offer" || normalized === "offer") return "offer";
+  if (normalized === "投递" || normalized === "网申") return "application";
+  if (
+    ["一面", "二面", "三面", "四面", "终面", "hr面", "技术面", "电面", "hm面", "技术一面", "技术二面"].includes(
+      normalized,
+    ) ||
+    normalized.includes("面")
+  ) {
+    return "interview";
+  }
+  if (normalized === "正式offer" || normalized === "offer" || normalized.includes("录用")) {
+    return "offer";
+  }
   return "other";
 }
 
@@ -69,6 +96,14 @@ export function normalizeStage(raw: StageDraft, index: number): Stage {
     type: inferStageType({ name, type: raw.type }),
     status,
   };
+}
+
+export function createStageDraftsFromNames(names: readonly string[]): StageDraft[] {
+  return names.map((name, idx) => ({
+    id: `stage-${idx + 1}`,
+    name,
+    type: inferStageType({ name }),
+  }));
 }
 
 export function createDefaultStageDrafts(): StageDraft[] {
@@ -142,7 +177,8 @@ export function applyStageStatusChange(
     );
     if (!hasActiveOrEnded) {
       const nextPending = updated.findIndex((s, i) => i > index && s.status === "pending");
-      const fallbackPending = nextPending !== -1 ? nextPending : updated.findIndex((s) => s.status === "pending");
+      const fallbackPending =
+        nextPending !== -1 ? nextPending : updated.findIndex((s) => s.status === "pending");
       if (fallbackPending !== -1) {
         updated[fallbackPending].status = "current";
       }
@@ -155,6 +191,39 @@ export function applyStageStatusChange(
     }
   }
   return updated;
+}
+
+/** 将邮箱解析出的阶段名推进到对应阶段，前置未完成阶段自动标为通过/跳过 */
+export function advanceStagesToTarget(
+  stages: readonly Stage[],
+  targetStageName: string,
+  outcome: "current" | "pass" | "fail",
+): Stage[] {
+  const updated = stages.map((s) => ({ ...s }));
+  const norm = targetStageName.trim().toLowerCase();
+  let idx = updated.findIndex((s) => s.name.toLowerCase() === norm);
+  if (idx === -1) {
+    idx = updated.findIndex(
+      (s) => s.name.toLowerCase().includes(norm) || norm.includes(s.name.toLowerCase()),
+    );
+  }
+  if (idx === -1 && norm.includes("offer")) {
+    idx = updated.findIndex((s) => s.type === "offer");
+  }
+  if (idx === -1 && norm.includes("面")) {
+    idx = updated.findIndex((s) => s.type === "interview" && (s.status === "current" || s.status === "pending"));
+  }
+  if (idx === -1) {
+    idx = updated.findIndex((s) => s.status === "current");
+  }
+  if (idx === -1) return updated;
+
+  for (let i = 0; i < idx; i++) {
+    if (updated[i].status === "pending" || updated[i].status === "current") {
+      updated[i].status = "pass";
+    }
+  }
+  return applyStageStatusChange(updated, idx, outcome);
 }
 
 export function validateStageDrafts(value: unknown): string | null {
@@ -173,6 +242,14 @@ export function validateStageDrafts(value: unknown): string | null {
     ids.add(id);
   }
   return null;
+}
+
+export function isRecordFailed(stages: readonly Stage[]): boolean {
+  return stages.some((s) => s.status === "fail");
+}
+
+export function isRecordRejected(stages: readonly Stage[]): boolean {
+  return stages.some((s) => s.status === "rejected");
 }
 
 export function isRecordTerminated(stages: readonly Stage[]): boolean {
@@ -201,60 +278,44 @@ export function currentStageLabel(stages: readonly Stage[]): {
 } {
   if (isRecordOffered(stages)) return { label: "已获 Offer", tone: "ok" };
   const failed = stages.find((s) => s.status === "fail");
-  if (failed) return { label: `${failed.name} · 未通过`, tone: "bad" };
+  if (failed) return { label: `${failed.name} 未通过`, tone: "bad" };
   const rejected = stages.find((s) => s.status === "rejected");
-  if (rejected) return { label: `${rejected.name} · 已拒绝`, tone: "muted" };
+  if (rejected) return { label: `${rejected.name} 已拒绝`, tone: "muted" };
   const current = stages.find((s) => s.status === "current");
   if (current) return { label: current.name, tone: "active" };
   const lastDone = [...stages].reverse().find((s) => s.status === "pass" || s.status === "skip");
-  if (lastDone) return { label: `${lastDone.name} · 已完成`, tone: "ok" };
+  if (lastDone) return { label: `${lastDone.name} 已完成`, tone: "ok" };
   return { label: stages[0]?.name || "未开始", tone: "muted" };
 }
 
-export type BoardLane = "screening" | "assessment" | "interview" | "closed";
-
-export function classifyBoardLane(record: ApplicationRecord): BoardLane {
-  if (record.status === "archived" || isRecordTerminated(record.stages) || isRecordOffered(record.stages)) {
-    return "closed";
-  }
-  const current = record.stages.find((s) => s.status === "current");
-  if (!current) return "screening";
-  if (current.type === "interview" || current.type === "offer") return "interview";
-  if (current.type === "application") return "screening";
-  return "assessment";
-}
-
-export function computePipelineMetrics(records: readonly ApplicationRecord[], todayStr = new Date().toISOString().slice(0, 10)) {
+export function computePipelineMetrics(records: readonly ApplicationRecord[]) {
   const total = records.length;
   const active = records.filter(
     (r) => r.status === "active" && !isRecordTerminated(r.stages) && !isRecordOffered(r.stages),
   ).length;
   const offered = records.filter((r) => isRecordOffered(r.stages)).length;
+  const failed = records.filter((r) => isRecordFailed(r.stages)).length;
+  const rejected = records.filter((r) => isRecordRejected(r.stages)).length;
   const interviewed = records.filter((r) => hasEnteredInterview(r.stages)).length;
   const interviewRate = total > 0 ? Math.round((interviewed / total) * 100) : 0;
-  const upcomingFollowUps = records.filter(
-    (r) =>
-      r.status === "active" &&
-      !isRecordTerminated(r.stages) &&
-      r.nextFollowUpAt &&
-      r.nextFollowUpAt >= todayStr,
-  ).length;
-  return { total, active, offered, interviewed, interviewRate, upcomingFollowUps };
+  return { total, active, offered, failed, rejected, interviewed, interviewRate };
 }
 
 export function visitFreshness(iso?: string, nowMs = Date.now()): {
   text: string;
-  level: "fresh" | "warm" | "stale" | "none";
+  level: "fresh" | "warm" | "orange" | "stale" | "none";
 } {
   if (!iso) return { text: "未访问", level: "none" };
   const ts = Date.parse(iso);
   if (Number.isNaN(ts)) return { text: "未访问", level: "none" };
   const hours = Math.max(0, (nowMs - ts) / 3600000);
-  if (hours < 24) return { text: "今天看过", level: "fresh" };
+  if (hours < 1) return { text: "刚刚访问", level: "fresh" };
+  if (hours < 24) return { text: `${Math.floor(hours)}小时前访问`, level: "fresh" };
   const days = Math.floor(hours / 24);
-  if (days <= 3) return { text: `${days} 天前`, level: "fresh" };
-  if (days <= 7) return { text: `${days} 天前`, level: "warm" };
-  return { text: `${days} 天前`, level: "stale" };
+  if (days <= 2) return { text: `${days}天前访问`, level: "fresh" };
+  if (days <= 5) return { text: `${days}天前访问`, level: "warm" };
+  if (days <= 10) return { text: `${days}天前访问`, level: "orange" };
+  return { text: `${days}天前访问`, level: "stale" };
 }
 
 export interface CompanyGroup {
@@ -266,7 +327,6 @@ export interface CompanyGroup {
   bestProgress: number;
   allTerminated: boolean;
   hasOffer: boolean;
-  nearestFollowUp: string;
   latestUpdatedAt: string;
   earliestCreatedAt: string;
 }
@@ -301,11 +361,6 @@ export function groupAndSortCompanies(
     const bestProgress = Math.max(...sortedRecords.map((r) => stageProgress(r.stages)));
     const allTerminated = sortedRecords.every((r) => isRecordTerminated(r.stages));
     const hasOffer = sortedRecords.some((r) => isRecordOffered(r.stages));
-    const followUps = sortedRecords
-      .map((r) => r.nextFollowUpAt)
-      .filter((x): x is string => !!x)
-      .sort();
-    const nearestFollowUp = followUps[0] || "";
     const latestUpdatedAt = sortedRecords.map((r) => r.updatedAt).sort().at(-1) || "";
     const earliestCreatedAt = sortedRecords.map((r) => r.createdAt).sort()[0] || "";
     groups.push({
@@ -317,7 +372,6 @@ export function groupAndSortCompanies(
       bestProgress,
       allTerminated,
       hasOffer,
-      nearestFollowUp,
       latestUpdatedAt,
       earliestCreatedAt,
     });
@@ -327,13 +381,6 @@ export function groupAndSortCompanies(
     if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
     if (a.allTerminated !== b.allTerminated) return a.allTerminated ? 1 : -1;
     if (sortBy === "company") return a.company.localeCompare(b.company, "zh-CN");
-    if (sortBy === "followup") {
-      if (a.nearestFollowUp && b.nearestFollowUp) {
-        return a.nearestFollowUp.localeCompare(b.nearestFollowUp);
-      }
-      if (a.nearestFollowUp !== b.nearestFollowUp) return a.nearestFollowUp ? -1 : 1;
-      return b.latestUpdatedAt.localeCompare(a.latestUpdatedAt);
-    }
     if (sortBy === "visited") {
       return (b.lastVisitedAt || "").localeCompare(a.lastVisitedAt || "");
     }

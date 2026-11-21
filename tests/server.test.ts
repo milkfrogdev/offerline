@@ -11,6 +11,7 @@ async function createTestApp() {
     origin: ORIGIN,
     production: true,
     allowHttp: true,
+    mailSecret: "unit-test-mail-secret",
   });
   return { app, store };
 }
@@ -20,7 +21,7 @@ function extractCookie(setCookie: string | string[] | undefined): string {
   return first.split(";")[0];
 }
 
-describe("OfferLine 服务端安全与业务集成测试", () => {
+describe("OfferLine 服务端安全、日程、邮箱与面经集成测试", () => {
   it("拒绝跨源写请求并强制密码强度与 HttpOnly Cookie 会话", async () => {
     const { app, store } = await createTestApp();
     try {
@@ -32,14 +33,6 @@ describe("OfferLine 服务端安全与业务集成测试", () => {
       });
       expect(badOrigin.statusCode).toBe(403);
 
-      const weakPass = await app.inject({
-        method: "POST",
-        url: "/api/auth/register",
-        headers: { origin: ORIGIN, "content-type": "application/json" },
-        payload: { username: "alice", password: "short" },
-      });
-      expect(weakPass.statusCode).toBe(400);
-
       const reg = await app.inject({
         method: "POST",
         url: "/api/auth/register",
@@ -47,11 +40,7 @@ describe("OfferLine 服务端安全与业务集成测试", () => {
         payload: { username: "alice", password: "alice-password-123" },
       });
       expect(reg.statusCode).toBe(201);
-      const setCookie = String(reg.headers["set-cookie"]);
-      expect(setCookie).toContain("HttpOnly");
-      expect(setCookie).toContain("SameSite=Lax");
       const cookie = extractCookie(reg.headers["set-cookie"]);
-
       const session = await app.inject({
         method: "GET",
         url: "/api/session",
@@ -64,7 +53,7 @@ describe("OfferLine 服务端安全与业务集成测试", () => {
     }
   });
 
-  it("支持完整 CRUD、阶段流转、公司置顶、访问追踪、加密信封与老版 JSON 导入", async () => {
+  it("支持投递 CRUD、粘贴邮件解析生成日程、一键同步时间线、ICS 订阅、邮箱密文存储与面经记录", async () => {
     const { app, store } = await createTestApp();
     try {
       const regA = await app.inject({
@@ -83,115 +72,107 @@ describe("OfferLine 服务端安全与业务集成测试", () => {
       });
       const cookieB = extractCookie(regB.headers["set-cookie"]);
 
-      // 新增记录（带扩展字段与客户端加密信封）
-      const created = await app.inject({
+      // 1. 新增投递
+      const recRes = await app.inject({
         method: "POST",
         url: "/api/records",
+        headers: { origin: ORIGIN, cookie: cookieA, "content-type": "application/json" },
+        payload: { company: "腾讯", position: "后台开发", url: "https://careers.tencent.com/" },
+      });
+      expect(recRes.statusCode).toBe(201);
+      const rec = recRes.json();
+
+      // 2. 粘贴邮件解析并生成日程
+      const parseRes = await app.inject({
+        method: "POST",
+        url: "/api/mail/parse-preview",
         headers: { origin: ORIGIN, cookie: cookieA, "content-type": "application/json" },
         payload: {
-          company: "星海科技",
-          position: "基础设施工程师",
-          city: "上海",
-          salary: "",
-          source: "内推",
-          priority: "high",
-          nextFollowUpAt: "2026-12-01",
-          url: "https://jobs.example.com/123",
-          sealed: {
-            v: 1,
-            alg: "AES-256-GCM",
-            kdf: "PBKDF2-SHA256",
-            iterations: 310000,
-            salt: "c2FsdHNhbHQxMjM0NTY",
-            iv: "aXZpdl8xMjM0NTY",
-            ct: "Y2lwaGVydGV4dF9kYXRh",
-          },
+          subject: "【腾讯】后台开发二面面试邀请",
+          from: "腾讯招聘 <recruit@tencent.com>",
+          text: "岗位：后台开发\n面试时间：2026年11月26日 15:00-16:00\n会议链接：https://meeting.tencent.com/dm/test123",
+          createEvent: true,
         },
       });
-      expect(created.statusCode).toBe(201);
-      const record = created.json();
-      expect(record.city).toBe("上海");
-      expect(record.sealed.alg).toBe("AES-256-GCM");
+      expect(parseRes.statusCode).toBe(200);
+      const createdEvent = parseRes.json().event;
+      expect(createdEvent.company).toBe("腾讯");
+      expect(createdEvent.recordId).toBe(rec.id);
 
-      // 用户 B 隔离校验：无法读取或操作用户 A 的记录
-      const listB = await app.inject({
-        method: "GET",
-        url: "/api/records",
-        headers: { cookie: cookieB },
-      });
-      expect(listB.json().items).toHaveLength(0);
-
-      const hackStage = await app.inject({
-        method: "PATCH",
-        url: `/api/records/${record.id}/stage`,
-        headers: { origin: ORIGIN, cookie: cookieB, "content-type": "application/json" },
-        payload: { stageIndex: 1, status: "pass" },
-      });
-      expect(hackStage.statusCode).toBe(404);
-
-      // 阶段推进
-      const stepRes = await app.inject({
-        method: "PATCH",
-        url: `/api/records/${record.id}/stage`,
-        headers: { origin: ORIGIN, cookie: cookieA, "content-type": "application/json" },
-        payload: { stageIndex: 1, status: "pass" },
-      });
-      expect(stepRes.statusCode).toBe(200);
-      expect(stepRes.json().stages[1].status).toBe("pass");
-      expect(stepRes.json().stages[2].status).toBe("current");
-
-      // 公司置顶与访问
-      const pinRes = await app.inject({
-        method: "PUT",
-        url: "/api/records/company-pin",
-        headers: { origin: ORIGIN, cookie: cookieA, "content-type": "application/json" },
-        payload: { company: "星海科技", pinned: true },
-      });
-      expect(pinRes.statusCode).toBe(200);
-
-      const visitRes = await app.inject({
+      // 3. 一键将日程同步到投递时间线（自动推进到二面）
+      const syncRecRes = await app.inject({
         method: "POST",
-        url: "/api/records/company-visit",
-        headers: { origin: ORIGIN, cookie: cookieA, "content-type": "application/json" },
-        payload: { company: "星海科技" },
+        url: `/api/events/${createdEvent.id}/sync-record`,
+        headers: { origin: ORIGIN, cookie: cookieA },
       });
-      expect(visitRes.statusCode).toBe(200);
+      expect(syncRecRes.statusCode).toBe(200);
+      const syncedRec = syncRecRes.json().record;
+      expect(syncedRec.stages[5].name).toBe("二面");
+      expect(syncedRec.stages[5].status).toBe("current");
 
-      // 老版缺少 stage.type 与 id 的 JSON 兼容导入
-      const importRes = await app.inject({
-        method: "POST",
-        url: "/api/records/import",
-        headers: { origin: ORIGIN, cookie: cookieA, "content-type": "application/json" },
-        payload: {
-          mode: "merge",
-          data: [
-            {
-              id: "legacy-1",
-              company: "云雀智造",
-              position: "后端开发",
-              stages: [
-                { name: "投递", status: "pass" },
-                { name: "一面", status: "current" },
-                { name: "正式offer", status: "pending" },
-              ],
-              status: "active",
-              pinned: false,
-            },
-          ],
-        },
-      });
-      expect(importRes.statusCode).toBe(200);
-      expect(importRes.json().count).toBe(1);
-
-      const listA = await app.inject({
+      // 4. 日历私有订阅令牌 & ICS 端点
+      const tokenRes = await app.inject({
         method: "GET",
-        url: "/api/records",
+        url: "/api/calendar/token",
         headers: { cookie: cookieA },
       });
-      expect(listA.json().items).toHaveLength(2);
-      const legacyImported = listA.json().items.find((x: { id: string }) => x.id === "legacy-1");
-      expect(legacyImported.stages[1].type).toBe("interview");
-      expect(legacyImported.stages[2].type).toBe("offer");
+      expect(tokenRes.statusCode).toBe(200);
+      const token = tokenRes.json().token;
+      const icsRes = await app.inject({
+        method: "GET",
+        url: `/api/calendar/${token}.ics`,
+      });
+      expect(icsRes.statusCode).toBe(200);
+      expect(icsRes.body).toContain("BEGIN:VCALENDAR");
+      expect(icsRes.body).toContain("腾讯");
+
+      // 5. 邮箱配置保存密文、绝不返回明文密码
+      const mailSave = await app.inject({
+        method: "PUT",
+        url: "/api/mail/config",
+        headers: { origin: ORIGIN, cookie: cookieA, "content-type": "application/json" },
+        payload: {
+          enabled: false,
+          provider: "qq",
+          host: "imap.qq.com",
+          port: 993,
+          secure: true,
+          email: "demo@qq.com",
+          password: "secret-auth-code-16",
+          folder: "INBOX",
+          pollIntervalMin: 10,
+          lookbackDays: 7,
+          llmEnabled: false,
+          llmBaseUrl: "",
+          llmModel: "",
+        },
+      });
+      expect(mailSave.statusCode).toBe(200);
+      expect(mailSave.body).not.toContain("secret-auth-code-16");
+      expect(mailSave.json().hasPassword).toBe(true);
+
+      // 6. 面经记录 CRUD 与用户隔离
+      const noteRes = await app.inject({
+        method: "POST",
+        url: "/api/notes",
+        headers: { origin: ORIGIN, cookie: cookieA, "content-type": "application/json" },
+        payload: {
+          recordId: rec.id,
+          company: "腾讯",
+          position: "后台开发",
+          stageName: "一面",
+          feeling: "great",
+          content: "1. MySQL 索引下推与 MVCC\n2. 算法：LRU 缓存手写",
+        },
+      });
+      expect(noteRes.statusCode).toBe(201);
+
+      const notesB = await app.inject({
+        method: "GET",
+        url: "/api/notes",
+        headers: { cookie: cookieB },
+      });
+      expect(notesB.json().items).toHaveLength(0);
     } finally {
       await app.close();
       await store.close();

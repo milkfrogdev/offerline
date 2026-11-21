@@ -1,74 +1,172 @@
-import type { UserProfile } from "../../shared/types";
-
-export type ThemeChoice = "system" | "light" | "dark";
+import React, { useEffect, useRef, useState } from "react";
+import type { MailAccountPublic, MainTab, UserProfile } from "../../shared/types";
+import {
+  IconBrand,
+  IconChevron,
+  IconMail,
+  IconMoon,
+  IconShield,
+  IconSun,
+} from "./Icons";
 
 export function TopBar({
   user,
-  query,
-  onQuery,
+  activeTab,
+  onChangeTab,
+  pendingEventCount,
+  upcomingEventCount,
+  noteCount,
+  mailConfig,
   theme,
-  onTheme,
-  onNew,
-  onOpenVault,
+  onToggleTheme,
+  onOpenMailModal,
+  onOpenVaultModal,
   onLogout,
 }: {
   user: UserProfile;
-  query: string;
-  onQuery: (v: string) => void;
-  theme: ThemeChoice;
-  onTheme: (t: ThemeChoice) => void;
-  onNew: () => void;
-  onOpenVault: () => void;
+  activeTab: MainTab;
+  onChangeTab: (tab: MainTab) => void;
+  pendingEventCount: number;
+  upcomingEventCount: number;
+  noteCount: number;
+  mailConfig: MailAccountPublic | null;
+  theme: "light" | "dark";
+  onToggleTheme: () => void;
+  onOpenMailModal: () => void;
+  onOpenVaultModal: () => void;
   onLogout: () => void;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
+
+  const scheduleBadge = pendingEventCount > 0 ? pendingEventCount : upcomingEventCount;
+
   return (
     <header className="topbar">
       <div className="topbar-inner">
-        <div className="brand">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <rect x="3" y="4" width="18" height="16" rx="3" stroke="currentColor" strokeWidth="1.8" />
-            <path d="M7 9h10M7 13h6M7 17h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          </svg>
-          <span>OfferLine</span>
+        <div className="topbar-left">
+          <button
+            type="button"
+            className="brand-btn"
+            onClick={() => onChangeTab("pipeline")}
+            aria-label="OfferLine 首页"
+          >
+            <span className="brand-mark">
+              <IconBrand size={16} />
+            </span>
+            <span className="brand-name">OfferLine</span>
+          </button>
+
+          <nav className="main-nav" aria-label="主导航">
+            <button
+              type="button"
+              className={`nav-link${activeTab === "pipeline" ? " active" : ""}`}
+              onClick={() => onChangeTab("pipeline")}
+            >
+              投递
+            </button>
+            <button
+              type="button"
+              className={`nav-link${activeTab === "schedule" ? " active" : ""}`}
+              onClick={() => onChangeTab("schedule")}
+            >
+              日程
+              {scheduleBadge > 0 && (
+                <span className={`nav-count${pendingEventCount > 0 ? " alert" : ""}`}>
+                  {scheduleBadge}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              className={`nav-link${activeTab === "notes" ? " active" : ""}`}
+              onClick={() => onChangeTab("notes")}
+            >
+              面经
+              {noteCount > 0 && <span className="nav-count">{noteCount}</span>}
+            </button>
+          </nav>
         </div>
 
-        <input
-          className="search-input"
-          aria-label="搜索公司或岗位"
-          placeholder="搜索公司、岗位、城市…"
-          value={query}
-          onChange={(e) => onQuery(e.target.value)}
-        />
+        <div className="topbar-right">
+          <button
+            type="button"
+            className={`icon-action${mailConfig?.enabled ? " is-live" : ""}`}
+            onClick={onOpenMailModal}
+            title={mailConfig?.enabled ? `邮箱监听中：${mailConfig.email}` : "配置邮箱监听"}
+          >
+            <IconMail size={15} />
+            <span className="icon-action-label">
+              {mailConfig?.enabled ? "监听中" : "邮箱监听"}
+            </span>
+          </button>
 
-        <div className="topbar-actions">
-          <span className="segmented" role="group" aria-label="界面主题">
-            {(
-              [
-                ["system", "自动"],
-                ["light", "白天"],
-                ["dark", "黑夜"],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                className={theme === value ? "selected" : ""}
-                onClick={() => onTheme(value)}
-              >
-                {label}
-              </button>
-            ))}
-          </span>
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={onToggleTheme}
+            title={theme === "dark" ? "切换到浅色" : "切换到深色"}
+            aria-label="切换昼夜主题"
+          >
+            {theme === "dark" ? <IconSun size={16} /> : <IconMoon size={16} />}
+          </button>
 
-          <button type="button" onClick={onOpenVault}>
-            数据与安全
-          </button>
-          <button type="button" className="primary" onClick={onNew}>
-            + 新增投递
-          </button>
-          <button type="button" className="quiet" onClick={onLogout} title={`@${user.username}`}>
-            退出 ({user.username})
-          </button>
+          <div className="user-menu-wrap" ref={menuRef}>
+            <button
+              type="button"
+              className="user-trigger"
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-expanded={menuOpen}
+            >
+              <span className="user-name">{user.username}</span>
+              <IconChevron size={13} />
+            </button>
+
+            {menuOpen && (
+              <div className="dropdown-menu" role="menu">
+                <button
+                  type="button"
+                  className="dropdown-item"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onOpenVaultModal();
+                  }}
+                >
+                  <IconShield size={14} />
+                  <span>数据备份与加密</span>
+                </button>
+                <div className="dropdown-sep" />
+                <button
+                  type="button"
+                  className="dropdown-item danger"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onLogout();
+                  }}
+                >
+                  <span>退出登录</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </header>

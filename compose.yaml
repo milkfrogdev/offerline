@@ -30,12 +30,14 @@ services:
       APP_ORIGIN: ${APP_ORIGIN:?Set APP_ORIGIN in .env}
       ALLOW_HTTP: ${ALLOW_HTTP:-false}
       REGISTRATION_OPEN: ${REGISTRATION_OPEN:-true}
+      MAIL_ENCRYPTION_KEY: ${MAIL_ENCRYPTION_KEY:?Set MAIL_ENCRYPTION_KEY in .env}
       DATABASE_URL: mysql://offerline:${MYSQL_PASSWORD}@db:3306/offerline
     depends_on:
       db:
         condition: service_healthy
     networks:
       - internal
+      - egress
     restart: unless-stopped
     init: true
     read_only: true
@@ -49,6 +51,7 @@ services:
 networks:
   internal:
     internal: true
+  egress: {}
 
 volumes:
   offerline_mysql: {}

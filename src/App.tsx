@@ -1,369 +1,461 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { groupAndSortCompanies } from "../shared/stages";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   ApplicationRecord,
-  FilterStatus,
-  SortMode,
+  InterviewNote,
+  MailAccountPublic,
+  MainTab,
+  ScheduleEvent,
   StageStatus,
   UserProfile,
-  ViewMode,
 } from "../shared/types";
 import { api } from "./api";
 import { AuthView } from "./components/AuthView";
-import { DetailDrawer } from "./components/DetailDrawer";
-import { CreateRecordDialog, VaultAndDataDialog } from "./components/Modals";
-import { PipelineMetrics } from "./components/PipelineMetrics";
-import { PipelineTable } from "./components/PipelineTable";
-import { StageBoard } from "./components/StageBoard";
-import { TopBar, type ThemeChoice } from "./components/TopBar";
+import {
+  CalendarSubscribeModal,
+  EventModal,
+  MailSettingsModal,
+  NoteModal,
+  RecordModal,
+  VaultModal,
+} from "./components/Modals";
+import { NotesView } from "./components/NotesView";
+import { PipelineView } from "./components/PipelineView";
+import { ScheduleView } from "./components/ScheduleView";
+import { TopBar } from "./components/TopBar";
 
-type Toast = { id: number; text: string; kind: "ok" | "error" };
+const THEME_KEY = "offerline.theme";
 
-export default function App() {
+function loadInitialTheme(): "light" | "dark" {
+  const saved = localStorage.getItem(THEME_KEY);
+  if (saved === "light" || saved === "dark") return saved;
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+export function App() {
+  const [theme, setTheme] = useState<"light" | "dark">(loadInitialTheme);
+  const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<UserProfile | null>(null);
   const [registrationOpen, setRegistrationOpen] = useState(true);
-  const [authReady, setAuthReady] = useState(false);
 
+  const [activeTab, setActiveTab] = useState<MainTab>("pipeline");
   const [records, setRecords] = useState<ApplicationRecord[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<FilterStatus>("active");
-  const [sortBy, setSortBy] = useState<SortMode>("progress");
-  const [view, setView] = useState<ViewMode>("table");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [events, setEvents] = useState<ScheduleEvent[]>([]);
+  const [notes, setNotes] = useState<InterviewNote[]>([]);
+  const [mailConfig, setMailConfig] = useState<MailAccountPublic | null>(null);
+  const [syncingMail, setSyncingMail] = useState(false);
 
-  const [createOpen, setCreateOpen] = useState(false);
-  const [vaultOpen, setVaultOpen] = useState(false);
-  const [vaultKey, setVaultKey] = useState("");
-  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [notesFilter, setNotesFilter] = useState("");
+  const [toast, setToast] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
-  const [theme, setTheme] = useState<ThemeChoice>(() => {
-    try {
-      const saved = localStorage.getItem("offerline.theme");
-      return saved === "light" || saved === "dark" || saved === "system" ? saved : "system";
-    } catch {
-      return "system";
-    }
+  // Modals
+  const [recordModal, setRecordModal] = useState<{
+    open: boolean;
+    editing: ApplicationRecord | null;
+    presetCompany?: string;
+    presetUrl?: string;
+  }>({ open: false, editing: null });
+  const [mailModal, setMailModal] = useState<{ open: boolean; tab: "imap" | "parse" }>({
+    open: false,
+    tab: "imap",
   });
+  const [eventModal, setEventModal] = useState<{
+    open: boolean;
+    preset?: { recordId?: string; company?: string; position?: string; stageName?: string };
+  }>({ open: false });
+  const [noteModal, setNoteModal] = useState<{
+    open: boolean;
+    editing: InterviewNote | null;
+    preset?: { recordId?: string; company?: string; position?: string; stageName?: string };
+  }>({ open: false, editing: null });
+  const [subscribeOpen, setSubscribeOpen] = useState(false);
+  const [vaultOpen, setVaultOpen] = useState(false);
 
-  useEffect(() => {
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const apply = () => {
-      document.documentElement.dataset.theme =
-        theme === "system" ? (media.matches ? "dark" : "light") : theme;
-      try {
-        localStorage.setItem("offerline.theme", theme);
-      } catch {}
-    };
-    apply();
-    media.addEventListener("change", apply);
-    return () => media.removeEventListener("change", apply);
-  }, [theme]);
-
-  const notify = useCallback((text: string, kind: "ok" | "error" = "ok") => {
-    const id = Date.now() + Math.random();
-    setToasts((old) => [...old, { id, text, kind }]);
-    setTimeout(() => {
-      setToasts((old) => old.filter((t) => t.id !== id));
-    }, 3200);
+  const showToast = useCallback((text: string, kind: "ok" | "err" = "ok") => {
+    setToast({ kind, text });
   }, []);
 
-  const loadRecords = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await api<{ items: ApplicationRecord[] }>("/records");
-      setRecords(res.items);
-    } catch (e) {
-      notify(e instanceof Error ? e.message : "加载记录失败", "error");
-    } finally {
-      setLoading(false);
-    }
-  }, [notify]);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2600);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   useEffect(() => {
-    api<{ user: UserProfile | null; registrationOpen: boolean }>("/session")
-      .then((s) => {
-        setUser(s.user);
-        setRegistrationOpen(s.registrationOpen);
-        if (s.user) void loadRecords();
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem(THEME_KEY, theme);
+  }, [theme]);
+
+  const loadAllData = useCallback(async () => {
+    const [recRes, evRes, noteRes, mailRes] = await Promise.all([
+      api.listRecords(),
+      api.listEvents(),
+      api.listNotes(),
+      api.getMailConfig(),
+    ]);
+    setRecords(recRes.items);
+    setEvents(evRes.items);
+    setNotes(noteRes.items);
+    setMailConfig(mailRes);
+  }, []);
+
+  useEffect(() => {
+    void api
+      .session()
+      .then(async (res) => {
+        setUser(res.user);
+        setRegistrationOpen(res.registrationOpen);
+        if (res.user) {
+          await loadAllData();
+        }
       })
-      .catch(() => {})
-      .finally(() => setAuthReady(true));
-  }, [loadRecords]);
+      .finally(() => setLoading(false));
+  }, [loadAllData]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return records.filter((r) => {
-      if (filter !== "all" && r.status !== filter) return false;
-      if (!q) return true;
-      return [r.company, r.position, r.city || "", r.source || "", r.notes || ""]
-        .join(" ")
-        .toLowerCase()
-        .includes(q);
-    });
-  }, [records, filter, query]);
-
-  const groups = useMemo(
-    () => groupAndSortCompanies(filtered, sortBy),
-    [filtered, sortBy],
+  const pendingEventCount = useMemo(
+    () => events.filter((e) => e.status === "pending_confirm").length,
+    [events],
   );
+  const upcomingEventCount = useMemo(() => {
+    const now = Date.now() - 30 * 60_000;
+    return events.filter((e) => e.status === "confirmed" && Date.parse(e.startAt) >= now).length;
+  }, [events]);
 
-  const selectedRecord = useMemo(
-    () => records.find((r) => r.id === selectedId) || null,
-    [records, selectedId],
-  );
-
-  async function handleCreate(payload: Record<string, unknown>) {
-    const created = await api<ApplicationRecord>("/records", payload);
-    setRecords((old) => [created, ...old]);
-    setSelectedId(created.id);
-    notify("已新增投递记录");
+  async function handleLogin(username: string, password: string) {
+    const res = await api.login(username, password);
+    setUser(res.user);
+    await loadAllData();
   }
 
-  async function handleUpdate(id: string, patch: Record<string, unknown>) {
-    const updated = await api<ApplicationRecord>(`/records/${id}`, patch, "PATCH");
-    setRecords((old) => old.map((r) => (r.id === id ? updated : r)));
+  async function handleRegister(username: string, password: string) {
+    const res = await api.register(username, password);
+    setUser(res.user);
+    await loadAllData();
   }
 
-  async function handleStageStatus(id: string, stageIndex: number, status: StageStatus) {
+  async function handleLogout() {
+    await api.logout();
+    setUser(null);
+    setRecords([]);
+    setEvents([]);
+    setNotes([]);
+    setMailConfig(null);
+  }
+
+  async function handleChangeStageStatus(recordId: string, stageIndex: number, status: StageStatus) {
     try {
-      const updated = await api<ApplicationRecord>(
-        `/records/${id}/stage`,
-        { stageIndex, status },
-        "PATCH",
-      );
-      setRecords((old) => old.map((r) => (r.id === id ? updated : r)));
-    } catch (e) {
-      notify(e instanceof Error ? e.message : "状态更新失败", "error");
+      const updated = await api.updateStageStatus(recordId, stageIndex, status);
+      setRecords((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "状态更新失败。", "err");
     }
   }
 
-  async function handleDelete(id: string) {
+  async function handlePinCompany(company: string, pinned: boolean) {
     try {
-      await api(`/records/${id}`, {}, "DELETE");
-      setRecords((old) => old.filter((r) => r.id !== id));
-      if (selectedId === id) setSelectedId(null);
-      notify("记录已删除");
-    } catch (e) {
-      notify(e instanceof Error ? e.message : "删除失败", "error");
+      await api.pinCompany(company, pinned);
+      setRecords((prev) => prev.map((r) => (r.company === company ? { ...r, pinned } : r)));
+      showToast(pinned ? `已置顶 ${company}` : `已取消置顶 ${company}`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "操作失败。", "err");
     }
   }
 
   async function handleVisitCompany(company: string, url?: string) {
     if (url) window.open(url, "_blank", "noopener,noreferrer");
     try {
-      const r = await api<{ lastVisitedAt: string }>("/records/company-visit", { company });
-      setRecords((old) =>
-        old.map((item) =>
-          item.company === company ? { ...item, lastVisitedAt: r.lastVisitedAt } : item,
-        ),
+      const res = await api.visitCompany(company);
+      setRecords((prev) =>
+        prev.map((r) => (r.company === company ? { ...r, lastVisitedAt: res.lastVisitedAt } : r)),
       );
-    } catch (e) {
-      notify(e instanceof Error ? e.message : "更新访问时间失败", "error");
+    } catch {
+      // 忽略访问打卡异常
     }
   }
 
-  async function handleVisitRecord(record: ApplicationRecord) {
-    if (record.url) window.open(record.url, "_blank", "noopener,noreferrer");
+  async function handleDeleteRecord(record: ApplicationRecord) {
+    if (!window.confirm(`确定删除「${record.company} · ${record.position}」吗？`)) return;
     try {
-      const r = await api<{ lastVisitedAt: string }>(`/records/${record.id}/visit`, {});
-      setRecords((old) =>
-        old.map((item) =>
-          item.id === record.id ? { ...item, lastVisitedAt: r.lastVisitedAt } : item,
-        ),
+      await api.deleteRecord(record.id);
+      setRecords((prev) => prev.filter((r) => r.id !== record.id));
+      showToast("已删除投递记录");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "删除失败。", "err");
+    }
+  }
+
+  async function handleSyncMail() {
+    setSyncingMail(true);
+    try {
+      const res = await api.syncMailNow();
+      setMailConfig(res.config);
+      setEvents(res.events);
+      showToast(
+        res.summary.created > 0
+          ? `同步完成，新发现 ${res.summary.created} 条日程`
+          : `同步完成，扫描 ${res.summary.scanned} 封邮件，暂无新日程`,
       );
-    } catch (e) {
-      notify(e instanceof Error ? e.message : "更新访问时间失败", "error");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "邮箱同步失败。", "err");
+    } finally {
+      setSyncingMail(false);
     }
   }
 
-  async function handlePinCompany(company: string, pinned: boolean) {
+  async function handleConfirmEvent(ev: ScheduleEvent) {
     try {
-      await api("/records/company-pin", { company, pinned }, "PUT");
-      setRecords((old) =>
-        old.map((item) => (item.company === company ? { ...item, pinned } : item)),
-      );
-    } catch (e) {
-      notify(e instanceof Error ? e.message : "置顶操作失败", "error");
+      const updated = await api.updateEvent(ev.id, { status: "confirmed" });
+      setEvents((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+      showToast("已加入日程");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "确认失败。", "err");
     }
   }
 
-  async function handleArchiveToggle(r: ApplicationRecord) {
-    const next = r.status === "archived" ? "active" : "archived";
+  async function handleSyncEventToRecord(ev: ScheduleEvent) {
     try {
-      await handleUpdate(r.id, { status: next });
-      notify(next === "archived" ? "已归档" : "已恢复为进行中");
-    } catch (e) {
-      notify(e instanceof Error ? e.message : "操作失败", "error");
+      const res = await api.syncEventToRecord(ev.id);
+      setEvents((prev) => prev.map((e) => (e.id === res.event.id ? res.event : e)));
+      setRecords((prev) => {
+        const exists = prev.some((r) => r.id === res.record.id);
+        return exists
+          ? prev.map((r) => (r.id === res.record.id ? res.record : r))
+          : [res.record, ...prev];
+      });
+      showToast(`已同步「${res.record.company}」进度到时间线`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "同步进度失败。", "err");
     }
   }
 
-  async function handleLogout() {
-    await api("/auth/logout", {});
-    setUser(null);
-    setRecords([]);
-    setSelectedId(null);
-    setVaultKey("");
+  async function handleToggleCompleteEvent(ev: ScheduleEvent) {
+    try {
+      const updated = await api.updateEvent(ev.id, { status: "completed" });
+      setEvents((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+      showToast("已标记完成");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "操作失败。", "err");
+    }
   }
 
-  if (!authReady) {
-    return <div className="auth-wrap">读取中…</div>;
+  async function handleDismissEvent(ev: ScheduleEvent) {
+    try {
+      const updated = await api.updateEvent(ev.id, { status: "dismissed" });
+      setEvents((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "忽略失败。", "err");
+    }
+  }
+
+  async function handleDeleteEvent(ev: ScheduleEvent) {
+    try {
+      await api.deleteEvent(ev.id);
+      setEvents((prev) => prev.filter((e) => e.id !== ev.id));
+      showToast("已删除日程");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "删除失败。", "err");
+    }
+  }
+
+  async function handleDeleteNote(note: InterviewNote) {
+    if (!window.confirm(`确定删除「${note.company} · ${note.stageName}」的面经吗？`)) return;
+    try {
+      await api.deleteNote(note.id);
+      setNotes((prev) => prev.filter((n) => n.id !== note.id));
+      showToast("已删除面经");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "删除失败。", "err");
+    }
+  }
+
+  if (loading) {
+    return <div className="boot-screen">正在加载…</div>;
   }
 
   if (!user) {
     return (
       <AuthView
         registrationOpen={registrationOpen}
-        onSuccess={(u) => {
-          setUser(u);
-          void loadRecords();
-        }}
+        theme={theme}
+        onToggleTheme={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+        onLogin={handleLogin}
+        onRegister={handleRegister}
       />
     );
   }
 
   return (
-    <>
+    <div className="app-shell">
       <TopBar
         user={user}
-        query={query}
-        onQuery={setQuery}
+        activeTab={activeTab}
+        onChangeTab={setActiveTab}
+        pendingEventCount={pendingEventCount}
+        upcomingEventCount={upcomingEventCount}
+        noteCount={notes.length}
+        mailConfig={mailConfig}
         theme={theme}
-        onTheme={setTheme}
-        onNew={() => setCreateOpen(true)}
-        onOpenVault={() => setVaultOpen(true)}
+        onToggleTheme={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+        onOpenMailModal={() => setMailModal({ open: true, tab: "imap" })}
+        onOpenVaultModal={() => setVaultOpen(true)}
         onLogout={() => void handleLogout()}
       />
 
-      <main className="workbench">
-        <PipelineMetrics records={records} />
+      <main className="main-area">
+        {activeTab === "pipeline" && (
+          <PipelineView
+            records={records}
+            events={events}
+            notes={notes}
+            onAddRecord={() => setRecordModal({ open: true, editing: null })}
+            onAddForCompany={(company, url) =>
+              setRecordModal({ open: true, editing: null, presetCompany: company, presetUrl: url })
+            }
+            onEditRecord={(rec) => setRecordModal({ open: true, editing: rec })}
+            onDeleteRecord={(rec) => void handleDeleteRecord(rec)}
+            onChangeStageStatus={handleChangeStageStatus}
+            onPinCompany={handlePinCompany}
+            onVisitCompany={handleVisitCompany}
+            onScheduleForStage={(rec, stageName) =>
+              setEventModal({
+                open: true,
+                preset: {
+                  recordId: rec.id,
+                  company: rec.company,
+                  position: rec.position,
+                  stageName,
+                },
+              })
+            }
+            onWriteNoteForStage={(rec, stageName) =>
+              setNoteModal({
+                open: true,
+                editing: null,
+                preset: {
+                  recordId: rec.id,
+                  company: rec.company,
+                  position: rec.position,
+                  stageName,
+                },
+              })
+            }
+            onOpenScheduleTab={() => setActiveTab("schedule")}
+            onOpenNotesForRecord={(company) => {
+              setNotesFilter(company);
+              setActiveTab("notes");
+            }}
+          />
+        )}
 
-        <div className="toolbar-row">
-          <div className="toolbar-left">
-            <span className="segmented" role="group" aria-label="视图切换">
-              <button
-                type="button"
-                className={view === "table" ? "selected" : ""}
-                onClick={() => setView("table")}
-              >
-                流水线总表
-              </button>
-              <button
-                type="button"
-                className={view === "board" ? "selected" : ""}
-                onClick={() => setView("board")}
-              >
-                阶段看板
-              </button>
-            </span>
+        {activeTab === "schedule" && (
+          <ScheduleView
+            events={events}
+            mailConfig={mailConfig}
+            syncing={syncingMail}
+            onSyncMail={handleSyncMail}
+            onOpenMailSettings={() => setMailModal({ open: true, tab: "imap" })}
+            onOpenParseModal={() => setMailModal({ open: true, tab: "parse" })}
+            onOpenSubscribeModal={() => setSubscribeOpen(true)}
+            onAddEvent={() => setEventModal({ open: true })}
+            onConfirmEvent={handleConfirmEvent}
+            onSyncEventToRecord={handleSyncEventToRecord}
+            onToggleComplete={handleToggleCompleteEvent}
+            onDismissEvent={handleDismissEvent}
+            onDeleteEvent={handleDeleteEvent}
+            onWriteNoteFromEvent={(ev) =>
+              setNoteModal({
+                open: true,
+                editing: null,
+                preset: {
+                  recordId: ev.recordId,
+                  company: ev.company,
+                  position: ev.position,
+                  stageName: ev.stageName || "一面",
+                },
+              })
+            }
+          />
+        )}
 
-            <span className="segmented" role="group" aria-label="状态筛选">
-              {(
-                [
-                  ["active", "进行中"],
-                  ["archived", "已归档"],
-                  ["all", "全部"],
-                ] as const
-              ).map(([v, label]) => (
-                <button
-                  key={v}
-                  type="button"
-                  className={filter === v ? "selected" : ""}
-                  onClick={() => setFilter(v)}
-                >
-                  {label}
-                </button>
-              ))}
-            </span>
-          </div>
-
-          <div className="toolbar-right">
-            <select
-              aria-label="排序方式"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortMode)}
-              style={{ width: "auto" }}
-            >
-              <option value="progress">按流程进度</option>
-              <option value="followup">按跟进日期</option>
-              <option value="visited">按最近访问</option>
-              <option value="updated">按最近更新</option>
-              <option value="created">按投递时间</option>
-              <option value="company">按公司名称</option>
-            </select>
-          </div>
-        </div>
-
-        <div className={"workspace-split" + (selectedRecord ? " has-drawer" : "")}>
-          <div>
-            {loading && !records.length ? (
-              <div className="empty-box">正在加载投递数据…</div>
-            ) : !filtered.length ? (
-              <div className="empty-box">
-                <h2>暂无匹配的投递记录</h2>
-                <button type="button" className="primary" onClick={() => setCreateOpen(true)}>
-                  + 新增一条投递
-                </button>
-              </div>
-            ) : view === "table" ? (
-              <PipelineTable
-                groups={groups}
-                selectedId={selectedId}
-                onSelect={(r) => setSelectedId(r.id)}
-                onVisitCompany={(c, u) => void handleVisitCompany(c, u)}
-                onPinCompany={(c, p) => void handlePinCompany(c, p)}
-                onArchiveToggle={(r) => void handleArchiveToggle(r)}
-              />
-            ) : (
-              <StageBoard
-                records={filtered}
-                selectedId={selectedId}
-                onSelect={(r) => setSelectedId(r.id)}
-              />
-            )}
-          </div>
-
-          {selectedRecord && (
-            <DetailDrawer
-              record={selectedRecord}
-              vaultKey={vaultKey}
-              onClose={() => setSelectedId(null)}
-              onVisit={(r) => void handleVisitRecord(r)}
-              onUpdate={handleUpdate}
-              onStageStatus={handleStageStatus}
-              onDelete={handleDelete}
-              onError={(m) => notify(m, "error")}
-              onNotice={(m) => notify(m, "ok")}
-            />
-          )}
-        </div>
+        {activeTab === "notes" && (
+          <NotesView
+            notes={notes}
+            initialFilter={notesFilter}
+            onClearInitialFilter={() => setNotesFilter("")}
+            onAddNote={() => setNoteModal({ open: true, editing: null })}
+            onEditNote={(n) => setNoteModal({ open: true, editing: n })}
+            onDeleteNote={(n) => void handleDeleteNote(n)}
+          />
+        )}
       </main>
 
-      <CreateRecordDialog
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onCreate={handleCreate}
-      />
+      {recordModal.open && (
+        <RecordModal
+          editing={recordModal.editing}
+          presetCompany={recordModal.presetCompany}
+          presetUrl={recordModal.presetUrl}
+          onClose={() => setRecordModal({ open: false, editing: null })}
+          onSaved={(saved, isEdit) => {
+            setRecords((prev) =>
+              isEdit ? prev.map((r) => (r.id === saved.id ? saved : r)) : [saved, ...prev],
+            );
+            showToast(isEdit ? "已更新投递记录" : "已添加投递记录");
+          }}
+        />
+      )}
 
-      <VaultAndDataDialog
-        open={vaultOpen}
-        records={records}
-        vaultKey={vaultKey}
-        onSetVaultKey={setVaultKey}
-        onImported={loadRecords}
-        onClose={() => setVaultOpen(false)}
-        onNotice={(m) => notify(m, "ok")}
-      />
+      {mailModal.open && (
+        <MailSettingsModal
+          config={mailConfig}
+          initialTab={mailModal.tab}
+          onClose={() => setMailModal({ open: false, tab: "imap" })}
+          onConfigUpdated={(cfg) => setMailConfig(cfg)}
+          onEventCreated={(ev) => {
+            setEvents((prev) => [ev, ...prev]);
+            setActiveTab("schedule");
+          }}
+        />
+      )}
 
-      {!!toasts.length && (
-        <div className="toast-stack" aria-live="polite">
-          {toasts.map((t) => (
-            <div key={t.id} className={`toast ${t.kind}`}>
-              {t.text}
-            </div>
-          ))}
+      {eventModal.open && (
+        <EventModal
+          preset={eventModal.preset}
+          onClose={() => setEventModal({ open: false })}
+          onCreated={(ev) => {
+            setEvents((prev) => [...prev, ev]);
+            showToast("已创建日程");
+          }}
+        />
+      )}
+
+      {subscribeOpen && <CalendarSubscribeModal onClose={() => setSubscribeOpen(false)} />}
+
+      {noteModal.open && (
+        <NoteModal
+          editing={noteModal.editing}
+          preset={noteModal.preset}
+          onClose={() => setNoteModal({ open: false, editing: null })}
+          onSaved={(saved, isEdit) => {
+            setNotes((prev) =>
+              isEdit ? prev.map((n) => (n.id === saved.id ? saved : n)) : [saved, ...prev],
+            );
+            showToast(isEdit ? "已更新面经记录" : "已保存面经记录");
+          }}
+        />
+      )}
+
+      {vaultOpen && (
+        <VaultModal
+          records={records}
+          onClose={() => setVaultOpen(false)}
+          onImported={loadAllData}
+        />
+      )}
+
+      {toast && (
+        <div className={`toast toast-${toast.kind}`} role="status">
+          {toast.text}
         </div>
       )}
-    </>
+    </div>
   );
 }

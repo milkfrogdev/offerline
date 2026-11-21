@@ -3,16 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>OfferLine · 求职进度台</title>
-    <script>
-      try {
-        var t = localStorage.getItem("offerline.theme") || "system";
-        document.documentElement.dataset.theme =
-          t === "dark" || (t === "system" && matchMedia("(prefers-color-scheme: dark)").matches)
-            ? "dark"
-            : "light";
-      } catch (e) {}
-    </script>
+    <title>OfferLine · 求职进度与日程台</title>
   </head>
   <body>
     <div id="root"></div>

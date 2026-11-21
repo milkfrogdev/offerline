@@ -16,12 +16,16 @@
     "@fastify/static": "^10.1.6",
     "@fontsource-variable/noto-sans-sc": "^5.3.1",
     "fastify": "^5.6.2",
+    "imapflow": "^2.12.2",
+    "mailparser": "^3.15.0",
     "mysql2": "^3.24.6",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "simple-icons": "^16.38.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@types/mailparser": "^3.9.0",
     "@types/node": "^24.10.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
