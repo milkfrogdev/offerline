@@ -1,44 +1,79 @@
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/InterVariable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "HarmonyOS Sans SC";
+  src: url("/fonts/HarmonyOS_Sans_SC_400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "HarmonyOS Sans SC";
+  src: url("/fonts/HarmonyOS_Sans_SC_500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "HarmonyOS Sans SC";
+  src: url("/fonts/HarmonyOS_Sans_SC_700.woff2") format("woff2");
+  font-weight: 600 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   color-scheme: light;
-  --font-sans: "Inter", "HarmonyOS Sans SC", "Noto Sans SC Variable", "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+  --font-sans: "Inter", "HarmonyOS Sans SC", "Microsoft YaHei", Arial, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Code", Consolas, monospace;
 
-  --bg: #f8f8f6;
-  --sidebar-bg: #f2f2ef;
+  --bg: #f3f4f6;
+  --sidebar-bg: #ffffff;
   --surface: #ffffff;
-  --surface-2: #efefeb;
-  --surface-hover: #e9e9e4;
-  --line: #e5e5e0;
-  --line-strong: #cecec7;
+  --surface-2: #f3f4f6;
+  --surface-hover: #f1f3f6;
+  --line: #e5e7eb;
+  --line-soft: #f0f2f5;
+  --line-strong: #d1d5db;
+  --card-elevation: 0 1px 2px rgba(17, 24, 39, 0.04);
 
-  --text: #161615;
-  --text-2: #5d5d58;
-  --text-3: #92928a;
+  --text: #111827;
+  --text-2: #4b5563;
+  --text-3: #8b92a0;
 
-  --ink: #161615;
-  --ink-hover: #2f2f2c;
+  --ink: #111827;
+  --ink-hover: #1f2937;
   --on-ink: #ffffff;
 
   --accent: #2563eb;
-  --accent-soft: #e6f0ff;
-  --accent-line: #bfd5ff;
+  --accent-soft: #dbeafe;
+  --accent-line: #bfdbfe;
 
-  --ok: #15803d;
-  --ok-dot: #22c55e;
-  --ok-soft: #eef9f2;
+  --ok: #059669;
+  --ok-dot: #10b981;
+  --ok-line: #6ee7b7;
+  --ok-soft: #ecfdf5;
 
-  --bad: #dc2626;
-  --bad-soft: #fef2f2;
+  --bad: #e11d48;
+  --bad-soft: #fff1f2;
 
-  --warn: #a16207;
-  --star: #c27803;
-  --star-soft: #fef7e6;
+  --warn: #b45309;
+  --star: #d97706;
+  --star-soft: #fef3c7;
   --orange: #c2410c;
 
-  --tl-line: #deded8;
-  --tl-pending-ring: #cfcfc8;
-  --tl-skip: #b4b4ac;
-  --backdrop: #16161542;
+  --tl-line: #e2e5ea;
+  --tl-pending-ring: #cbd2dc;
+  --tl-skip: #9ca3af;
+  --backdrop: #11182745;
 
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -48,42 +83,45 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #101114;
-  --sidebar-bg: #14161a;
-  --surface: #181a1f;
-  --surface-2: #21242b;
-  --surface-hover: #262a33;
-  --line: #262a32;
-  --line-strong: #3b414d;
+  --bg: #0d0f12;
+  --sidebar-bg: #111318;
+  --surface: #161920;
+  --surface-2: #1e222b;
+  --surface-hover: #212630;
+  --line: #232833;
+  --line-soft: #1d212b;
+  --line-strong: #353c4a;
+  --card-elevation: none;
 
-  --text: #f2f2ee;
-  --text-2: #a0a5b0;
-  --text-3: #6c727e;
+  --text: #f3f4f6;
+  --text-2: #9ca3af;
+  --text-3: #6b7280;
 
-  --ink: #f2f2ee;
+  --ink: #f3f4f6;
   --ink-hover: #ffffff;
-  --on-ink: #101114;
+  --on-ink: #0d0f12;
 
   --accent: #60a5fa;
-  --accent-soft: #1b2a42;
-  --accent-line: #2d4669;
+  --accent-soft: #1d314f;
+  --accent-line: #2c4c77;
 
-  --ok: #4ade80;
-  --ok-dot: #22c55e;
-  --ok-soft: #16291f;
+  --ok: #34d399;
+  --ok-dot: #10b981;
+  --ok-line: #059669;
+  --ok-soft: #112a22;
 
-  --bad: #f87171;
-  --bad-soft: #2c1a1d;
+  --bad: #fb7185;
+  --bad-soft: #2e171f;
 
-  --warn: #eab308;
+  --warn: #f59e0b;
   --star: #f59e0b;
   --star-soft: #2b2213;
   --orange: #fb923c;
 
-  --tl-line: #2c313b;
-  --tl-pending-ring: #444b59;
-  --tl-skip: #687080;
-  --backdrop: #00000072;
+  --tl-line: #282e3a;
+  --tl-pending-ring: #434b5c;
+  --tl-skip: #6b7280;
+  --backdrop: #00000075;
 }
 
 *,
@@ -471,9 +509,9 @@ textarea {
 
 .page-container {
   width: 100%;
-  max-width: 1380px;
+  max-width: 1180px;
   margin: 0;
-  padding: 0 28px;
+  padding: 0 32px;
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -919,7 +957,8 @@ textarea {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  padding: 16px 22px;
+  box-shadow: var(--card-elevation);
+  padding: 18px 24px 16px;
   transition: border-color 0.15s ease;
 }
 
@@ -964,8 +1003,7 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
   flex-wrap: wrap;
 }
 
@@ -1083,16 +1121,16 @@ textarea {
 
 .position-row {
   display: grid;
-  grid-template-columns: 118px minmax(0, 1fr) 76px;
+  grid-template-columns: 122px minmax(0, 1fr) 78px;
   align-items: center;
-  gap: 12px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--line);
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line-soft);
 }
 
 .position-row:last-child {
   border-bottom: none;
-  padding-bottom: 3px;
+  padding-bottom: 2px;
 }
 
 .position-info {
@@ -1145,8 +1183,8 @@ textarea {
 
 .tl-node {
   flex: 1 1 0;
-  min-width: 54px;
-  max-width: 112px;
+  min-width: 56px;
+  max-width: 96px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1155,18 +1193,18 @@ textarea {
 }
 
 .tl-node.is-first {
-  flex: 0 0 46px;
-  min-width: 46px;
+  flex: 0 0 48px;
+  min-width: 48px;
 }
 
 .tl-node.is-last {
-  flex: 0 0 58px;
-  min-width: 58px;
+  flex: 0 0 60px;
+  min-width: 60px;
 }
 
 .tl-dot-row {
   width: 100%;
-  height: 20px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1174,8 +1212,8 @@ textarea {
 }
 
 .tl-dot {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   border: 1.5px solid var(--tl-pending-ring);
   background: var(--surface);
@@ -1189,19 +1227,19 @@ textarea {
 }
 
 .tl-node:hover .tl-dot {
-  transform: scale(1.12);
+  transform: scale(1.1);
 }
 
 .tl-mark {
-  width: 11px;
-  height: 11px;
+  width: 12px;
+  height: 12px;
   display: block;
 }
 
 .tl-arm {
   position: absolute;
   top: 50%;
-  height: 1.5px;
+  height: 2px;
   transform: translateY(-50%);
   background: var(--tl-line);
   z-index: 1;
@@ -1209,16 +1247,16 @@ textarea {
 
 .tl-arm-left {
   left: 0;
-  right: calc(50% + 9px);
+  right: calc(50% + 10px);
 }
 
 .tl-arm-right {
-  left: calc(50% + 9px);
+  left: calc(50% + 10px);
   right: 0;
 }
 
 .tl-arm.line-pass {
-  background: var(--ok-dot);
+  background: var(--ok-line);
 }
 
 .tl-arm.line-skip {
@@ -1228,8 +1266,8 @@ textarea {
 }
 
 .tl-label {
-  font-size: 11.5px;
-  line-height: 1.2;
+  font-size: 12px;
+  line-height: 1.25;
   color: var(--text-3);
   white-space: nowrap;
   max-width: 100%;
@@ -1245,6 +1283,7 @@ textarea {
 
 .tl-node.st-pass .tl-label {
   color: var(--text-2);
+  font-weight: 500;
 }
 
 .tl-node.st-current .tl-dot {
