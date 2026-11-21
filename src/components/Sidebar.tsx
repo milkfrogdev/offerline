@@ -84,11 +84,11 @@ export function Sidebar({
     setMobileOpen(false);
   }
 
-  const statCells: { key: MetricFilter; label: string; count: number; tone?: string }[] = [
-    { key: "active", label: "进行中", count: metrics.active, tone: "accent" },
-    { key: "interview", label: "已进面", count: metrics.interviewed },
-    { key: "offer", label: "Offer", count: metrics.offered, tone: "ok" },
-    { key: "failed", label: "已挂", count: metrics.failed, tone: "muted" },
+  const filterRows: { key: MetricFilter; label: string; count: number; dot: string }[] = [
+    { key: "active", label: "进行中", count: metrics.active, dot: "accent" },
+    { key: "interview", label: "已进面试", count: metrics.interviewed, dot: "ink" },
+    { key: "offer", label: "Offer", count: metrics.offered, dot: "ok" },
+    { key: "failed", label: "已挂", count: metrics.failed, dot: "muted" },
   ];
 
   const userInitial = (user.username.trim().slice(0, 1) || "U").toUpperCase();
@@ -113,7 +113,7 @@ export function Sidebar({
 
         <button
           type="button"
-          className="icon-btn sidebar-theme-btn"
+          className="sidebar-ghost-icon"
           onClick={onToggleTheme}
           title={theme === "dark" ? "切换到浅色" : "切换到深色"}
           aria-label="切换昼夜主题"
@@ -125,11 +125,14 @@ export function Sidebar({
       <nav className="sidebar-nav" aria-label="主导航">
         <button
           type="button"
-          className={`side-item${activeTab === "pipeline" ? " active" : ""}`}
-          onClick={() => selectTab("pipeline")}
+          className={`side-item${activeTab === "pipeline" && metricFilter === "all" ? " active" : ""}`}
+          onClick={() => {
+            onSelectMetricFilter("all");
+            selectTab("pipeline");
+          }}
         >
           <IconPipeline size={15} />
-          <span className="side-item-label">投递</span>
+          <span className="side-item-label">全部投递</span>
           {metrics.total > 0 && <span className="side-count">{metrics.total}</span>}
         </button>
 
@@ -158,83 +161,66 @@ export function Sidebar({
         </button>
       </nav>
 
-      {/* 精致 2×2 嵌入式求职概览卡（点击筛选，无双白块撞车） */}
-      <div className="sidebar-overview">
-        <div className="overview-head">
-          <span className="overview-title">概览筛选</span>
-          {activeTab === "pipeline" && metricFilter !== "all" && (
-            <button
-              type="button"
-              className="overview-reset"
-              onClick={() => handleFilterClick("all")}
-            >
-              全部
-            </button>
-          )}
+      {/* 无框融体状态筛选 + 极简转化率 */}
+      <div className="sidebar-group">
+        <div className="sidebar-group-label">状态筛选</div>
+        <div className="sidebar-filters">
+          {filterRows.map((row) => {
+            const selected = activeTab === "pipeline" && metricFilter === row.key;
+            return (
+              <button
+                key={row.key}
+                type="button"
+                className={`side-filter-row${selected ? " active" : ""}`}
+                onClick={() => handleFilterClick(row.key)}
+              >
+                <span className={`status-pip pip-${row.dot}`} aria-hidden="true" />
+                <span className="side-item-label">{row.label}</span>
+                <span className="side-count">{row.count}</span>
+              </button>
+            );
+          })}
         </div>
 
-        <div className="overview-card">
-          <div className="overview-grid">
-            {statCells.map((cell) => {
-              const selected = activeTab === "pipeline" && metricFilter === cell.key;
-              return (
-                <button
-                  key={cell.key}
-                  type="button"
-                  className={`overview-cell${selected ? " selected" : ""}`}
-                  onClick={() => handleFilterClick(cell.key)}
-                >
-                  <span className="overview-cell-label">{cell.label}</span>
-                  <span className={`overview-cell-num${cell.tone ? ` tone-${cell.tone}` : ""}`}>
-                    {cell.count}
-                  </span>
-                </button>
-              );
-            })}
+        <div className="sidebar-rate-inline">
+          <div className="sidebar-rate-head">
+            <span>进面转化</span>
+            <span className="sidebar-rate-val">{metrics.interviewRate}%</span>
           </div>
-
-          <div className="overview-rate">
-            <div className="overview-rate-row">
-              <span>进面率</span>
-              <span className="overview-rate-num">{metrics.interviewRate}%</span>
-            </div>
-            <div className="overview-rate-bar" aria-hidden="true">
-              <div
-                className="overview-rate-fill"
-                style={{ width: `${Math.min(100, metrics.interviewRate)}%` }}
-              />
-            </div>
+          <div className="sidebar-rate-bar" aria-hidden="true">
+            <div
+              className="sidebar-rate-fill"
+              style={{ width: `${Math.min(100, metrics.interviewRate)}%` }}
+            />
           </div>
         </div>
       </div>
 
       <div className="sidebar-foot">
-        <div className="sidebar-tools">
-          <button
-            type="button"
-            className="side-item"
-            onClick={() => {
-              setMobileOpen(false);
-              onOpenMailModal();
-            }}
-          >
-            <IconMail size={15} />
-            <span className="side-item-label">邮箱监听</span>
-            {mailConfig?.enabled && <span className="side-status live">运行中</span>}
-          </button>
+        <button
+          type="button"
+          className="side-item"
+          onClick={() => {
+            setMobileOpen(false);
+            onOpenMailModal();
+          }}
+        >
+          <IconMail size={15} />
+          <span className="side-item-label">邮箱监听</span>
+          {mailConfig?.enabled && <span className="side-status live">运行中</span>}
+        </button>
 
-          <button
-            type="button"
-            className="side-item"
-            onClick={() => {
-              setMobileOpen(false);
-              onOpenVaultModal();
-            }}
-          >
-            <IconShield size={15} />
-            <span className="side-item-label">数据与加密</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          className="side-item"
+          onClick={() => {
+            setMobileOpen(false);
+            onOpenVaultModal();
+          }}
+        >
+          <IconShield size={15} />
+          <span className="side-item-label">数据与加密</span>
+        </button>
 
         <div className="sidebar-user">
           <div className="sidebar-user-info">
@@ -247,7 +233,7 @@ export function Sidebar({
           </div>
           <button
             type="button"
-            className="row-icon-btn"
+            className="sidebar-ghost-icon"
             onClick={onLogout}
             title="退出登录"
             aria-label="退出登录"
