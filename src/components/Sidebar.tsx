@@ -94,7 +94,7 @@ export function Sidebar({
           className={`side-item${activeTab === "pipeline" ? " active" : ""}`}
           onClick={() => selectTab("pipeline")}
         >
-          <IconPipeline size={15} />
+          <IconPipeline size={16} />
           <span className="side-item-label">投递</span>
           {recordCount > 0 && <span className="side-count">{recordCount}</span>}
         </button>
@@ -104,7 +104,7 @@ export function Sidebar({
           className={`side-item${activeTab === "schedule" ? " active" : ""}`}
           onClick={() => selectTab("schedule")}
         >
-          <IconCalendar size={15} />
+          <IconCalendar size={16} />
           <span className="side-item-label">日程</span>
           {scheduleBadge > 0 && (
             <span className={`side-count${pendingEventCount > 0 ? " alert" : ""}`}>
@@ -118,7 +118,7 @@ export function Sidebar({
           className={`side-item${activeTab === "notes" ? " active" : ""}`}
           onClick={() => selectTab("notes")}
         >
-          <IconNote size={15} />
+          <IconNote size={16} />
           <span className="side-item-label">面经</span>
           {noteCount > 0 && <span className="side-count">{noteCount}</span>}
         </button>
@@ -127,26 +127,26 @@ export function Sidebar({
       <div className="sidebar-foot">
         <button
           type="button"
-          className="side-item"
+          className="side-item side-item-sub"
           onClick={() => {
             setMobileOpen(false);
             onOpenMailModal();
           }}
         >
-          <IconMail size={15} />
+          <IconMail size={16} />
           <span className="side-item-label">邮箱监听</span>
           {mailConfig?.enabled && <span className="side-status live">运行中</span>}
         </button>
 
         <button
           type="button"
-          className="side-item"
+          className="side-item side-item-sub"
           onClick={() => {
             setMobileOpen(false);
             onOpenVaultModal();
           }}
         >
-          <IconShield size={15} />
+          <IconShield size={16} />
           <span className="side-item-label">数据与加密</span>
         </button>
 

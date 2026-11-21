@@ -149,10 +149,10 @@ textarea {
   width: var(--sidebar-w);
   background: var(--sidebar-bg);
   border-right: 1px solid var(--line);
-  padding: 18px 12px 14px;
+  padding: 22px 14px 18px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 28px;
   z-index: 30;
 }
 
@@ -166,15 +166,15 @@ textarea {
 .brand-btn {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   color: var(--text);
   white-space: nowrap;
 }
 
 .brand-mark {
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
   background: var(--ink);
   color: var(--on-ink);
   display: inline-flex;
@@ -184,15 +184,15 @@ textarea {
 }
 
 .brand-name {
-  font-size: 15px;
+  font-size: 15.5px;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
 .sidebar-ghost-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -208,23 +208,28 @@ textarea {
 .sidebar-nav {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 8px;
 }
 
 .side-item,
 .side-filter-row {
   width: 100%;
-  height: 34px;
-  padding: 0 10px;
-  border-radius: 7px;
+  height: 42px;
+  padding: 0 12px;
+  border-radius: 9px;
   display: flex;
   align-items: center;
-  gap: 9px;
-  font-size: 13.5px;
+  gap: 11px;
+  font-size: 14px;
   font-weight: 450;
   color: var(--text-2);
   white-space: nowrap;
   transition: background 0.12s ease, color 0.12s ease;
+}
+
+.side-item-sub {
+  height: 38px;
+  font-size: 13.5px;
 }
 
 .side-filter-row {
@@ -363,16 +368,16 @@ textarea {
 
 .sidebar-foot {
   margin-top: auto;
-  padding-top: 12px;
+  padding-top: 16px;
   border-top: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 6px;
 }
 
 .sidebar-user {
-  margin-top: 8px;
-  padding: 8px 4px 0 8px;
+  margin-top: 10px;
+  padding: 12px 4px 0 10px;
   border-top: 1px solid var(--line);
   display: flex;
   align-items: center;
@@ -383,17 +388,17 @@ textarea {
 .sidebar-user-info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   min-width: 0;
 }
 
 .user-avatar {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: var(--surface-hover);
   color: var(--text-2);
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
