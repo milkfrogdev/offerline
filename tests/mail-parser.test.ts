@@ -225,6 +225,48 @@ describe("求职邮件深度解析、去噪、归一化与 ICS 生成", () => {
       date: "2026-10-03T23:00:00Z",
     });
     expect(zhaopinPromo.matched).toBe(false);
+
+    // 6. 阿里带连字符日期、京东带括号说明测评地址与48小时截止、以及训练营/校招网申宣传拦截
+    const aliHyphen = parseRecruitmentEmailByRules({
+      subject: "【阿里巴巴 校园招聘】在线笔试提醒",
+      from: "recruiting@alibaba-inc.com",
+      text: "最近一场AI研发工程师笔试将于2026年-09月-05日-14时-00分（北京时间）进行。\n登录链接：https://campus-talent.alibaba.com/personal/campus-application",
+      date: "2026-09-04T02:00:00Z",
+    });
+    expect(aliHyphen.matched).toBe(true);
+    expect(aliHyphen.company).toBe("阿里巴巴");
+    expect(aliHyphen.startAt).toBe("2026-09-05T06:00:00.000Z");
+
+    const jdShort = parseRecruitmentEmailByRules({
+      subject: "【京东校招】2027 测评通知",
+      from: "campus@jd.com",
+      text: "测评地址（这是您的专属地址，请勿转发给他人）：3.cn/demo123 (https://3.cn/demo123)\n建议您在48小时内完成测评。",
+      date: "2026-09-02T10:00:00Z",
+    });
+    expect(jdShort.matched).toBe(true);
+    expect(jdShort.company).toBe("京东");
+    expect(jdShort.timeMode).toBe("deadline");
+    expect(jdShort.location).toBe("https://3.cn/demo123");
+
+    const campPromo = parseRecruitmentEmailByRules({
+      subject: "【某厂校招】实战训练营：线上课题+20万奖金+直通校招Offer",
+      from: "CampusHR@oppo.com",
+      text: "优秀者直通2027届校招终面/Offer，立即报名参加训练营！",
+      date: "2026-06-02T08:00:00Z",
+    });
+    expect(campPromo.matched).toBe(false);
+
+    // 7. 反误杀回归：真实综合能力测评正文开头带“招聘已正式启动”问候语仍须正常命中
+    const assessWithGreeting = parseRecruitmentEmailByRules({
+      subject: "联想2026实习生招聘-综合能力测评",
+      from: "chinacampus@lenovo.com",
+      text: "同学您好！联想2026实习生校招已正式启动，现诚邀您参加在线综合能力测评，请在3个自然日内完成：https://test.ceping.com/demo",
+      date: "2026-05-21T07:00:00Z",
+    });
+    expect(assessWithGreeting.matched).toBe(true);
+    expect(assessWithGreeting.company).toBe("联想");
+    expect(assessWithGreeting.kind).toBe("assessment");
+    expect(assessWithGreeting.timeMode).toBe("deadline");
   });
 
   it("严格拦截拒信、面试调研问卷、校招直播宣传、专家平台与验证码邮件", () => {

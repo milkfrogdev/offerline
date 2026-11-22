@@ -39,8 +39,11 @@ const NEGATIVE_SUBJECT_HINTS =
 const SURVEY_FEEDBACK_RE =
   /面试体验调研|面试满意度|满意度评价|满意度反馈|体验调研|候选人调研|体验问卷|反馈问卷|面试体验反馈|邀请您对面试.{0,12}评价|interview\s*experience\s*survey|candidate\s*(?:experience\s*)?survey|feedback\s*survey/i;
 
-const PROMO_LIVESTREAM_RE =
-  /持续招聘中|正在热招|热招岗位|以下职位持续热招|专场直播|直播来袭|直播开聊|预约直播|宣讲会|空中宣讲|校招启动|校园招聘正式启动|校园招聘启动|招聘正式启动|火热进行中|招聘火热|秋招开启|春招开启|秋招开放日|智联推荐|官方内推通道|内推码|职位推荐|岗位推荐|每周职位|高薪诚聘|福袋送不停|直播间/i;
+const PROMO_SUBJECT_RE =
+  /持续招聘中|正在热招|热招岗位|专场直播|直播来袭|直播开聊|预约直播|宣讲会|空中宣讲|实战训练营|训练营|校招启动|校园招聘正式启动|校园招聘启动|招聘正式启动|已正式启动|校招网申|邀请你参加.{0,12}(?:校招|秋招|春招)|直通.{0,8}(?:终面|offer)|火热进行中|招聘火热|秋招开启|春招开启|秋招开放日|智联推荐|官方内推通道|内推码|职位推荐|岗位推荐|每周职位|高薪诚聘|直播间/i;
+
+const PROMO_BODY_STRONG_RE =
+  /以下职位持续热招|专场直播|直播开聊|预约直播|福袋送不停|实战训练营|现邀请你参加.{0,12}校招网申/i;
 
 const PURE_RECEIPT_SUBJECT_RE =
   /^(?:(?:【[^】]{1,24}】|\[[^\]]{1,24}\])\s*)*(?:欢迎投递|感谢(?:您|你)?投递|投递成功|简历投递成功|简历成功投递|简历已收到|投递反馈|.*简历(?:投递成功|成功投递|已收到))|(?:【[^】]{1,24}】\s*(?:投递成功|投递反馈|简历投递成功|简历成功投递))/i;
@@ -290,12 +293,12 @@ function isSurveyEmail(subject: string, cleanText: string): boolean {
 
 function isPromoOrLivestreamEmail(subject: string, cleanText: string): boolean {
   const hasPersonalInviteSubj =
-    /面试邀请|面试通知|面试安排|面试提醒|笔试邀请|笔试通知|在线笔试|在线考试|在线测评|测评邀请|录用意向|录用通知|offer\s*(?:letter|通知)/i.test(
+    /面试邀请|面试通知|面试安排|面试提醒|面试变更|面试报名|预约面试|笔试|在线考试|测评|素质能力评估|录用意向|录用通知|offer\s*(?:letter|通知)/i.test(
       subject,
     );
   if (hasPersonalInviteSubj) return false;
-  if (PROMO_LIVESTREAM_RE.test(subject)) return true;
-  if (PROMO_LIVESTREAM_RE.test(cleanText.slice(0, 360))) return true;
+  if (PROMO_SUBJECT_RE.test(subject)) return true;
+  if (PROMO_BODY_STRONG_RE.test(cleanText.slice(0, 400))) return true;
   return false;
 }
 
@@ -400,7 +403,8 @@ export function cleanPosition(raw: string, company?: string): string {
   if (s.length < 2 || s.length > 80) return "";
   if (BOGUS_POSITION_RE.test(s)) return "";
   if (/^https?:\/\//i.test(s)) return "";
-  if (/^(?:点击|请|您好|亲爱的|尊敬的|感谢|关于|总量)/.test(s)) return "";
+  if (/^(?:点击|请|您好|亲爱的|尊敬的|感谢|关于|总量|的)/.test(s)) return "";
+  if (/^(?:意向|目标|相关|对应|申请)$/.test(s)) return "";
   if (/无法进入|下一步|筛选流程|候选人|有限公司$|股份有限公司$|科技有限公司$|集团$|校园招聘$|社会招聘$/i.test(s)) {
     return "";
   }
@@ -472,8 +476,11 @@ function classifyEvent(
   const head = cleanText.slice(0, 1200);
   const sample = `${subject}\n${head}`;
 
-  // 1. Offer / Intent Letter (check subject + opening first; offer letters often mention "已通过面试")
-  if (/录用意向书|录用意向|意向征询|实习留用|留用邀请|留用通知|转正意向|口头\s*offer/i.test(sample)) {
+  // 1. Offer / Intent Letter (keep internship-retention keywords strictly subject-only so promo brochures never false-match)
+  if (
+    /录用意向书|录用意向|意向征询|口头\s*offer/i.test(sample) ||
+    /实习留用|留用邀请|留用通知|转正意向/i.test(subject)
+  ) {
     return { kind: "offer", stageName: "录用意向", actionHint: "offer" };
   }
   if (/录用通知|正式\s*offer|offer\s*(?:letter|通知|发放)|恭喜您通过.*全部面试/i.test(sample)) {
@@ -603,9 +610,9 @@ function extractDateTimeRangeFromSnippet(
   refDate: Date,
   durationMin?: number,
 ): { startAt?: string; endAt?: string } {
-  // Pattern 1: Chinese/ISO date + time + optional end time (supports --, -, ~, ～, 至, 到 and :ss seconds)
+  // Pattern 1: Chinese/ISO date + time + optional end time (supports Alibaba "2026年-09月-05日-14时-00分", --, -, ~, ～, 至, 到 and :ss seconds)
   const cnFull = snippet.match(
-    /(?:(20\d{2})\s*[年\-/.]\s*)?(\d{1,2})\s*[月\-/.]\s*(\d{1,2})\s*日?\s*(?:[（(][^）)]{1,16}[）)])?\s*(?:星期[一二三四五六日天]|周[一二三四五六日天])?\s*(上午|下午|晚上|中午|AM|PM)?\s*(\d{1,2})\s*[:：点时]\s*(\d{2})(?::\d{2})?(?:\s*(?:--|-|~|～|至|到)\s*(?:(?:20\d{2}\s*[年\-/.]\s*)?(\d{1,2})\s*[月\-/.]\s*(\d{1,2})\s*日?\s*)?(上午|下午|晚上|中午|AM|PM)?\s*(\d{1,2})\s*[:：点时]\s*(\d{2})(?::\d{2})?)?/i,
+    /(?:(20\d{2})\s*[年\-/.]-?\s*)?(\d{1,2})\s*[月\-/.]-?\s*(\d{1,2})\s*日?-?\s*(?:[（(][^）)]{1,16}[）)])?\s*(?:星期[一二三四五六日天]|周[一二三四五六日天])?\s*(上午|下午|晚上|中午|AM|PM)?\s*(\d{1,2})\s*[:：点时]-?\s*(\d{2})\s*分?(?::\d{2})?(?:\s*(?:--|-|~|～|至|到)\s*(?:(?:20\d{2}\s*[年\-/.]-?\s*)?(\d{1,2})\s*[月\-/.]-?\s*(\d{1,2})\s*日?-?\s*)?(上午|下午|晚上|中午|AM|PM)?\s*(\d{1,2})\s*[:：点时]-?\s*(\d{2})\s*分?(?::\d{2})?)?/i,
   );
   if (cnFull) {
     const month = Number(cnFull[2]);
@@ -786,7 +793,9 @@ function extractScheduleTime(
       }
     }
   }
-  const relHoursMatch = body.match(/(?:请在|需在)\s*(\d{1,2})\s*小时内(?:预约|确认|完成|回复)/);
+  const relHoursMatch = body.match(
+    /(?:请在|需在|建议您在|收到.{0,10}后|在)\s*(\d{1,3})\s*小时内(?:预约|确认|完成|作答|回复)/,
+  );
   if (relHoursMatch?.[1]) {
     const hrs = Number(relHoursMatch[1]);
     if (hrs >= 1 && hrs <= 168) {
@@ -855,9 +864,9 @@ function extractLocationOrLink(cleanText: string, ics?: ParsedIcsEvent | null): 
 
   const sample = cleanText.slice(0, 3600);
 
-  // 2. Explicit labeled link field (highest precision — catches t.zijieimg.com, didi.acmcoder.com, talovative.com, eztest.org, ceping.com, bsurl.cn, infoflow.baidu.com)
+  // 2. Explicit labeled link field (allows optional parenthetical note before colon, e.g. "测评地址（专属地址）：3.cn/xxx (https://3.cn/xxx)")
   const labeledUrlRe =
-    /(?:面试链接|视频链接|视频面试链接|会议链接|入会链接|预约链接|考试地址|考试链接|笔试链接|笔试地址|登录路径|登录链接|测评链接|测评网址|测试网址|答题链接|进入测评平台|马上开始测评|复制到网页地址栏中|意向书链接|确认链接|入场链接|Meeting\s*Link|Interview\s*Link|Exam\s*Link|Assessment\s*Link)\s*[:：]?\s*(?:[^\n\r]{0,24}\(\s*)?(?:[\s|]{0,24})(https?:\/\/[^\s"'<>）)】，,。\]]+)/gi;
+    /(?:面试链接|视频链接|视频面试链接|会议链接|入会链接|预约链接|考试地址|考试链接|笔试链接|笔试地址|登录路径|登录链接|测评地址|测评链接|测评网址|测试网址|答题链接|进入测评平台|马上开始测评|复制到网页地址栏中|意向书链接|确认链接|入场链接|Meeting\s*Link|Interview\s*Link|Exam\s*Link|Assessment\s*Link)(?:\s*[（(][^）)]{1,28}[）)])?\s*[:：]?\s*(?:[^\n\r]{0,36}\(\s*)?(?:[\s|]{0,24})(https?:\/\/[^\s"'<>）)】，,。\]]+)/gi;
   for (const m of sample.matchAll(labeledUrlRe)) {
     const clean = cleanExtractedUrl(m[1]);
     if (clean) return clean;
