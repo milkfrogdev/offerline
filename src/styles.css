@@ -83,16 +83,6 @@
   --tl-skip: #8b95a5;
   --backdrop: rgba(15, 23, 42, 0.34);
 
-  --hero-surface: #0f172a;
-  --hero-surface-2: #1e293b;
-  --hero-border: rgba(255, 255, 255, 0.12);
-  --hero-text: #ffffff;
-  --hero-soft: #cbd5e1;
-  --hero-muted: #94a3b8;
-  --hero-btn-bg: #ffffff;
-  --hero-btn-text: #0f172a;
-  --hero-btn-hover: #f1f5f9;
-
   --radius-sm: 7px;
   --radius-md: 10px;
   --radius-lg: 13px;
@@ -145,16 +135,6 @@
   --tl-pending-ring: #465066;
   --tl-skip: #798499;
   --backdrop: rgba(0, 0, 0, 0.62);
-
-  --hero-surface: #192030;
-  --hero-surface-2: #242e42;
-  --hero-border: rgba(255, 255, 255, 0.10);
-  --hero-text: #f8fafc;
-  --hero-soft: #cbd5e1;
-  --hero-muted: #94a3b8;
-  --hero-btn-bg: #f8fafc;
-  --hero-btn-text: #0f172a;
-  --hero-btn-hover: #ffffff;
 }
 
 *,
@@ -4005,18 +3985,22 @@ textarea {
   align-items: stretch;
 }
 
-/* Sculptural High-Contrast Ink Spotlight Card */
+/* Unified Crisp Surface Spotlight Card (Matches Global Light/Dark Harmony) */
 .home-spotlight {
-  background: var(--hero-surface);
-  color: var(--hero-text);
+  background: var(--surface);
+  color: var(--text);
   border-radius: 14px;
-  box-shadow: 0 0 0 1px var(--hero-border), 0 2px 6px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.16), 0 4px 16px -6px rgba(37, 99, 235, 0.09);
   padding: 22px 24px 18px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   gap: 18px;
   animation: viewEnter 0.24s var(--ease-out);
+}
+
+:root[data-theme="dark"] .home-spotlight {
+  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.22), 0 8px 24px -10px rgba(0, 0, 0, 0.45);
 }
 
 .spotlight-top {
@@ -4037,21 +4021,21 @@ textarea {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #60a5fa;
+  background: var(--accent);
   animation: pulseRing 2.2s infinite;
 }
 
 .spotlight-kicker {
   font-size: 12.5px;
-  font-weight: 600;
-  color: var(--hero-soft);
+  font-weight: 650;
+  color: var(--accent);
 }
 
 .spotlight-kind-pill {
   font-size: 11.5px;
   font-weight: 500;
-  color: var(--hero-soft);
-  background: var(--hero-surface-2);
+  color: var(--text-2);
+  background: var(--surface-2);
   padding: 2px 8px;
   border-radius: 6px;
 }
@@ -4063,27 +4047,26 @@ textarea {
   font-size: 12.5px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: var(--hero-soft);
-  background: var(--hero-surface-2);
+  color: var(--accent);
+  background: var(--accent-tint);
   padding: 4px 10px;
   border-radius: 99px;
 }
 
 .spotlight-countdown.is-urgent {
-  color: #93c5fd;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .spotlight-main {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
 }
 
 .spotlight-logo-frame {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: #ffffff;
+  width: 38px;
+  height: 38px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -4091,8 +4074,8 @@ textarea {
 }
 
 .spotlight-logo-frame .company-logo-md {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
 }
 
 .spotlight-body {
@@ -4100,7 +4083,7 @@ textarea {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 5px;
 }
 
 .spotlight-title {
@@ -4109,7 +4092,7 @@ textarea {
   font-weight: 700;
   letter-spacing: -0.025em;
   line-height: 1.3;
-  color: var(--hero-text);
+  color: var(--text);
 }
 
 .spotlight-meta {
@@ -4118,12 +4101,12 @@ textarea {
   gap: 14px;
   flex-wrap: wrap;
   font-size: 13px;
-  color: var(--hero-soft);
+  color: var(--text-2);
 }
 
 .spotlight-time-slot {
   font-variant-numeric: tabular-nums;
-  color: var(--hero-text);
+  color: var(--text);
   font-weight: 500;
 }
 
@@ -4131,15 +4114,15 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: var(--hero-muted);
+  color: var(--text-3);
 }
 
 .spotlight-specs {
   display: grid;
   grid-template-columns: 1.45fr 0.85fr 0.85fr;
   padding: 12px 0;
-  border-top: 1px solid var(--hero-border);
-  border-bottom: 1px solid var(--hero-border);
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
 }
 
 .spotlight-spec {
@@ -4147,7 +4130,7 @@ textarea {
   flex-direction: column;
   gap: 3px;
   padding: 0 14px;
-  border-right: 1px solid var(--hero-border);
+  border-right: 1px solid var(--line-soft);
 }
 
 .spotlight-spec:first-child {
@@ -4161,14 +4144,14 @@ textarea {
 
 .spotlight-spec-k {
   font-size: 11.5px;
-  color: var(--hero-muted);
+  color: var(--text-3);
 }
 
 .spotlight-spec-v {
   font-size: 13.5px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: var(--hero-text);
+  color: var(--text);
   white-space: nowrap;
 }
 
@@ -4184,7 +4167,7 @@ textarea {
 .spotlight-cta-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -4192,8 +4175,8 @@ textarea {
   height: 36px;
   padding: 0 15px;
   border-radius: 9px;
-  background: var(--hero-btn-bg);
-  color: var(--hero-btn-text);
+  background: var(--ink);
+  color: var(--on-ink);
   font-size: 13px;
   font-weight: 600;
   display: inline-flex;
@@ -4204,7 +4187,7 @@ textarea {
 }
 
 .spotlight-primary-btn:hover {
-  background: var(--hero-btn-hover);
+  background: var(--ink-hover);
 }
 
 .spotlight-primary-btn:active {
@@ -4215,8 +4198,8 @@ textarea {
   height: 36px;
   padding: 0 13px;
   border-radius: 9px;
-  background: var(--hero-surface-2);
-  color: var(--hero-text);
+  background: var(--surface-2);
+  color: var(--text);
   font-size: 13px;
   font-weight: 500;
   display: inline-flex;
@@ -4227,7 +4210,7 @@ textarea {
 }
 
 .spotlight-ghost-btn:hover {
-  background: rgba(255, 255, 255, 0.16);
+  background: var(--surface-hover);
 }
 
 .spotlight-ghost-btn:active {
@@ -4240,13 +4223,13 @@ textarea {
   gap: 5px;
   font-size: 12.5px;
   font-weight: 500;
-  color: var(--hero-soft);
+  color: var(--text-2);
   white-space: nowrap;
   transition: color 0.14s ease;
 }
 
 .spotlight-more-link:hover {
-  color: var(--hero-text);
+  color: var(--text);
 }
 
 .spotlight-more-link svg {
@@ -6787,7 +6770,7 @@ textarea {
     padding-right: 0;
     border-right: none;
     padding-bottom: 10px;
-    border-bottom: 1px solid var(--hero-border);
+    border-bottom: 1px solid var(--line-soft);
   }
 
   .spotlight-spec:nth-child(2) {
