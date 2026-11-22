@@ -232,7 +232,6 @@ export function AuthOrbitStage({
             type="button"
             className={`orbit-brand-node${isSelected ? " is-selected" : ""}`}
             onClick={() => pickBrand(idx)}
-            data-tip={`${brand.company}（点击切入中央时间线）`}
             aria-label={`切换到 ${brand.company}`}
           >
             <CompanyLogo company={brand.company} size="md" />
@@ -265,7 +264,6 @@ export function AuthOrbitStage({
                 <span className="orbit-hud-role">{activeBrand.role}</span>
               </div>
             </div>
-            <span className="orbit-hud-hint">点击节点或轨道图标试玩</span>
           </div>
 
           <div className="auth-demo-track" role="group" aria-label={`${activeBrand.company} 交互时间线`}>
@@ -284,7 +282,6 @@ export function AuthOrbitStage({
                   type="button"
                   className={`auth-pnode st-${state}`}
                   onClick={() => pickStage(idx)}
-                  data-tip={`切换到「${label}」`}
                 >
                   <span className="auth-pnode-row">
                     {idx > 0 && <span className={`auth-parm left ${prevPass ? "pass" : ""}`} />}

@@ -5113,7 +5113,12 @@ textarea {
 }
 
 .orbit-brand-node:hover .company-logo-md {
-  transform: scale(1.28);
+  transform: scale(1.32);
+  filter: drop-shadow(0 6px 14px rgba(37, 99, 235, 0.28));
+}
+
+:root[data-theme="dark"] .orbit-brand-node:hover .company-logo-md {
+  filter: drop-shadow(0 0 14px rgba(96, 165, 250, 0.55));
 }
 
 .orbit-brand-node.is-selected .company-logo-md {
