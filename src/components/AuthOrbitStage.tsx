@@ -63,10 +63,10 @@ export function AuthOrbitStage({
     const onMove = (e: PointerEvent) => {
       const rect = stageEl.getBoundingClientRect();
       if (!rect.width || !rect.height) return;
-      const nx = (e.clientX - (rect.left + rect.width / 2)) / (window.innerWidth * 0.5);
-      const ny = (e.clientY - (rect.top + rect.height / 2)) / (window.innerHeight * 0.5);
-      targetTiltY = Math.max(-9, Math.min(9, nx * 9));
-      targetTiltX = Math.max(-7, Math.min(7, -ny * 7));
+      const nx = (e.clientX - (rect.left + rect.width / 2)) / (window.innerWidth * 0.42);
+      const ny = (e.clientY - (rect.top + rect.height / 2)) / (window.innerHeight * 0.42);
+      targetTiltY = Math.max(-20, Math.min(20, nx * 20));
+      targetTiltX = Math.max(-16, Math.min(16, -ny * 16));
     };
 
     const onLeave = () => {
@@ -87,22 +87,22 @@ export function AuthOrbitStage({
         angle += dt * speed;
       }
 
-      tiltX += (targetTiltX - tiltX) * 0.08;
-      tiltY += (targetTiltY - tiltY) * 0.08;
+      tiltX += (targetTiltX - tiltX) * 0.11;
+      tiltY += (targetTiltY - tiltY) * 0.11;
 
-      const w = stageEl.clientWidth || 700;
+      const w = stageEl.clientWidth || 720;
       const h = stageEl.clientHeight || 420;
       const cx = w * 0.5;
-      const cy = h * 0.5;
+      const cy = h * 0.48;
 
-      // Saturn-ring clearance geometry: orbits cleanly frame the tilted HUD without EVER colliding
-      const rx0 = Math.min(336, w * 0.47);
+      // Saturn-ring clearance geometry for the wider 504px 3D HUD
+      const rx0 = Math.min(356, w * 0.49);
       const ry0 = Math.min(176, h * 0.42);
-      const tilt0 = -0.14; // -8 deg cinema roll
+      const tilt0 = -0.14;
 
-      const rx1 = Math.min(294, w * 0.415);
-      const ry1 = Math.min(154, h * 0.37);
-      const tilt1 = 0.15; // +8.6 deg counter-roll
+      const rx1 = Math.min(314, w * 0.435);
+      const ry1 = Math.min(156, h * 0.375);
+      const tilt1 = 0.15;
 
       for (let i = 0; i < ORBIT_BRANDS.length; i++) {
         const b = ORBIT_BRANDS[i];
@@ -121,12 +121,11 @@ export function AuthOrbitStage({
 
         const cosR = Math.cos(roll);
         const sinR = Math.sin(roll);
-        const px = cx + lx * cosR - ly * sinR + tiltY * (1.6 + depth * 1.2);
-        const py = cy + lx * sinR + ly * cosR - tiltX * (1.2 + depth * 1.0);
+        const px = cx + lx * cosR - ly * sinR + tiltY * (1.2 + depth * 0.9);
+        const py = cy + lx * sinR + ly * cosR - tiltX * (0.9 + depth * 0.75);
 
-        const scale = 0.8 + (depth + 1) * 0.2; // 0.80 .. 1.20
-        const opacity = 0.56 + (depth + 1) * 0.22; // 0.56 .. 1.00
-        // Only elevate in front of HUD when well clear below its bottom edge
+        const scale = 0.8 + (depth + 1) * 0.2;
+        const opacity = 0.56 + (depth + 1) * 0.22;
         const zIndex = depth > 0.62 ? 24 + Math.round(depth * 6) : 8 + Math.round((depth + 1) * 3);
 
         el.style.transform = `translate3d(${px.toFixed(1)}px, ${py.toFixed(1)}px, 0) translate(-50%, -50%) scale(${scale.toFixed(3)})`;
@@ -135,9 +134,12 @@ export function AuthOrbitStage({
       }
 
       if (hudRef.current) {
-        const rxDeg = 7 + tiltX * 0.6;
-        const ryDeg = -8 + tiltY * 0.7;
-        hudRef.current.style.transform = `perspective(1200px) rotateX(${rxDeg.toFixed(2)}deg) rotateY(${ryDeg.toFixed(2)}deg) rotateZ(-0.6deg)`;
+        const rxDeg = 7 + tiltX;
+        const ryDeg = -8 + tiltY;
+        const rzDeg = -0.8 + tiltY * 0.08;
+        hudRef.current.style.transform = `perspective(900px) rotateX(${rxDeg.toFixed(2)}deg) rotateY(${ryDeg.toFixed(2)}deg) rotateZ(${rzDeg.toFixed(2)}deg)`;
+        hudRef.current.style.setProperty("--sx", `${(-tiltY * 1.1).toFixed(1)}px`);
+        hudRef.current.style.setProperty("--sy", `${(tiltX * 0.9 + 18).toFixed(1)}px`);
       }
 
       if (!prefersReduced) {
@@ -178,17 +180,17 @@ export function AuthOrbitStage({
       {/* 两条交叉倾斜的 3D 椭圆星轨（纯矢量细线 + 流动能量光弧，零 CSS 渐变） */}
       <svg
         className="auth-orbit-rings"
-        viewBox="0 0 720 420"
+        viewBox="0 0 740 420"
         preserveAspectRatio="xMidYMid meet"
         aria-hidden="true"
       >
-        <g transform="translate(360 210) rotate(-8)">
-          <ellipse cx="0" cy="0" rx="336" ry="176" className="orbit-ring-base" />
-          <ellipse cx="0" cy="0" rx="336" ry="176" className="orbit-ring-beam is-cobalt" />
+        <g transform="translate(370 202) rotate(-8)">
+          <ellipse cx="0" cy="0" rx="356" ry="176" className="orbit-ring-base" />
+          <ellipse cx="0" cy="0" rx="356" ry="176" className="orbit-ring-beam is-cobalt" />
         </g>
-        <g transform="translate(360 210) rotate(8.6)">
-          <ellipse cx="0" cy="0" rx="294" ry="154" className="orbit-ring-base" />
-          <ellipse cx="0" cy="0" rx="294" ry="154" className="orbit-ring-beam is-emerald" />
+        <g transform="translate(370 202) rotate(8.6)">
+          <ellipse cx="0" cy="0" rx="314" ry="156" className="orbit-ring-base" />
+          <ellipse cx="0" cy="0" rx="314" ry="156" className="orbit-ring-beam is-emerald" />
         </g>
       </svg>
 
@@ -212,9 +214,11 @@ export function AuthOrbitStage({
         );
       })}
 
-      {/* 穿过星轨核心的 3D 透视斜角悬浮晶体 HUD（单块立体核心，彻底告别呆板三卡片） */}
+      {/* 穿过星轨核心的 5 层真 3D 悬浮晶体 HUD */}
       <div ref={hudRef} className="orbit-hud-wrap">
-        {/* 高景深浮动日程浮签（Z 轴突出悬浮在主轴右上角） */}
+        {/* Layer -1：悬空背面投影层（随角度真实错位） */}
+        <div className="orbit-hud-shadow" aria-hidden="true" />
+        {/* Layer +3：高景深浮动日程浮签 */}
         <div className="orbit-float-chip">
           <IconCalendar size={12} />
           <span>{activeBrand.scheduleHint}</span>
