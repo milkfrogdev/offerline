@@ -3042,7 +3042,7 @@ textarea {
 }
 
 .feel-hard {
-  color: var(--bad);
+  color: var(--warn);
 }
 
 /* Right Reading & Inline-Edit Canvas */
@@ -3284,8 +3284,8 @@ textarea {
 }
 
 .feeling-inline-btn.is-active.feel-hard {
-  background: var(--bad-soft);
-  color: var(--bad);
+  background: var(--star-soft);
+  color: var(--warn);
   font-weight: 600;
 }
 
