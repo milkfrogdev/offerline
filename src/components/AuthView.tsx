@@ -7,11 +7,9 @@ import {
   IconCheck,
   IconEye,
   IconEyeOff,
-  IconMail,
   IconMoon,
   IconNote,
   IconPipeline,
-  IconShield,
   IconSun,
   IconVideo,
 } from "./Icons";
@@ -171,50 +169,30 @@ export function AuthView({
   }
 
   return (
-    <div className="auth-frame">
-      {/* 顶栏：建筑感 1px 细线框定 */}
-      <header className="auth-topbar">
-        <div className="auth-topbar-left">
-          <span className="brand-mark">
-            <IconBrand size={15} />
-          </span>
-          <span className="brand-name">OfferLine</span>
-          <span className="auth-bar-divider" aria-hidden="true" />
-          <span className="auth-bar-subtitle">求职进度与日程工作台</span>
-        </div>
-
-        <div className="auth-topbar-right">
-          <button
-            type="button"
-            className="auth-theme-pill"
-            onClick={onToggleTheme}
-            data-tip={theme === "dark" ? "切换到浅色模式" : "切换到深色模式"}
-            data-tip-pos="bottom"
-          >
-            <span key={theme} className="theme-icon-swap">
-              {theme === "dark" ? <IconSun size={14} /> : <IconMoon size={14} />}
+    <div className="auth-canvas">
+      {/* 左侧：内嵌圆角深墨色产品实景舞台 */}
+      <section className="auth-monolith-wrap" aria-label="OfferLine 产品预览">
+        <div className="auth-monolith">
+          <div className="auth-monolith-brand">
+            <span className="auth-brand-badge">
+              <IconBrand size={16} />
             </span>
-            <span>{theme === "dark" ? "浅色外观" : "深色外观"}</span>
-          </button>
-        </div>
-      </header>
+            <span className="auth-brand-word">OfferLine</span>
+          </div>
 
-      {/* 主体：左实景微缩工作台 + 右专注登录舱 */}
-      <main className="auth-body">
-        <section className="auth-showcase-chamber" aria-label="OfferLine 产品预览">
-          <div className="auth-showcase-inner">
+          <div className="auth-monolith-center">
             <div className="auth-headline-block">
               <h1 className="auth-display">
-                把每一次投递和面试
+                把每一场面试
                 <br />
                 排成清晰的时间线
               </h1>
               <p className="auth-sublead">
-                投递进度、邮箱日程与所见即所得 Markdown 面经，集中在一处私有工作台。
+                投递进度、邮箱自动日程与 Markdown 复盘，一处掌控。
               </p>
             </div>
 
-            {/* 统一微缩工作台实景窗（单块精致表面，支持 3 视图实时切换体验） */}
+            {/* 深墨面上的高对比实景交互预览窗 */}
             <div className="auth-window">
               <div className="auth-win-bar">
                 <div className="auth-win-tabs" ref={winTabRef} role="tablist" aria-label="切换产品预览">
@@ -260,10 +238,10 @@ export function AuthView({
 
                 <span className="auth-win-hint">
                   {showcaseTab === "timeline"
-                    ? "点击任意节点试玩推进"
+                    ? "点击节点试玩推进"
                     : showcaseTab === "schedule"
-                      ? "IMAP 监听解析并同步进度"
-                      : "默认 Markdown 实时渲染"}
+                      ? "邮箱解析一键同步"
+                      : "默认 Markdown 写作"}
                 </span>
               </div>
 
@@ -272,7 +250,9 @@ export function AuthView({
                   <div className="auth-win-timeline">
                     <div className="auth-win-row">
                       <div className="auth-win-company">
-                        <CompanyLogo company="字节跳动" size="md" />
+                        <span className="auth-logo-chip">
+                          <CompanyLogo company="字节跳动" size="sm" />
+                        </span>
                         <div className="auth-win-ident">
                           <span className="auth-win-name">字节跳动</span>
                           <span className="auth-win-role">基础架构后端研发</span>
@@ -283,7 +263,9 @@ export function AuthView({
 
                     <div className="auth-win-row">
                       <div className="auth-win-company">
-                        <CompanyLogo company="DeepSeek" size="md" />
+                        <span className="auth-logo-chip">
+                          <CompanyLogo company="DeepSeek" size="sm" />
+                        </span>
                         <div className="auth-win-ident">
                           <span className="auth-win-name">DeepSeek</span>
                           <span className="auth-win-role">大模型推理引擎</span>
@@ -294,11 +276,13 @@ export function AuthView({
 
                     <div className="auth-win-row">
                       <div className="auth-win-company">
-                        <CompanyLogo company="小米" size="md" />
+                        <span className="auth-logo-chip">
+                          <CompanyLogo company="小米" size="sm" />
+                        </span>
                         <div className="auth-win-ident">
                           <span className="auth-win-name">
                             小米
-                            <span className="offer-inline-badge">已获 Offer</span>
+                            <span className="auth-offer-pill">已获 Offer</span>
                           </span>
                           <span className="auth-win-role">系统平台 Java / Go 研发</span>
                         </div>
@@ -316,15 +300,17 @@ export function AuthView({
                         <span>今天</span>
                       </div>
                       <span className="auth-sch-line" aria-hidden="true" />
-                      <CompanyLogo company="DeepSeek" size="sm" />
+                      <span className="auth-logo-chip sm">
+                        <CompanyLogo company="DeepSeek" size="sm" />
+                      </span>
                       <div className="auth-sch-info">
                         <div className="auth-sch-title">DeepSeek 推理引擎三面（技术终面）</div>
                         <div className="auth-sch-meta">
-                          <span className="auth-mini-chip">
+                          <span className="auth-sch-chip">
                             <IconVideo size={12} />
                             <span>腾讯会议</span>
                           </span>
-                          <span>自动生成 .ics 提醒</span>
+                          <span>1 小时</span>
                         </div>
                       </div>
                     </div>
@@ -335,11 +321,13 @@ export function AuthView({
                         <span>今天</span>
                       </div>
                       <span className="auth-sch-line" aria-hidden="true" />
-                      <CompanyLogo company="腾讯" size="sm" />
+                      <span className="auth-logo-chip sm">
+                        <CompanyLogo company="腾讯" size="sm" />
+                      </span>
                       <div className="auth-sch-info">
                         <div className="auth-sch-title">腾讯 WXG HR 综合面谈</div>
                         <div className="auth-sch-meta">
-                          <span className="auth-mini-chip">
+                          <span className="auth-sch-chip">
                             <IconVideo size={12} />
                             <span>腾讯会议</span>
                           </span>
@@ -354,7 +342,9 @@ export function AuthView({
                         <span>明天</span>
                       </div>
                       <span className="auth-sch-line" aria-hidden="true" />
-                      <CompanyLogo company="字节跳动" size="sm" />
+                      <span className="auth-logo-chip sm">
+                        <CompanyLogo company="字节跳动" size="sm" />
+                      </span>
                       <div className="auth-sch-info">
                         <div className="auth-sch-title">字节跳动 AI Infra 分布式系统三面</div>
                         <div className="auth-sch-meta">
@@ -363,11 +353,11 @@ export function AuthView({
                       </div>
                       <button
                         type="button"
-                        className={`btn btn-sm ${demoSynced ? "btn-soft" : "btn-primary"}`}
+                        className={`auth-demo-sync-btn${demoSynced ? " is-done" : ""}`}
                         onClick={() => setDemoSynced((v) => !v)}
                       >
                         <IconCheck size={13} />
-                        <span>{demoSynced ? "已同步时间线" : "同步进度"}</span>
+                        <span>{demoSynced ? "已同步" : "同步进度"}</span>
                       </button>
                     </div>
                   </div>
@@ -377,19 +367,21 @@ export function AuthView({
                   <div className="auth-win-notes">
                     <div className="auth-note-head">
                       <div className="auth-note-ident">
-                        <CompanyLogo company="DeepSeek" size="sm" />
+                        <span className="auth-logo-chip sm">
+                          <CompanyLogo company="DeepSeek" size="sm" />
+                        </span>
                         <span className="auth-win-name">DeepSeek</span>
-                        <span className="note-stage">二面</span>
-                        <span className="note-feeling feel-great">发挥顺畅</span>
+                        <span className="auth-note-stage">二面</span>
+                        <span className="auth-note-feel">发挥顺畅</span>
                       </div>
-                      <span className="auth-note-mode-tag">Markdown 所见即所得</span>
+                      <span className="auth-note-mode-tag">Markdown</span>
                     </div>
 
                     <div className="auth-note-doc">
                       <div className="auth-note-h2">推理引擎核心深挖</div>
                       <p className="auth-note-p">
-                        深入讨论 <code>Continuous Batching</code> 下 Prefill 与 Decode 相互干扰，推导{" "}
-                        <code>Chunked Prefill</code> 的尾延迟边界与吞吐收益。
+                        深入讨论 <code>Continuous Batching</code> 下 Prefill 与 Decode 干扰，推导{" "}
+                        <code>Chunked Prefill</code> 尾延迟边界。
                       </p>
                       <div className="auth-note-todos">
                         {(
@@ -421,128 +413,133 @@ export function AuthView({
               </div>
             </div>
           </div>
-        </section>
 
-        {/* 右侧：纯净聚焦登录舱 */}
-        <section className="auth-form-chamber" aria-label="账号登录与注册">
-          <div className="auth-form-shell">
-            <div className="auth-form-head">
-              <h2 className="auth-form-title">
-                {mode === "login" ? "登录工作台" : "创建私有账号"}
-              </h2>
-              <p className="auth-form-desc">
-                {mode === "login"
-                  ? "输入账号继续跟进你的投递进度与面试安排"
-                  : "所有投递、日程与面经均保存在你的私有实例中"}
-              </p>
+          <div className="auth-monolith-spacer" aria-hidden="true" />
+        </div>
+      </section>
+
+      {/* 右侧：纯净开放登录舱（无顶栏、无底栏、无多余参数废话） */}
+      <section className="auth-studio" aria-label="账号登录与注册">
+        <div className="auth-studio-top">
+          <div className="auth-mobile-brand">
+            <span className="brand-mark">
+              <IconBrand size={15} />
+            </span>
+            <span className="brand-name">OfferLine</span>
+          </div>
+
+          <button
+            type="button"
+            className="auth-theme-icon-btn"
+            onClick={onToggleTheme}
+            data-tip={theme === "dark" ? "切换到浅色外观" : "切换到深色外观"}
+            data-tip-pos="bottom"
+            aria-label="切换昼夜主题"
+          >
+            <span key={theme} className="theme-icon-swap">
+              {theme === "dark" ? <IconSun size={16} /> : <IconMoon size={16} />}
+            </span>
+          </button>
+        </div>
+
+        <div className="auth-form-shell">
+          <div className="auth-form-head">
+            <h2 className="auth-form-title">
+              {mode === "login" ? "欢迎回来" : "创建账号"}
+            </h2>
+            <p className="auth-form-desc">
+              {mode === "login"
+                ? "登录 OfferLine 继续管理你的求职进度"
+                : "注册私有账号，投递与面经全部保存在你的实例中"}
+            </p>
+          </div>
+
+          {registrationOpen && (
+            <div className="auth-seg" ref={segRef} role="tablist" aria-label="切换登录或注册">
+              <span
+                className={`auth-seg-thumb${segThumb.ready ? " is-ready" : ""}`}
+                style={{
+                  transform: `translate3d(${segThumb.left}px, 0, 0)`,
+                  width: `${segThumb.width}px`,
+                }}
+                aria-hidden="true"
+              />
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === "login"}
+                className={`auth-seg-btn${mode === "login" ? " active" : ""}`}
+                onClick={() => {
+                  setMode("login");
+                  setError("");
+                }}
+              >
+                登录
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === "register"}
+                className={`auth-seg-btn${mode === "register" ? " active" : ""}`}
+                onClick={() => {
+                  setMode("register");
+                  setError("");
+                }}
+              >
+                注册账号
+              </button>
             </div>
+          )}
 
-            {registrationOpen && (
-              <div className="auth-seg" ref={segRef} role="tablist" aria-label="切换登录或注册">
-                <span
-                  className={`auth-seg-thumb${segThumb.ready ? " is-ready" : ""}`}
-                  style={{
-                    transform: `translate3d(${segThumb.left}px, 0, 0)`,
-                    width: `${segThumb.width}px`,
-                  }}
-                  aria-hidden="true"
-                />
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={mode === "login"}
-                  className={`auth-seg-btn${mode === "login" ? " active" : ""}`}
-                  onClick={() => {
-                    setMode("login");
-                    setError("");
-                  }}
-                >
-                  登录
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={mode === "register"}
-                  className={`auth-seg-btn${mode === "register" ? " active" : ""}`}
-                  onClick={() => {
-                    setMode("register");
-                    setError("");
-                  }}
-                >
-                  注册账号
-                </button>
-              </div>
-            )}
+          <form className="auth-form" onSubmit={handleSubmit}>
+            <label className="field">
+              <span className="field-label">用户名</span>
+              <input
+                type="text"
+                className="input auth-input"
+                autoComplete="username"
+                placeholder={mode === "login" ? "请输入用户名" : "3–32 位小写字母、数字或下划线"}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+              />
+            </label>
 
-            <form className="auth-form" onSubmit={handleSubmit}>
-              <label className="field">
-                <span className="field-label">用户名</span>
+            <label className="field">
+              <span className="field-label">密码</span>
+              <div className="pwd-input-wrap">
                 <input
-                  type="text"
-                  className="input auth-input"
-                  autoComplete="username"
-                  placeholder="3–32 位小写字母、数字或下划线"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  type={showPwd ? "text" : "password"}
+                  className="input auth-input pwd-input"
+                  autoComplete={mode === "login" ? "current-password" : "new-password"}
+                  placeholder={mode === "login" ? "请输入密码" : "设置密码（至少 10 个字符）"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   required
                 />
-              </label>
-
-              <label className="field">
-                <span className="field-label">密码</span>
-                <div className="pwd-input-wrap">
-                  <input
-                    type={showPwd ? "text" : "password"}
-                    className="input auth-input pwd-input"
-                    autoComplete={mode === "login" ? "current-password" : "new-password"}
-                    placeholder="至少 10 个字符"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="pwd-toggle-btn"
-                    onClick={() => setShowPwd((v) => !v)}
-                    data-tip={showPwd ? "隐藏密码" : "显示密码"}
-                    aria-label={showPwd ? "隐藏密码" : "显示密码"}
-                  >
-                    {showPwd ? <IconEyeOff size={16} /> : <IconEye size={16} />}
-                  </button>
-                </div>
-              </label>
-
-              {error && <div className="form-error">{error}</div>}
-
-              <button type="submit" className="btn btn-primary auth-submit" disabled={busy}>
-                <span>{busy ? "提交中…" : mode === "login" ? "进入工作台" : "创建账号"}</span>
-                {!busy && <IconArrowRight size={15} />}
-              </button>
-            </form>
-
-            <div className="auth-trust-grid">
-              <div className="auth-trust-item">
-                <IconShield size={14} />
-                <span>AES-256-GCM 端到端加密</span>
+                <button
+                  type="button"
+                  className="pwd-toggle-btn"
+                  onClick={() => setShowPwd((v) => !v)}
+                  data-tip={showPwd ? "隐藏密码" : "显示密码"}
+                  aria-label={showPwd ? "隐藏密码" : "显示密码"}
+                >
+                  {showPwd ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+                </button>
               </div>
-              <div className="auth-trust-item">
-                <IconMail size={14} />
-                <span>IMAP 邮箱监听零中转</span>
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
+            </label>
 
-      {/* 底栏：轻盈技术规格条 */}
-      <footer className="auth-bottombar">
-        <span className="auth-bottom-copy">OfferLine 私有部署个人求职工作台</span>
-        <div className="auth-bottom-specs">
-          <span>62 家大厂官方图标</span>
-          <span>MySQL 持久化存储</span>
-          <span>系统日历 .ics 订阅</span>
+            {error && <div className="form-error">{error}</div>}
+
+            <button type="submit" className="btn btn-primary auth-submit" disabled={busy}>
+              <span>{busy ? "提交中…" : mode === "login" ? "进入工作台" : "创建账号"}</span>
+              {!busy && <IconArrowRight size={15} />}
+            </button>
+          </form>
         </div>
-      </footer>
+
+        <div className="auth-studio-spacer" aria-hidden="true" />
+      </section>
     </div>
   );
 }
