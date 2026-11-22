@@ -157,6 +157,76 @@ describe("求职邮件深度解析、去噪、归一化与 ICS 生成", () => {
     expect(flexAssess.location).toBe("https://eztest.org/exam/session/demo123");
   });
 
+  it("覆盖盲测新增真实模式：分行日期时间、北森测评失效期、站点标签、纯投递回执防误杀与实习留用", () => {
+    // 1. 分行 面试日期 + 面试时间 + 邮箱域名优先于“某人的面试邀请”
+    const splitDt = parseRecruitmentEmailByRules({
+      subject: "候选人的面试邀请",
+      from: "talentsystem@baidu.com",
+      text: "现邀请您就 北京-后端开发工程师 职位进行一次面试。\n面试日期: 2026-09-28 周一\n面试时间: 16:00\n面试链接:\nhttps://infoflow.baidu.com/meeting/invite?id=demo123",
+      date: "2026-09-27T08:00:00Z",
+    });
+    expect(splitDt.matched).toBe(true);
+    expect(splitDt.company).toBe("百度");
+    expect(splitDt.position).toBe("北京-后端开发工程师");
+    expect(splitDt.startAt).toBe("2026-09-28T08:00:00.000Z");
+    expect(splitDt.location).toBe("https://infoflow.baidu.com/meeting/invite?id=demo123");
+
+    // 2. 站点标签【上海场】不当公司名 + 【签到时间】/【面试岗位】
+    const onsite = parseRecruitmentEmailByRules({
+      subject: "科大讯飞2027届校园招聘【上海场】线下面试通知",
+      from: '"智联招聘" <service@mail-transaction.wisdomore.com>',
+      text: "【面试岗位】：Java开发工程师；\n【签到时间】：10月11日8:45；\n【面试地点】：上海某酒店3楼签到；",
+      date: "2026-10-08T10:00:00Z",
+    });
+    expect(onsite.matched).toBe(true);
+    expect(onsite.company).toBe("科大讯飞");
+    expect(onsite.position).toBe("Java开发工程师");
+    expect(onsite.startAt).toBe("2026-10-11T00:45:00.000Z");
+
+    // 3. 北森/iTalent 泛称发件人 + 失效截止时间 + ceping.com 链接
+    const beisen = parseRecruitmentEmailByRules({
+      subject: "vivo人才测评通知",
+      from: '"iTalent招聘助手" <vivo-noreply@italent.cn>',
+      text: "测评链接将于 2026年09月22日 周二 08:59 失效，马上开始测评 (https://bsurl.cn/v2/demo999)",
+      date: "2026-09-10T08:52:00Z",
+    });
+    expect(beisen.matched).toBe(true);
+    expect(beisen.company).toBe("vivo");
+    expect(beisen.timeMode).toBe("deadline");
+    expect(beisen.startAt).toBe("2026-09-22T00:59:00.000Z");
+    expect(beisen.location).toBe("https://bsurl.cn/v2/demo999");
+
+    // 4. 实习留用邀请识别为录用意向
+    const retention = parseRecruitmentEmailByRules({
+      subject: "【快手校招】快手邀请你参与实习留用啦！",
+      from: '"快手招聘" <zhaopin@kuaishou.com>',
+      text: "恭喜获得实习留用资格，请在3个工作日内点击 https://campus.kuaishou.cn/recruit/campus/e/demo 确认意愿。",
+      date: "2026-09-17T12:00:00Z",
+    });
+    expect(retention.matched).toBe(true);
+    expect(retention.company).toBe("快手");
+    expect(retention.kind).toBe("offer");
+    expect(retention.stageName).toBe("录用意向");
+    expect(retention.timeMode).toBe("deadline");
+
+    // 5. 纯投递回执正文即使写“后续包含在线测评/笔试/面试”也不误报，智联推荐宣传邮件也拦截
+    const receiptWithFlow = parseRecruitmentEmailByRules({
+      subject: "欢迎投递某科技公司 2027 校园招聘职位",
+      from: '"recruitment" <recruitment@dji.com>',
+      text: "感谢您的投递！校招流程说明：简历筛选 -> 在线测评 -> 在线笔试 -> 面试 -> Offer。",
+      date: "2026-09-15T07:30:00Z",
+    });
+    expect(receiptWithFlow.matched).toBe(false);
+
+    const zhaopinPromo = parseRecruitmentEmailByRules({
+      subject: "尊敬的同学【智联推荐】某集团 2027秋季 校园招聘正式启动！",
+      from: '"智联招聘" <cpm_zhaopin@mail.zhaopin.cn>',
+      text: "海量正式offer等你来拿，立即投递！",
+      date: "2026-10-03T23:00:00Z",
+    });
+    expect(zhaopinPromo.matched).toBe(false);
+  });
+
   it("严格拦截拒信、面试调研问卷、校招直播宣传、专家平台与验证码邮件", () => {
     const cases = [
       {

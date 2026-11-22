@@ -37,32 +37,35 @@ const NEGATIVE_SUBJECT_HINTS =
   /验证码|登录提醒|登录异常|账单|发票|快递|订单|会员|优惠券|广告|退订|密码重置|安全提醒|账户安全|日历提醒|verification code|\botp\b|invoice|receipt|newsletter|security alert|password reset|pull request|commit/i;
 
 const SURVEY_FEEDBACK_RE =
-  /面试体验调研|面试满意度|满意度评价|体验调研|候选人调研|体验问卷|反馈问卷|面试体验反馈|邀请您对面试.{0,12}评价|interview\s*experience\s*survey|candidate\s*(?:experience\s*)?survey|feedback\s*survey/i;
+  /面试体验调研|面试满意度|满意度评价|满意度反馈|体验调研|候选人调研|体验问卷|反馈问卷|面试体验反馈|邀请您对面试.{0,12}评价|interview\s*experience\s*survey|candidate\s*(?:experience\s*)?survey|feedback\s*survey/i;
 
 const PROMO_LIVESTREAM_RE =
-  /持续招聘中|正在热招|热招岗位|以下职位持续热招|专场直播|直播来袭|直播开聊|预约直播|宣讲会|空中宣讲|校招启动|秋招开启|春招开启|官方内推通道|内推码|职位推荐|岗位推荐|每周职位|高薪诚聘|福袋送不停|直播间/i;
+  /持续招聘中|正在热招|热招岗位|以下职位持续热招|专场直播|直播来袭|直播开聊|预约直播|宣讲会|空中宣讲|校招启动|校园招聘正式启动|校园招聘启动|招聘正式启动|火热进行中|招聘火热|秋招开启|春招开启|秋招开放日|智联推荐|官方内推通道|内推码|职位推荐|岗位推荐|每周职位|高薪诚聘|福袋送不停|直播间/i;
+
+const PURE_RECEIPT_SUBJECT_RE =
+  /^(?:(?:【[^】]{1,24}】|\[[^\]]{1,24}\])\s*)*(?:欢迎投递|感谢(?:您|你)?投递|投递成功|简历投递成功|简历成功投递|简历已收到|投递反馈|.*简历(?:投递成功|成功投递|已收到))|(?:【[^】]{1,24}】\s*(?:投递成功|投递反馈|简历投递成功|简历成功投递))/i;
 
 const EXPERT_PLATFORM_RE =
   /智囊团|experthub|专家平台|专家任务|专家合同|入驻平台|实名信息审核/i;
 
 const STRONG_REJECTION_RE =
-  /结果为\s*[:：]?\s*未通过|未能通过|暂未匹配|暂不匹配|与(?:招聘的)?岗位不匹配|很遗憾地?(?:通知|告知|终止)|不得不遗憾地?(?:通知|告知)|遗憾地?(?:通知|告知|终止)|投递流程已结束|招聘流程已结束|校招投递流程已结束|终止您?本次.{0,48}招聘流程|不再推进|停止推进|感谢信|未能进入下一环节|暂未能进入|决定不再继续|unfortunately.{0,40}(?:not|unable|will not)|not moving forward|will not be moving forward|regret to inform|decided not to proceed|pursue other candidates/i;
+  /结果为\s*[:：]?\s*未通过|未能通过|暂未匹配|暂不匹配|与(?:招聘的)?岗位不匹配|很遗憾地?(?:通知|告知|终止)|不得不遗憾地?(?:通知|告知)|遗憾地?(?:通知|告知|终止)|投递流程已结束|招聘流程已结束|校招投递流程已结束|终止您?本次.{0,48}招聘流程|不再推进|停止推进|感谢信|未能进入下一环节|暂未能进入|无法进入下一阶段|决定不再继续|unfortunately.{0,40}(?:not|unable|will not)|not moving forward|will not be moving forward|regret to inform|decided not to proceed|pursue other candidates/i;
 
 const SOFT_REJECTION_SUBJECT_RE = /感谢投递|感谢您应聘|感谢应聘|应聘反馈|简历评估结果|申请结果/i;
 const SOFT_REJECTION_BODY_CUES = /人才库|未通过|遗憾|不匹配|流程已结束|终止.*流程|暂未通过|未能匹配/i;
 
 const RECRUIT_STRONG_KEYWORDS =
-  /面试邀请|面试通知|面试安排|面试提醒|笔试通知|笔试邀请|在线笔试|在线考试|笔试提醒|在线测评|测评邀请|人才测评|性格测试|录用通知|录用意向书|录用意向|意向征询|正式\s*offer|offer\s*(?:letter|通知|发放)|谈薪|面试预约|视频面试|电话面试|现场面试|interview\s*(?:invitation|schedule|reminder|confirmation)|online\s*(?:assessment|test|exam)|coding\s*(?:test|challenge)|technical\s*interview|offer\s*letter/i;
+  /面试邀请|面试通知|面试安排|面试提醒|面试变更|面试报名|预约面试|可面试时间|笔试通知|笔试邀请|在线笔试|在线考试|笔试提醒|在线测评|线上测评|测评邀请|测评通知|人才测评|人才测试|素质能力评估|能力评估|素质测评|性格测试|录用通知|录用意向书|录用意向|意向征询|实习留用|留用邀请|留用通知|转正意向|正式\s*offer|offer\s*(?:letter|通知|发放)|谈薪|视频面试|电话面试|现场面试|线下面试|interview\s*(?:invitation|schedule|reminder|confirmation)|online\s*(?:assessment|test|exam)|coding\s*(?:test|challenge)|technical\s*interview|offer\s*letter/i;
 
 const RECRUIT_SOFT_KEYWORDS =
   /招聘|校招|社招|春招|秋招|实习生|投递|简历|一面|二面|三面|终面|hr面|笔试|测评|考试|面试官|候选人|candidate|recruiting|recruitment|application/i;
 
 const BAD_URL_EXT_RE = /\.(?:png|jpe?g|gif|svg|webp|ico|bmp|css|js|woff2?|ttf|eot)(?:$|\?|#)/i;
 const EXCLUDED_URL_RE =
-  /unsubscribe|optout|opt-out|candidatefeedback|speedtest\.cn|sctrack\.sendcloud\.net|mp\.weixin\.qq\.com|\/download(?:$|\/|\?)|(?:^https?:\/\/)?cdn\./i;
+  /unsubscribe|optout|opt-out|candidatefeedback|speedtest\.cn|sctrack\.sendcloud\.net|mp\.weixin\.qq\.com|\/download(?:$|\/|\?)|sass-download|(?:^https?:\/\/)?cdn\./i;
 
 const BOGUS_POSITION_RE =
-  /^(?:(?:20)?\d{2}届?(?:秋招|春招|校招|社招|校园招聘|社会招聘|实习招聘)?|校园招聘|社会招聘|校招|社招|秋招|春招|实习招聘|待确认岗位|未知|无|暂无|面试|笔试|测评|在线笔试|在线测评|在线考试|视频面试|现场面试|电话面试|详见正文|应聘岗位|投递岗位)$/i;
+  /^(?:(?:20)?\d{2}届?(?:秋招|春招|校招|社招|校园招聘|社会招聘|实习招聘)?|校园招聘|社会招聘|校招|社招|秋招|春招|实习招聘|待确认岗位|多个|不限|通用|全部|未知|无|暂无|面试|笔试|测评|在线笔试|在线测评|在线考试|视频面试|现场面试|电话面试|调整面试时间|详见正文|应聘岗位|投递岗位)$/i;
 
 const CANONICAL_STAGES = [
   "一面",
@@ -297,7 +300,7 @@ function isPromoOrLivestreamEmail(subject: string, cleanText: string): boolean {
 }
 
 function extractCompany(subject: string, from: string, cleanText: string): string {
-  // 1. Explicit subject brackets: 【华为公司】 / [字节跳动]
+  // 1. Explicit subject brackets: 【华为公司】 / [字节跳动] (skipping venue tags like 【上海场】 or generic tags)
   const bracketMatches = [...subject.matchAll(/[【\[]([^】\]]{2,36})[】\]]/g)];
   for (const m of bracketMatches) {
     const normalized = normalizeCompanyName(m[1]);
@@ -313,20 +316,20 @@ function extractCompany(subject: string, from: string, cleanText: string): strin
     if (normalized) return normalized;
   }
 
-  // 3. Subject leading "<Company> 2027届/校园招聘/面试邀请/笔试邀请/录用意向书"
+  // 3. Corporate email domain or ATS tenant localpart (checked BEFORE unbracketed subject prefix so "某人的面试邀请" from baidu.com resolves to 百度)
+  const byAddr = matchCompanyByEmailAddress(from);
+  if (byAddr) return byAddr;
+
+  // 4. Subject leading "<Company> 2027届/校园招聘/人才测评/面试邀请/笔试邀请/录用意向书"
   const leadingSubj = subject.match(
-    /^(?:(?:Re|Fwd|回复|转发)\s*[:：]\s*)?([^\s【\[\]（()）—\-–:：]{2,24}?)\s*(?:20\d{2}届?|2\d届|校园招聘|社会招聘|校招|社招|秋招|春招|面试邀请|笔试邀请|测评邀请|在线笔试|在线考试|录用意向|录用通知)/i,
+    /^(?:(?:Re|Fwd|回复|转发)\s*[:：]\s*)?([^\s【\[\]（()）—\-–:：|]{2,24}?)\s*(?:20\d{2}届?|2\d届|校园招聘|社会招聘|校招|社招|秋招|春招|人才测评|素质能力|面试邀请|笔试邀请|测评邀请|在线笔试|在线考试|录用意向|录用通知|\|)/i,
   );
   if (leadingSubj?.[1]) {
     const normalized = normalizeCompanyName(leadingSubj[1]);
     if (normalized) return normalized;
   }
 
-  // 4. Corporate email domain or ATS tenant localpart (e.g. shopee-no-reply@mail.mokahr.com)
-  const byAddr = matchCompanyByEmailAddress(from);
-  if (byAddr) return byAddr;
-
-  // 5. Sender display name (skipping generic personas like 招聘小秘书 / recruitment / HRMS)
+  // 5. Sender display name (skipping generic personas like 招聘小秘书 / iTalent招聘助手 / recruitment / HRMS)
   const fromNameMatch = from.match(/^"?([^"<@]{2,48})"?\s*</);
   if (fromNameMatch?.[1]) {
     const rawName = fromNameMatch[1].trim();
@@ -359,18 +362,26 @@ function extractCompany(subject: string, from: string, cleanText: string): strin
   return "待确认公司";
 }
 
-export function cleanPosition(raw: string): string {
+export function cleanPosition(raw: string, company?: string): string {
   if (!raw) return "";
   let s = raw
     .replace(/[\r\n\t]+/g, " ")
     .replace(/^[\s"'「『《【\[:：\-—|]+/, "")
     .replace(/[\s"'」』》】\]。，,；;！!|]+$/, "")
+    .replace(/^了\s+/, "")
     .replace(/^[（(]\s*(?:20)?\d{2}届?(?:秋招|春招|校招|社招|校园招聘|社会招聘|实习招聘)\s*[）)]\s*[-—–]?\s*/, "")
     .replace(/^(?:20)?\d{2}届?(?:秋招|春招|校招|社招|校园招聘|社会招聘)\s*[-—–]\s*/, "")
     .replace(/(?:岗位|职位)(?:的(?:面试|笔试|测评|投递流程|招聘流程))?$/, "")
     .replace(/^(?:[^\s-]{2,14}(?:校园招聘|社会招聘|校招|社招))\s*[-—–]\s*/, "")
     .replace(/\s+/g, " ")
     .trim();
+
+  if (company && company !== "待确认公司") {
+    const escaped = company.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    s = s
+      .replace(new RegExp(`^${escaped}(?:集团|科技|公司)?\\s*(?:的|[-—–\\s])\\s*`, "i"), "")
+      .trim();
+  }
 
   // Balance dangling opening/closing parenthesis if truncated
   if (s.includes("（") && !s.includes("）")) {
@@ -389,39 +400,45 @@ export function cleanPosition(raw: string): string {
   if (s.length < 2 || s.length > 80) return "";
   if (BOGUS_POSITION_RE.test(s)) return "";
   if (/^https?:\/\//i.test(s)) return "";
-  if (/^(?:点击|请|您好|亲爱的|尊敬的|感谢)/.test(s)) return "";
+  if (/^(?:点击|请|您好|亲爱的|尊敬的|感谢|关于|总量)/.test(s)) return "";
+  if (/无法进入|下一步|筛选流程|候选人|有限公司$|股份有限公司$|科技有限公司$|集团$|校园招聘$|社会招聘$/i.test(s)) {
+    return "";
+  }
+  if (company && s.toLowerCase() === company.trim().toLowerCase()) return "";
   return s;
 }
 
-function extractPosition(subject: string, cleanText: string): string {
+function extractPosition(subject: string, cleanText: string, company?: string): string {
   const head = cleanText.slice(0, 1800);
   const combined = `${subject}\n${head}`;
 
   const patterns: RegExp[] = [
-    // 1. Explicit labeled field (supports HTML table pipes like "岗位名称： | | xxx")
-    /(?:岗位名称|应聘职位|投递岗位|面试岗位|应聘岗位|职位名称|申请职位|投递职位|应聘方向|面试职位)\s*[:：]\s*(?:\|\s*)*([^\n\r|。；;]{2,72})/,
+    // 1. Bracketed or plain explicit labeled field (supports 【面试岗位】：xxx and table pipes)
+    /【?(?:岗位名称|应聘职位|投递岗位|面试岗位|应聘岗位|职位名称|申请职位|投递职位|应聘方向|面试职位)】?\s*[:：]\s*(?:\|\s*)*([^\n\r|。；;]{2,72})/,
     // 2. Short label "职位：xxx" or "岗位：xxx"
-    /(?:^|\n|\|\s*)(?:职位|岗位)\s*[:：]\s*(?:\|\s*)*([^\n\r|。；;]{2,64})/,
+    /(?:^|\n|\|\s*)【?(?:职位|岗位)】?\s*[:：]\s*(?:\|\s*)*([^\n\r|。；;]{2,64})/,
     // 3. Quoted role before 职位/岗位: 关于Shopee「（27届秋招）研发工程师-北京」职位的面试
     /[「『《【]([^」』》】\n\r]{2,60})[」』》】]\s*(?:职位|岗位)/,
     // 4. Subject dash after invite: 字节跳动校园招聘面试邀请 — AI Agent开发工程师 - 抖音平台产品
     /(?:面试邀请|笔试邀请|测评邀请|面试通知|笔试通知|面试提醒)\s*[—–\-:：]\s*([^\n\r]{2,72})/,
-    // 5. Body "并投递 xxx 岗位" / "投递 xxx 岗位的面试"
-    /(?:并投递|您投递|投递了?|申请了?)\s*([^\n\r，,。！!；;]{2,64}?)\s*(?:岗位|职位|，|,|。)/,
-    // 6. Body "参加 <prefix>-<role> 岗位的面试"
+    // 5. Body "邀请您参加/就 xxx 岗位/职位"
+    /(?:邀请您?(?:参加|就)|邀您参加)\s*([^\n\r，,。！!；;]{2,56}?)\s*(?:岗位|职位)/,
+    // 6. Body "并投递 xxx 岗位" / "投递 xxx 岗位的面试"
+    /(?:并投递|您投递|投递了)\s*([^\n\r，,。！!；;]{2,64}?)\s*(?:岗位|职位|，|,|。)/,
+    // 7. Body "参加 <prefix>-<role> 岗位的面试"
     /参加\s*(?:[^\s，,。]{2,20}-)?([^\n\r，,。！!；;]{2,60}?)\s*(?:岗位|职位)的(?:面试|笔试|测评)/,
-    // 7. English labels
+    // 8. English labels
     /(?:Position|Role|Job Title)\s*[:：]\s*([^\n\r|;]{2,64})/i,
-    // 8. Subject role before 面试/笔试: 【字节跳动】后端开发工程师二面面试邀请
+    // 9. Subject role before 面试/笔试: 【字节跳动】后端开发工程师二面面试邀请
     /[】\]]\s*([^\n\r【】\[\]（()）]{2,36}?(?:工程师|开发|研发|算法|架构师|产品经理|设计师|测试|运维|实习生|科学家|研究员|Engineer|Developer))/,
-    // 9. Dash + tech role (allowing trailing city/team suffix like （上海）)
+    // 10. Dash + tech role (allowing trailing city/team suffix like （上海）)
     /[-—–]\s*([^\n\r【】\[\]（()）]{2,42}(?:工程师|开发|研发|算法|架构师|产品经理|设计师|测试|运维|实习生|Engineer|Developer)(?:\s*[（(][^）)]{1,16}[）)])?)/,
   ];
 
   for (const re of patterns) {
     const m = combined.match(re);
     if (m?.[1]) {
-      const cleaned = cleanPosition(m[1]);
+      const cleaned = cleanPosition(m[1], company);
       if (cleaned) return cleaned;
     }
   }
@@ -456,7 +473,7 @@ function classifyEvent(
   const sample = `${subject}\n${head}`;
 
   // 1. Offer / Intent Letter (check subject + opening first; offer letters often mention "已通过面试")
-  if (/录用意向书|录用意向|意向征询|口头\s*offer/i.test(sample)) {
+  if (/录用意向书|录用意向|意向征询|实习留用|留用邀请|留用通知|转正意向|口头\s*offer/i.test(sample)) {
     return { kind: "offer", stageName: "录用意向", actionHint: "offer" };
   }
   if (/录用通知|正式\s*offer|offer\s*(?:letter|通知|发放)|恭喜您通过.*全部面试/i.test(sample)) {
@@ -476,7 +493,7 @@ function classifyEvent(
   if (/笔试|在线考试|在线编程|coding\s*(?:test|challenge)|\boa\b/i.test(subject)) {
     return { kind: "written_test", stageName: "笔试", actionHint: "schedule" };
   }
-  if (/测评|性格测试|行测|online\s*assessment/i.test(subject)) {
+  if (/测评|素质能力评估|能力评估|人才测试|性格测试|行测|online\s*assessment/i.test(subject)) {
     return { kind: "assessment", stageName: "测评", actionHint: "schedule" };
   }
   if (/面试|interview/i.test(subject)) {
@@ -491,7 +508,7 @@ function classifyEvent(
   if (/笔试邀请|笔试通知|在线笔试|在线考试|试卷名称|在线编程|coding\s*(?:test|challenge)|hackerrank|赛码|牛客笔试|\boa\b/i.test(head)) {
     return { kind: "written_test", stageName: "笔试", actionHint: "schedule" };
   }
-  if (/在线测评|测评邀请|人才测评|性格测试|行测|北森测评|shl|online\s*assessment|测评链接|测评网址/i.test(head)) {
+  if (/在线测评|线上测评|测评邀请|测评通知|人才测评|人才测试|素质能力评估|能力评估|素质测评|性格测试|行测|北森测评|shl|online\s*assessment|测评链接|测评网址/i.test(head)) {
     return { kind: "assessment", stageName: "测评", actionHint: "schedule" };
   }
   if (/面试邀请|面试通知|面试安排|面试提醒|视频面试|电话面试|现场面试|技术面|一面|二面|三面|终面|hr\s*面|interview/i.test(head)) {
@@ -658,7 +675,7 @@ function extractScheduleTime(
   const body = cleanText.slice(0, 2600);
   const durationMin = extractDurationMinutes(body);
 
-  // 2. Multi-line Start / End time labels (e.g. Didi acmcoder: 开始时间（北京时间）：... \n 结束时间（北京时间）：...)
+  // 2. Multi-line Start / End time labels (e.g. Didi acmcoder)
   const startLabelMatch = body.match(
     /开始时间(?:\s*[（(][^）)]{1,20}[）)])?\s*[:：]\s*(?:\|\s*)*([^\n\r|]{6,60})/,
   );
@@ -675,12 +692,38 @@ function extractScheduleTime(
     }
   }
 
-  // 3. Explicit scheduled time label (面试时间 / 考试时间 / 笔试时间 / 系统开放时间 / 开放时间)
+  // 2b. Separated Date + Time lines (e.g. Baidu: "面试日期: 2026-09-28 周一 \n 面试时间: 16:00")
+  const sepDateMatch = body.match(
+    /【?(?:面试日期|考试日期|笔试日期|日期)】?\s*[:：]\s*(?:\|\s*)*(?:(20\d{2})\s*[年\-/.]\s*)?(\d{1,2})\s*[月\-/.]\s*(\d{1,2})\s*日?/,
+  );
+  const sepClockMatch = body.match(
+    /【?(?:面试时间|考试时间|笔试时间|签到时间|时间)】?\s*[:：]\s*(?:\|\s*)*(上午|下午|晚上|中午|AM|PM)?\s*(\d{1,2})\s*[:：点时]\s*(\d{2})(?:\s*(?:--|-|~|～|至|到)\s*(上午|下午|晚上|AM|PM)?\s*(\d{1,2})\s*[:：点时]\s*(\d{2}))?/i,
+  );
+  if (sepDateMatch && sepClockMatch) {
+    const month = Number(sepDateMatch[2]);
+    const day = Number(sepDateMatch[3]);
+    const year = inferYear(sepDateMatch[1], month, refDate);
+    const startH = adjustHour(Number(sepClockMatch[2]), sepClockMatch[1]);
+    const startM = Number(sepClockMatch[3]);
+    const startAt = buildIsoWithOffset(year, month, day, startH, startM);
+    if (startAt) {
+      let endAt: string | undefined;
+      if (sepClockMatch[5] && sepClockMatch[6]) {
+        const endH = adjustHour(Number(sepClockMatch[5]), sepClockMatch[4] || sepClockMatch[1]);
+        const endM = Number(sepClockMatch[6]);
+        endAt = buildIsoWithOffset(year, month, day, endH, endM);
+      } else {
+        endAt = new Date(Date.parse(startAt) + (durationMin || 60) * 60_000).toISOString();
+      }
+      return { startAt, endAt, timeMode: "scheduled" };
+    }
+  }
+
+  // 3. Explicit scheduled time label (supports 【签到时间】：10月11日8:45 etc.)
   const labeledTimeRe =
-    /(?:面试时间|考试时间|笔试时间|测评时间|活动时间|预约时间|系统开放时间|开放时间|Time|Date)\s*[:：]?\s*(?:[（(][^）)]{1,24}[）)])?\s*(?:\|\s*)*([^\n\r]{6,90})/gi;
+    /【?(?:面试时间|考试时间|笔试时间|签到时间|测评时间|活动时间|预约时间|系统开放时间|开放时间|Time|Date)】?\s*[:：]?\s*(?:[（(][^）)]{1,24}[）)])?\s*(?:\|\s*)*([^\n\r]{6,90})/gi;
   for (const m of body.matchAll(labeledTimeRe)) {
     const line = m[1];
-    // Skip lines that only describe policy ("面试时间可能视情况缩减或延长")
     if (!/\d{1,2}\s*[:：点时]\s*\d{2}/.test(line)) continue;
     const range = extractDateTimeRangeFromSnippet(line, refDate, durationMin);
     if (range.startAt) {
@@ -688,49 +731,70 @@ function extractScheduleTime(
     }
   }
 
-  // 4. Explicit deadline phrase (especially for offer intent letters & assessments)
-  const deadlineMatch = body.match(
+  // 4. Explicit deadline phrase (supports "将于 2026年09月22日 周二 08:59 失效" and "至 2026-10-23 前")
+  const deadlinePatterns: RegExp[] = [
+    /(?:将于|于)\s*(20\d{2}\s*[年\-/.]\s*\d{1,2}\s*[月\-/.]\s*\d{1,2}\s*日?(?:\s*(?:星期[一二三四五六日天]|周[一二三四五六日天]))?(?:\s*\d{1,2}:\d{2}(?::\d{2})?)?)\s*(?:失效|过期|截止)/,
     /(?:截止(?:时间|日期)?|截至|至|于|在)\s*(20\d{2}\s*[年\-/.]\s*\d{1,2}\s*[月\-/.]\s*\d{1,2}\s*日?(?:\s*\d{1,2}:\d{2}(?::\d{2})?)?)\s*(?:24:00)?\s*(?:前|之前|截止)/,
-  );
-  if (deadlineMatch?.[1] && (kind === "offer" || kind === "assessment")) {
-    const dateParts = deadlineMatch[1].match(
-      /(20\d{2})\s*[年\-/.]\s*(\d{1,2})\s*[月\-/.]\s*(\d{1,2})(?:\s*(\d{1,2}):(\d{2}))?/,
-    );
-    if (dateParts) {
-      const year = Number(dateParts[1]);
-      const month = Number(dateParts[2]);
-      const day = Number(dateParts[3]);
-      let hour = dateParts[4] ? Number(dateParts[4]) : 23;
-      let minute = dateParts[5] ? Number(dateParts[5]) : 59;
-      if (hour === 0 && minute === 0) {
-        hour = 23;
-        minute = 59;
+  ];
+  if (kind === "offer" || kind === "assessment" || kind === "written_test") {
+    for (const re of deadlinePatterns) {
+      const dm = body.match(re);
+      if (dm?.[1]) {
+        const dateParts = dm[1].match(
+          /(20\d{2})\s*[年\-/.]\s*(\d{1,2})\s*[月\-/.]\s*(\d{1,2})(?:\s*日)?(?:\s*(?:星期[一二三四五六日天]|周[一二三四五六日天]))?(?:\s*(\d{1,2}):(\d{2}))?/,
+        );
+        if (dateParts) {
+          const year = Number(dateParts[1]);
+          const month = Number(dateParts[2]);
+          const day = Number(dateParts[3]);
+          let hour = dateParts[4] ? Number(dateParts[4]) : 23;
+          let minute = dateParts[5] ? Number(dateParts[5]) : 59;
+          if (hour === 0 && minute === 0) {
+            hour = 23;
+            minute = 59;
+          }
+          const deadlineIso = buildIsoWithOffset(year, month, day, hour, minute);
+          if (deadlineIso) {
+            return { startAt: deadlineIso, endAt: undefined, timeMode: "deadline" };
+          }
+        }
       }
-      const deadlineIso = buildIsoWithOffset(year, month, day, hour, minute);
+    }
+  }
+
+  // 5. Relative validity window ("有效期为 5 个自然日", "七日内有效", "请在7个工作日之内完成", "两日内完成", "24小时内预约")
+  const cnNumMap: Record<string, number> = {
+    一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10,
+  };
+  const relDaysMatch =
+    body.match(/有效期(?:为|内)?\s*(\d{1,2}|[一二两三四五六七八九十])\s*(?:个?(?:自然|工作)?[天日])/) ||
+    body.match(/(?:请在|需在|起)\s*(\d{1,2}|[一二两三四五六七八九十])\s*(?:个?(?:自然|工作)?[天日])之?内(?:点击|登录|进入|预约|完成|作答|有效|确认|回复)/) ||
+    body.match(/(\d{1,2}|[一二两三四五六七八九十])\s*(?:个?(?:自然|工作)?[天日])内(?:有效|完成|作答)/);
+  if (relDaysMatch?.[1]) {
+    const days = /^\d+$/.test(relDaysMatch[1]) ? Number(relDaysMatch[1]) : cnNumMap[relDaysMatch[1]] || 0;
+    if (days >= 1 && days <= 30) {
+      const target = new Date(refDate.getTime() + days * 86400_000);
+      const deadlineIso = buildIsoWithOffset(
+        target.getFullYear(),
+        target.getMonth() + 1,
+        target.getDate(),
+        23,
+        59,
+      );
       if (deadlineIso) {
         return { startAt: deadlineIso, endAt: undefined, timeMode: "deadline" };
       }
     }
   }
-
-  // 5. Relative validity window for open assessments (e.g. "测评有效期为 5 个自然日")
-  if (kind === "assessment" || kind === "offer") {
-    const validDaysMatch = body.match(/有效期(?:为|内)?\s*(\d{1,2})\s*(?:个?(?:自然|工作)?[天日])/);
-    if (validDaysMatch?.[1]) {
-      const days = Number(validDaysMatch[1]);
-      if (days >= 1 && days <= 30) {
-        const target = new Date(refDate.getTime() + days * 86400_000);
-        const deadlineIso = buildIsoWithOffset(
-          target.getFullYear(),
-          target.getMonth() + 1,
-          target.getDate(),
-          23,
-          59,
-        );
-        if (deadlineIso) {
-          return { startAt: deadlineIso, endAt: undefined, timeMode: "deadline" };
-        }
-      }
+  const relHoursMatch = body.match(/(?:请在|需在)\s*(\d{1,2})\s*小时内(?:预约|确认|完成|回复)/);
+  if (relHoursMatch?.[1]) {
+    const hrs = Number(relHoursMatch[1]);
+    if (hrs >= 1 && hrs <= 168) {
+      return {
+        startAt: new Date(refDate.getTime() + hrs * 3600_000).toISOString(),
+        endAt: undefined,
+        timeMode: "deadline",
+      };
     }
   }
 
@@ -759,13 +823,13 @@ function scoreCandidateUrl(url: string): number {
   const lower = url.toLowerCase();
   if (BAD_URL_EXT_RE.test(lower) || EXCLUDED_URL_RE.test(lower)) return -100;
   let score = 0;
-  if (/vc\.feishu|feishu\.cn\/vc|bytedance\.feishu|t\.zijieimg\.com/.test(lower)) score += 95;
+  if (/vc\.feishu|feishu\.cn\/vc|bytedance\.feishu|t\.zijieimg\.com|infoflow\.baidu\.com\/meeting/.test(lower)) score += 95;
   if (/meeting\.tencent|wemeet|zoom\.us|teams\.microsoft|meet\.google|dingtalk\.com\/v/.test(lower)) score += 95;
   if (/app\.mokahr\.com\/su\/|hr\.nowcoder\.com\/v1\/s\/|nowcoder\.com\/test/.test(lower)) score += 90;
   if (/[a-z0-9-]+\.acmcoder\.com\/(?:cand|exam|login)/.test(lower)) score += 90;
-  if (/eztest\.org|talovative\.com|shl\.com|hackerrank\.com|beisen\.com/.test(lower)) score += 85;
-  if (/iflytek\.com\/.*share\/page|interview|exam|assessment|test/.test(lower)) score += 60;
-  if (/nowcoder\.com|acmcoder\.com|mokahr\.com/.test(lower)) score += 35;
+  if (/eztest\.org|talovative\.com|ceping\.com|datatalk360\.com|shl\.com|hackerrank\.com|beisen\.com/.test(lower)) score += 88;
+  if (/bsurl\.cn|ksurl\.cn|t\.zhaopin\.com|kuaishou\.cn\/recruit|iflytek\.com\/.*share\/page|interview|exam|assessment|test/.test(lower)) score += 62;
+  if (/nowcoder\.com|acmcoder\.com|mokahr\.com|kuaishou\.com|joinus\.cc/.test(lower)) score += 35;
   // Penalize bare domain homepages like http://www.acmcoder.com
   try {
     const u = new URL(url);
@@ -791,9 +855,9 @@ function extractLocationOrLink(cleanText: string, ics?: ParsedIcsEvent | null): 
 
   const sample = cleanText.slice(0, 3600);
 
-  // 2. Explicit labeled link field (highest precision — catches t.zijieimg.com, didi.acmcoder.com, talovative.com, eztest.org, iflytek intent URL)
+  // 2. Explicit labeled link field (highest precision — catches t.zijieimg.com, didi.acmcoder.com, talovative.com, eztest.org, ceping.com, bsurl.cn, infoflow.baidu.com)
   const labeledUrlRe =
-    /(?:面试链接|视频链接|视频面试链接|会议链接|入会链接|考试地址|考试链接|笔试链接|笔试地址|登录路径|登录链接|测评链接|测评网址|测试网址|答题链接|意向书链接|确认链接|入场链接|Meeting\s*Link|Interview\s*Link|Exam\s*Link|Assessment\s*Link)\s*[:：]?\s*(?:[^\n\r]{0,24}\(\s*)?(?:[\s|]{0,24})(https?:\/\/[^\s"'<>）)】，,。\]]+)/gi;
+    /(?:面试链接|视频链接|视频面试链接|会议链接|入会链接|预约链接|考试地址|考试链接|笔试链接|笔试地址|登录路径|登录链接|测评链接|测评网址|测试网址|答题链接|进入测评平台|马上开始测评|复制到网页地址栏中|意向书链接|确认链接|入场链接|Meeting\s*Link|Interview\s*Link|Exam\s*Link|Assessment\s*Link)\s*[:：]?\s*(?:[^\n\r]{0,24}\(\s*)?(?:[\s|]{0,24})(https?:\/\/[^\s"'<>）)】，,。\]]+)/gi;
   for (const m of sample.matchAll(labeledUrlRe)) {
     const clean = cleanExtractedUrl(m[1]);
     if (clean) return clean;
@@ -822,9 +886,9 @@ function extractLocationOrLink(cleanText: string, ics?: ParsedIcsEvent | null): 
     return `会议号 ${meetingNo[1].trim()}`;
   }
 
-  // 5. Physical address
-  const addr = sample.match(/(?:面试地点|面试地址|现场地址)\s*[:：]\s*(?:\|\s*)*([^\n\r|]{4,64})/);
-  if (addr?.[1]) {
+  // 5. Physical address (supports 【面试地点】：xxx)
+  const addr = sample.match(/【?(?:面试地点|面试地址|现场地址)】?\s*[:：]\s*(?:\|\s*)*([^\n\r|]{4,72})/);
+  if (addr?.[1] && !/^(?:视频面试|线上|线上面试)$/.test(addr[1].trim())) {
     return addr[1].trim();
   }
 
@@ -890,6 +954,11 @@ export function parseRecruitmentEmailByRules(input: RawEmailInput): EmailParseRe
     return reject("识别为拒信或流程终止通知，已按规则忽略不写入日程", 0, "fail");
   }
 
+  // Gate 5b: Pure application receipt subject (prevents body pipeline overviews like "后续包含在线测评/笔试/面试" from false-matching)
+  if (PURE_RECEIPT_SUBJECT_RE.test(subject) && !RECRUIT_STRONG_KEYWORDS.test(subject)) {
+    return reject("仅为投递确认回执，暂无面试或笔试安排", 0);
+  }
+
   const { kind, stageName, actionHint } = classifyEvent(subject, cleanText);
 
   let score = 0;
@@ -921,7 +990,7 @@ export function parseRecruitmentEmailByRules(input: RawEmailInput): EmailParseRe
   }
 
   const company = extractCompany(subject, from, cleanText);
-  const position = extractPosition(subject, cleanText);
+  const position = extractPosition(subject, cleanText, company);
   const title = buildEventTitle(company, position, stageName);
 
   return {
@@ -1041,7 +1110,7 @@ export async function parseRecruitmentEmail(
         rawCompany ||
         "待确认公司";
 
-      const llmPos = cleanPosition(parsed.position || "");
+      const llmPos = cleanPosition(parsed.position || "", company);
       const position = llmPos || base.position || "";
       const stageName = normalizeStageName(parsed.stageName || base.stageName, kind);
 

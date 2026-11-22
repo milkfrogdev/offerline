@@ -526,13 +526,16 @@ export const BRAND_DIRECTORY: BrandEntry[] = [
 ];
 
 const GENERIC_SENDER_RE =
-  /^(?:no-?reply|noreply|do-?not-?reply|hr|hrms|hrbp|talent|recruit|recruiting|recruitment|campus|careers?|jobs?|people|system|admin|notification|notice|support|exam|test|interview|service|info|mail|hello|team|北森|beisen|moka|mokahr|飞书招聘|牛客|牛客网|nowcoder|赛码|赛码网|acmcoder|拉勾|boss直聘|boss|猎聘|智联招聘|智联|前程无忧|脉脉|实习僧|招聘小秘书|校招小助手|招聘助手|校招助手|校园招聘|社会招聘|实习招聘|人才招聘|招聘中心|招聘团队|招聘组|招聘系统|人力资源部?|人事部?|系统通知|考试通知|面试提醒|在线考试|在线测评|人才测评|通知|提醒|重要|紧急|面试|笔试|测评|校招|社招|秋招|春招|邀请|offer|确认|待确认公司)$/i;
+  /^(?:no-?reply|noreply|do-?not-?reply|hr|hrms|hrbp|talent|recruit|recruiting|recruitment|campus|careers?|jobs?|people|system|admin|notification|notice|support|exam|test|interview|service|info|mail|hello|team|assessment|北森|beisen|moka|mokahr|飞书招聘|牛客|牛客网|nowcoder|赛码|赛码网|acmcoder|拉勾|boss直聘|boss|猎聘|智联招聘|智联推荐|智联|前程无忧|脉脉|实习僧|italent招聘助手|招聘管理系统|oa管理员|tme-oa管理员|招聘小秘书|校招小助手|招聘助手|校招助手|校园招聘|社会招聘|实习招聘|人才招聘|招聘中心|招聘团队|招聘组|招聘系统|人力资源部?|人事部?|系统通知|考试通知|面试提醒|面试邀请|面试通知|笔试邀请|笔试通知|在线考试|在线测评|人才测评|邀请函|通知|提醒|重要|紧急|面试|笔试|测评|校招|社招|秋招|春招|邀请|offer|确认|待确认公司)$/i;
+
+const CITY_VENUE_TAG_RE =
+  /^(?:北京|上海|深圳|广州|杭州|成都|武汉|南京|苏州|西安|重庆|天津|合肥|长沙|厦门|珠海|海外|全国)(?:场|站|专场|站点)?$/;
 
 const FREE_MAIL_DOMAINS =
   /(?:^|\.)(?:qq\.com|foxmail\.com|163\.com|126\.com|yeah\.net|sina\.com|sohu\.com|gmail\.com|outlook\.com|hotmail\.com|live\.com|icloud\.com|yahoo\.com|proton\.me|protonmail\.com)$/i;
 
 const ATS_PLATFORM_DOMAINS =
-  /(?:^|\.)(?:mokahr\.com|mokahr\.co|beisen\.com|nowcoder\.net|nowcoder\.com|acmcoder\.com|greenhouse\.io|lever\.co|myworkday\.com|workday\.com|ashbyhq\.com|icims\.com|smartrecruiters\.com|sendcloud\.net|mailgun\.org|amazonses\.com)$/i;
+  /(?:^|\.)(?:mokahr\.com|mokahr\.co|beisen\.com|ibeisen\.com|italent\.cn|joinus\.cc|wisdomore\.com|zhaopin\.cn|shixiseng\.net|nowcoder\.net|nowcoder\.com|acmcoder\.com|greenhouse\.io|lever\.co|myworkday\.com|workday\.com|ashbyhq\.com|icims\.com|smartrecruiters\.com|sendcloud\.net|mailgun\.org|amazonses\.com)$/i;
 
 export function isGenericCompanyOrSender(raw: string): boolean {
   const s = raw
@@ -541,6 +544,8 @@ export function isGenericCompanyOrSender(raw: string): boolean {
     .trim();
   if (!s || s.length < 2) return true;
   if (GENERIC_SENDER_RE.test(s)) return true;
+  if (CITY_VENUE_TAG_RE.test(s)) return true;
+  if (/[的之]$/.test(s)) return true;
   if (/^20\d{2}届?(?:校招|秋招|春招|校园招聘|社会招聘)?$/i.test(s)) return true;
   if (/^(?:小秘书|小助手|招聘|校招|社招|笔试|面试|测评)/.test(s) && s.length <= 6) return true;
   return false;
