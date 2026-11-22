@@ -197,10 +197,10 @@ export function HomeView({
 
     const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
     return [
-      { key: "all" as MetricFilter, label: "已投递岗位", count: total, pct: total > 0 ? 100 : 0, tone: "ink" },
-      { key: "active" as MetricFilter, label: "通过简历初筛", count: screened, pct: pct(screened), tone: "slate" },
-      { key: "interview" as MetricFilter, label: "进入技术面试", count: metrics.interviewed, pct: metrics.interviewRate, tone: "accent" },
-      { key: "offer" as MetricFilter, label: "终面与录用", count: lateStage, pct: pct(lateStage), tone: "ok" },
+      { key: "all" as MetricFilter, label: "已投递", count: total, pct: total > 0 ? 100 : 0, tone: "ink" },
+      { key: "active" as MetricFilter, label: "通过初筛", count: screened, pct: pct(screened), tone: "slate" },
+      { key: "interview" as MetricFilter, label: "进入面试", count: metrics.interviewed, pct: metrics.interviewRate, tone: "accent" },
+      { key: "offer" as MetricFilter, label: "终面与 Offer", count: lateStage, pct: pct(lateStage), tone: "ok" },
     ];
   }, [records, metrics]);
 
@@ -467,7 +467,7 @@ export function HomeView({
                     </div>
                     <div className="spotlight-body">
                       <h2 className="spotlight-title">
-                        当前冲刺 {topSprintRecord.company}
+                        正在跟进 {topSprintRecord.company}
                       </h2>
                       <div className="spotlight-meta">
                         <span>{topSprintRecord.position}</span>
@@ -511,10 +511,10 @@ export function HomeView({
           )}
         </article>
 
-        {/* 右侧态势卡：关键指标 + 可点击转化漏斗 */}
+        {/* 右侧统计卡：关键指标 + 可点击进度条 */}
         <article className="home-card home-funnel-card">
           <div className="home-card-head">
-            <h2 className="home-card-title">求职态势与漏斗</h2>
+            <h2 className="home-card-title">投递统计</h2>
             <button
               type="button"
               className="home-card-link"
@@ -648,14 +648,14 @@ export function HomeView({
             </section>
           )}
 
-          {/* 置顶与冲刺推进队列 */}
-          <section className="home-card" aria-label="置顶与冲刺队列">
+          {/* 置顶与进行中列表 */}
+          <section className="home-card" aria-label="置顶与进行中">
             <div className="home-card-head">
               <div className="home-card-title-group">
                 <span className="group-star-icon" aria-hidden="true">
                   <IconStar size={15} filled />
                 </span>
-                <h2 className="home-card-title">置顶与冲刺队列</h2>
+                <h2 className="home-card-title">置顶与进行中</h2>
                 <span className="home-card-count">{focusRecords.length}</span>
               </div>
               <button
@@ -663,7 +663,7 @@ export function HomeView({
                 className="home-card-link"
                 onClick={() => onNavigatePipeline("active")}
               >
-                <span>管理时间线</span>
+                <span>查看全部</span>
                 <IconArrowRight size={13} />
               </button>
             </div>

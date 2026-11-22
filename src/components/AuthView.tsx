@@ -128,7 +128,7 @@ export function AuthView({
               走成通往 <span className="auth-title-accent">Offer</span> 的线
             </h1>
             <p className="auth-hero-sub">
-              投递推进、邮箱自动日程与所见即所得 Markdown 复盘，一屏实时联动。
+              投递进度、邮箱日程和 Markdown 面经，都在这里。
             </p>
           </div>
 
