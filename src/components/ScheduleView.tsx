@@ -15,6 +15,7 @@ import {
   IconClose,
   IconCode,
   IconDownload,
+  IconEdit,
   IconExternal,
   IconInbox,
   IconMail,
@@ -213,6 +214,7 @@ export function ScheduleView({
   onOpenSubscribeModal,
   onAddEvent,
   onConfirmEvent,
+  onEditEvent,
   onOpenRecordInPipeline,
   onToggleComplete,
   onDismissEvent,
@@ -229,6 +231,7 @@ export function ScheduleView({
   onOpenSubscribeModal: () => void;
   onAddEvent: () => void;
   onConfirmEvent: (event: ScheduleEvent) => Promise<void>;
+  onEditEvent: (event: ScheduleEvent) => void;
   onOpenRecordInPipeline: (company: string) => void;
   onToggleComplete: (event: ScheduleEvent) => Promise<void>;
   onDismissEvent: (event: ScheduleEvent) => Promise<void>;
@@ -509,6 +512,15 @@ export function ScheduleView({
                           <IconCheck size={13} />
                           <span>加入日程</span>
                         </button>
+                        <button
+                          type="button"
+                          className="btn btn-soft btn-sm"
+                          onClick={() => onEditEvent(ev)}
+                          data-tip="核对或修改轮次、时间、链接与关联岗位"
+                        >
+                          <IconEdit size={13} />
+                          <span>编辑</span>
+                        </button>
                         {linked && (
                           <button
                             type="button"
@@ -671,6 +683,15 @@ export function ScheduleView({
                                   更新进度
                                 </button>
                               )}
+                              <button
+                                type="button"
+                                className="row-icon-btn agenda-icon-btn"
+                                onClick={() => onEditEvent(ev)}
+                                data-tip="编辑日程或修改关联投递"
+                                aria-label="编辑日程"
+                              >
+                                <IconEdit size={16} />
+                              </button>
                               {ev.timeMode !== "flexible" && (
                                 <a
                                   href={`/api/events/${encodeURIComponent(ev.id)}/ics`}

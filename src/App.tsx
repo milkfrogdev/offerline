@@ -68,8 +68,9 @@ export function App() {
   });
   const [eventModal, setEventModal] = useState<{
     open: boolean;
+    editing?: ScheduleEvent | null;
     preset?: { recordId?: string; company?: string; position?: string; stageName?: string };
-  }>({ open: false });
+  }>({ open: false, editing: null });
   const [noteModal, setNoteModal] = useState<{
     open: boolean;
     editing: InterviewNote | null;
@@ -360,6 +361,7 @@ export function App() {
             onAddEvent={() => setEventModal({ open: true })}
             onAddNote={(preset) => setNoteModal({ open: true, editing: null, preset })}
             onConfirmEvent={handleConfirmEvent}
+            onEditEvent={(ev) => setEventModal({ open: true, editing: ev })}
             onDismissEvent={handleDismissEvent}
             onOpenRecordInPipeline={handleOpenRecordInPipeline}
             onVisitCompany={handleVisitCompany}
@@ -425,8 +427,9 @@ export function App() {
             onOpenMailSettings={() => setMailModal({ open: true, tab: "imap" })}
             onOpenParseModal={() => setMailModal({ open: true, tab: "parse" })}
             onOpenSubscribeModal={() => setSubscribeOpen(true)}
-            onAddEvent={() => setEventModal({ open: true })}
+            onAddEvent={() => setEventModal({ open: true, editing: null })}
             onConfirmEvent={handleConfirmEvent}
+            onEditEvent={(ev) => setEventModal({ open: true, editing: ev })}
             onOpenRecordInPipeline={handleOpenRecordInPipeline}
             onToggleComplete={handleToggleCompleteEvent}
             onDismissEvent={handleDismissEvent}
@@ -486,7 +489,10 @@ export function App() {
           onClose={() => setMailModal({ open: false, tab: "imap" })}
           onConfigUpdated={(cfg) => setMailConfig(cfg)}
           onEventCreated={(ev) => {
-            setEvents((prev) => [ev, ...prev]);
+            setEvents((prev) => {
+              const exists = prev.some((x) => x.id === ev.id);
+              return exists ? prev.map((x) => (x.id === ev.id ? ev : x)) : [ev, ...prev];
+            });
             setActiveTab("schedule");
           }}
         />
@@ -494,13 +500,22 @@ export function App() {
 
       {eventModal.open && (
         <EventModal
+          editing={eventModal.editing}
           preset={eventModal.preset}
           records={records}
           existingCompanies={existingCompanies}
-          onClose={() => setEventModal({ open: false })}
-          onCreated={(ev) => {
-            setEvents((prev) => [...prev, ev]);
-            showToast("已创建日程");
+          onClose={() => setEventModal({ open: false, editing: null })}
+          onSaved={(saved, isEdit, confirmedNow) => {
+            setEvents((prev) =>
+              isEdit ? prev.map((e) => (e.id === saved.id ? saved : e)) : [...prev, saved],
+            );
+            showToast(
+              confirmedNow
+                ? "已保存修改并加入日程"
+                : isEdit
+                  ? "已更新日程"
+                  : "已创建日程",
+            );
           }}
         />
       )}

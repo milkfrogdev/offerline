@@ -126,6 +126,7 @@ export const api = {
     kind: EventKind;
     startAt: string;
     endAt?: string;
+    timeMode?: EventTimeMode;
     location?: string;
     notes?: string;
   }) =>

@@ -25,6 +25,7 @@ import {
   IconCheck,
   IconClock,
   IconCode,
+  IconEdit,
   IconExternal,
   IconInbox,
   IconMail,
@@ -154,6 +155,7 @@ export function HomeView({
   onAddEvent,
   onAddNote,
   onConfirmEvent,
+  onEditEvent,
   onDismissEvent,
   onOpenRecordInPipeline,
   onVisitCompany,
@@ -177,6 +179,7 @@ export function HomeView({
     stageName?: string;
   }) => void;
   onConfirmEvent: (ev: ScheduleEvent) => Promise<void>;
+  onEditEvent: (ev: ScheduleEvent) => void;
   onDismissEvent: (ev: ScheduleEvent) => Promise<void>;
   onOpenRecordInPipeline: (company: string) => void;
   onVisitCompany: (company: string, url?: string) => Promise<void>;
@@ -683,6 +686,15 @@ export function HomeView({
                         >
                           <IconCheck size={13} />
                           <span>加入日程</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-soft btn-sm"
+                          onClick={() => onEditEvent(ev)}
+                          data-tip="修改轮次、时间、链接或关联岗位"
+                        >
+                          <IconEdit size={13} />
+                          <span>编辑</span>
                         </button>
                         {linked && (
                           <button

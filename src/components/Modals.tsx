@@ -26,9 +26,11 @@ import {
 } from "../../shared/stages";
 import {
   EVENT_KINDS,
+  EVENT_TIME_MODES,
   type ApplicationRecord,
   type EmailParseResult,
   type EventKind,
+  type EventTimeMode,
   type InterviewNote,
   type MailAccountPublic,
   type MailProvider,
@@ -49,6 +51,7 @@ import {
   IconCopy,
   IconExternal,
   IconGrip,
+  IconMail,
   IconPlus,
   IconRefresh,
   IconSpark,
@@ -1323,125 +1326,239 @@ export function MailSettingsModal({
   );
 }
 
-/* ==================== 3. 新建日程（支持一键关联已有投递） ==================== */
+/* ==================== 3. 新建 / 编辑日程（支持一键关联与核对） ==================== */
+const STAGE_QUICK_CHIPS = [
+  "一面",
+  "二面",
+  "三面",
+  "终面",
+  "HR面",
+  "面试",
+  "笔试",
+  "测评",
+  "录用意向",
+  "正式Offer",
+] as const;
+
+function toLocalDateTimeInput(iso?: string): string {
+  const d = iso && !Number.isNaN(Date.parse(iso)) ? new Date(iso) : new Date(Date.now() + 24 * 3600_000);
+  if (!iso) d.setHours(14, 0, 0, 0);
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
+function toLocalDateInput(iso?: string): string {
+  const d = iso && !Number.isNaN(Date.parse(iso)) ? new Date(iso) : new Date(Date.now() + 3 * 86400_000);
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
+}
+
+function computeInitialDuration(ev?: ScheduleEvent | null): number {
+  if (!ev?.startAt || !ev?.endAt) return 60;
+  const mins = Math.round((Date.parse(ev.endAt) - Date.parse(ev.startAt)) / 60_000);
+  if (!Number.isFinite(mins) || mins < 15 || mins > 480) return 60;
+  return mins;
+}
+
 export function EventModal({
+  editing,
   preset,
   records,
   existingCompanies,
   onClose,
-  onCreated,
+  onSaved,
 }: {
+  editing?: ScheduleEvent | null;
   preset?: { recordId?: string; company?: string; position?: string; stageName?: string };
   records: ApplicationRecord[];
   existingCompanies: { company: string; url?: string }[];
   onClose: () => void;
-  onCreated: (ev: ScheduleEvent) => void;
+  onSaved: (ev: ScheduleEvent, isEdit: boolean, confirmedNow?: boolean) => void;
 }) {
-  const defaultStart = (() => {
-    const d = new Date(Date.now() + 24 * 3600_000);
-    d.setHours(14, 0, 0, 0);
-    const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000);
-    return local.toISOString().slice(0, 16);
-  })();
+  const isEdit = Boolean(editing);
+  const isPendingEdit = editing?.status === "pending_confirm";
 
   const initialRecord = useMemo(() => {
+    if (editing) {
+      return editing.recordId ? records.find((r) => r.id === editing.recordId) || null : null;
+    }
     if (preset?.recordId) return records.find((r) => r.id === preset.recordId) || null;
     if (preset?.company) return records.find((r) => r.company === preset.company) || null;
     if (records.length > 0) return records[0];
     return null;
-  }, [preset, records]);
+  }, [editing, preset, records]);
 
   const [selectedRecordId, setSelectedRecordId] = useState<string>(initialRecord?.id || "");
-  const [manualMode, setManualMode] = useState<boolean>(
-    records.length === 0 || (!initialRecord && Boolean(preset?.company)),
+  const [pickerOpen, setPickerOpen] = useState<boolean>(!isEdit && records.length > 0 && Boolean(initialRecord));
+  const [company, setCompany] = useState(
+    editing?.company || preset?.company || initialRecord?.company || "",
   );
-  const [company, setCompany] = useState(preset?.company || initialRecord?.company || "");
-  const [position, setPosition] = useState(preset?.position || initialRecord?.position || "");
+  const [position, setPosition] = useState(
+    editing?.position ?? (preset?.position || initialRecord?.position || ""),
+  );
   const [stageName, setStageName] = useState(
-    preset?.stageName || (initialRecord ? guessInterviewStage(initialRecord) : "一面"),
+    editing?.stageName || preset?.stageName || (initialRecord ? guessInterviewStage(initialRecord) : "一面"),
   );
-  const [kind, setKind] = useState<EventKind>("interview");
-  const [startLocal, setStartLocal] = useState(defaultStart);
-  const [durationMin, setDurationMin] = useState(60);
-  const [location, setLocation] = useState("");
-  const [notes, setNotes] = useState("");
+  const [kind, setKind] = useState<EventKind>(editing?.kind || "interview");
+  const [timeMode, setTimeMode] = useState<EventTimeMode>(editing?.timeMode || "scheduled");
+  const [startLocal, setStartLocal] = useState(() => toLocalDateTimeInput(editing?.startAt));
+  const [deadlineDate, setDeadlineDate] = useState(() => toLocalDateInput(editing?.startAt));
+  const [durationMin, setDurationMin] = useState(() => computeInitialDuration(editing));
+  const [location, setLocation] = useState(editing?.location || "");
+  const [notes, setNotes] = useState(editing?.notes || "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  const linkedRecord = useMemo(
+    () => (selectedRecordId ? records.find((r) => r.id === selectedRecordId) || null : null),
+    [records, selectedRecordId],
+  );
+
   function pickRecord(rec: ApplicationRecord) {
     setSelectedRecordId(rec.id);
-    setManualMode(false);
     setCompany(rec.company);
     setPosition(rec.position);
-    setStageName(guessInterviewStage(rec));
+    if (!isEdit) {
+      setStageName(guessInterviewStage(rec));
+    } else {
+      setPickerOpen(false);
+    }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function submitEvent(confirmPending: boolean) {
     setError("");
     if (!company.trim()) {
       setError("请选择已有投递或填写公司名称。");
       return;
     }
-    const startMs = Date.parse(startLocal);
-    if (Number.isNaN(startMs)) {
-      setError("请选择有效的时间。");
-      return;
+
+    let startAt: string;
+    let endAt: string | null = null;
+    if (timeMode === "scheduled") {
+      const startMs = Date.parse(startLocal);
+      if (Number.isNaN(startMs)) {
+        setError("请选择有效的开始时间。");
+        return;
+      }
+      startAt = new Date(startMs).toISOString();
+      endAt = new Date(startMs + durationMin * 60_000).toISOString();
+    } else if (timeMode === "deadline") {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(deadlineDate)) {
+        setError("请选择有效的截止日期。");
+        return;
+      }
+      const dlMs = Date.parse(`${deadlineDate}T23:59:00+08:00`);
+      if (Number.isNaN(dlMs)) {
+        setError("请选择有效的截止日期。");
+        return;
+      }
+      startAt = new Date(dlMs).toISOString();
+      endAt = null;
+    } else {
+      startAt = editing?.startAt || new Date().toISOString();
+      endAt = null;
     }
-    const startAt = new Date(startMs).toISOString();
-    const endAt = new Date(startMs + durationMin * 60_000).toISOString();
+
+    const cleanStage = stageName.trim() || "面试";
     const title = position.trim()
-      ? `${company.trim()} ${position.trim()} ${stageName.trim()}`
-      : `${company.trim()} ${stageName.trim()}`;
+      ? `${company.trim()} ${position.trim()} ${cleanStage}`
+      : `${company.trim()} ${cleanStage}`;
 
     setBusy(true);
     try {
-      const created = await api.createEvent({
-        recordId: manualMode ? undefined : selectedRecordId || preset?.recordId,
-        company: company.trim(),
-        position: position.trim() || undefined,
-        stageName: stageName.trim() || undefined,
-        title,
-        kind,
-        startAt,
-        endAt,
-        location: location.trim() || undefined,
-        notes: notes.trim() || undefined,
-      });
-      onCreated(created);
+      if (editing) {
+        const updated = await api.updateEvent(editing.id, {
+          recordId: selectedRecordId || null,
+          company: company.trim(),
+          position: position.trim(),
+          stageName: cleanStage,
+          title,
+          kind,
+          startAt,
+          endAt,
+          timeMode,
+          location: location.trim() || null,
+          status: confirmPending ? "confirmed" : editing.status,
+          notes: notes.trim(),
+        });
+        onSaved(updated, true, confirmPending);
+      } else {
+        const created = await api.createEvent({
+          recordId: selectedRecordId || preset?.recordId,
+          company: company.trim(),
+          position: position.trim() || undefined,
+          stageName: cleanStage,
+          title,
+          kind,
+          startAt,
+          endAt: endAt || undefined,
+          timeMode,
+          location: location.trim() || undefined,
+          notes: notes.trim() || undefined,
+        });
+        onSaved(created, false, false);
+      }
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "创建日程失败。");
+      setError(err instanceof Error ? err.message : isEdit ? "保存日程失败。" : "创建日程失败。");
     } finally {
       setBusy(false);
     }
   }
 
+  function handleFormSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    void submitEvent(isPendingEdit);
+  }
+
   return (
-    <ModalShell title="新建面试 / 笔试日程" onClose={onClose} wide>
-      <form className="modal-form" onSubmit={handleSubmit}>
+    <ModalShell
+      title={isPendingEdit ? "核对并编辑邮箱日程" : isEdit ? "编辑日程" : "新建面试 / 笔试日程"}
+      onClose={onClose}
+      wide
+    >
+      <form className="modal-form" onSubmit={handleFormSubmit}>
+        {editing?.mailSubject && (
+          <div className="event-mail-ref">
+            <div className="event-mail-ref-head">
+              <IconMail size={13} />
+              <span>原邮件：{editing.mailSubject}</span>
+            </div>
+            {editing.mailSnippet && (
+              <p className="event-mail-ref-snippet">{editing.mailSnippet}</p>
+            )}
+          </div>
+        )}
+
         {records.length > 0 && (
           <div className="field">
             <div className="field-head-inline">
-              <span className="field-label">关联已有投递（点击即填公司、岗位与当前轮次）</span>
-              <button
-                type="button"
-                className="btn-link muted"
-                onClick={() => {
-                  const nextManual = !manualMode;
-                  setManualMode(nextManual);
-                  if (nextManual) {
-                    setSelectedRecordId("");
-                  } else if (records[0]) {
-                    pickRecord(records[0]);
-                  }
-                }}
-              >
-                {manualMode ? "改从投递列表选择" : "手动填写其他公司"}
-              </button>
+              <span className="field-label">
+                {linkedRecord
+                  ? `已关联投递：${linkedRecord.company} ${linkedRecord.position}`
+                  : "关联已有投递（可选，仅用于快捷跳转，不自动修改时间线）"}
+              </span>
+              <div className="event-link-controls">
+                {linkedRecord && (
+                  <button
+                    type="button"
+                    className="btn-link muted"
+                    onClick={() => setSelectedRecordId("")}
+                  >
+                    取消关联
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn-link muted"
+                  onClick={() => setPickerOpen((v) => !v)}
+                >
+                  {pickerOpen ? "收起投递列表" : linkedRecord ? "切换关联" : "从投递列表选择"}
+                </button>
+              </div>
             </div>
 
-            {!manualMode && (
+            {pickerOpen && (
               <div className="record-picker-grid" role="listbox" aria-label="选择关联投递">
                 {records.map((rec) => {
                   const active = selectedRecordId === rec.id;
@@ -1469,7 +1586,7 @@ export function EventModal({
           </div>
         )}
 
-        {(manualMode || records.length === 0) && (
+        {(isEdit || !pickerOpen || records.length === 0) && (
           <div className="form-row-2">
             <div className="field">
               <span className="field-label">公司</span>
@@ -1485,6 +1602,7 @@ export function EventModal({
               <input
                 type="text"
                 className="input"
+                placeholder="例如：后端研发工程师"
                 value={position}
                 onChange={(e) => setPosition(e.target.value)}
               />
@@ -1517,7 +1635,7 @@ export function EventModal({
             </div>
           </div>
 
-          <label className="field">
+          <div className="field">
             <span className="field-label">轮次 / 阶段</span>
             <input
               type="text"
@@ -1525,36 +1643,83 @@ export function EventModal({
               value={stageName}
               onChange={(e) => setStageName(e.target.value)}
             />
-          </label>
-        </div>
-
-        <div className="form-row-2">
-          <label className="field">
-            <span className="field-label">开始时间</span>
-            <input
-              type="datetime-local"
-              className="input"
-              value={startLocal}
-              onChange={(e) => setStartLocal(e.target.value)}
-              required
-            />
-          </label>
-          <div className="field">
-            <span className="field-label">预计时长</span>
-            <div className="provider-row">
-              {[30, 45, 60, 90, 120].map((min) => (
+            <div className="stage-quick-chips">
+              {STAGE_QUICK_CHIPS.map((st) => (
                 <button
-                  key={min}
+                  key={st}
                   type="button"
-                  className={`provider-chip${durationMin === min ? " active" : ""}`}
-                  onClick={() => setDurationMin(min)}
+                  className={`stage-quick-chip${stageName === st ? " active" : ""}`}
+                  onClick={() => setStageName(st)}
                 >
-                  {min < 60 ? `${min} 分` : min === 90 ? "1.5 小时" : `${min / 60} 小时`}
+                  {st}
                 </button>
               ))}
             </div>
           </div>
         </div>
+
+        <div className="field">
+          <span className="field-label">时间类型</span>
+          <div className="provider-row">
+            {EVENT_TIME_MODES.map((m) => (
+              <button
+                key={m}
+                type="button"
+                className={`provider-chip${timeMode === m ? " active" : ""}`}
+                onClick={() => setTimeMode(m)}
+              >
+                {m === "scheduled" ? "固定时刻" : m === "deadline" ? "截止日期" : "时间自定"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {timeMode === "scheduled" ? (
+          <div className="form-row-2">
+            <label className="field">
+              <span className="field-label">开始时间</span>
+              <input
+                type="datetime-local"
+                className="input"
+                value={startLocal}
+                onChange={(e) => setStartLocal(e.target.value)}
+                required
+              />
+            </label>
+            <div className="field">
+              <span className="field-label">预计时长</span>
+              <div className="provider-row">
+                {[30, 45, 60, 90, 120].map((min) => (
+                  <button
+                    key={min}
+                    type="button"
+                    className={`provider-chip${durationMin === min ? " active" : ""}`}
+                    onClick={() => setDurationMin(min)}
+                  >
+                    {min < 60 ? `${min} 分` : min === 90 ? "1.5 小时" : `${min / 60} 小时`}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : timeMode === "deadline" ? (
+          <div className="form-row-2">
+            <label className="field">
+              <span className="field-label">截止日期（导出 .ics 为当日全天提醒）</span>
+              <input
+                type="date"
+                className="input"
+                value={deadlineDate}
+                onChange={(e) => setDeadlineDate(e.target.value)}
+                required
+              />
+            </label>
+          </div>
+        ) : (
+          <p className="field-micro-hint">
+            时间自定项目仅保留在日程待办中，不会用发信时间写入系统日历订阅。
+          </p>
+        )}
 
         <label className="field">
           <span className="field-label">会议链接或地点（可选）</span>
@@ -1584,9 +1749,25 @@ export function EventModal({
           <button type="button" className="btn btn-soft" onClick={onClose}>
             取消
           </button>
-          <button type="submit" className="btn btn-primary" disabled={busy}>
-            {busy ? "创建中…" : "确认创建"}
-          </button>
+          {isPendingEdit ? (
+            <>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={busy}
+                onClick={() => void submitEvent(false)}
+              >
+                {busy ? "保存中…" : "仅保存修改"}
+              </button>
+              <button type="submit" className="btn btn-primary" disabled={busy}>
+                {busy ? "处理中…" : "保存并加入日程"}
+              </button>
+            </>
+          ) : (
+            <button type="submit" className="btn btn-primary" disabled={busy}>
+              {busy ? (isEdit ? "保存中…" : "创建中…") : isEdit ? "保存修改" : "确认创建"}
+            </button>
+          )}
         </div>
       </form>
     </ModalShell>
