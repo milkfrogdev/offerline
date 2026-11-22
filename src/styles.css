@@ -2895,8 +2895,8 @@ textarea {
 
 .notes-workspace {
   display: grid;
-  grid-template-columns: 356px minmax(0, 1fr);
-  gap: 20px;
+  grid-template-columns: 276px minmax(0, 1fr);
+  gap: 18px;
   align-items: start;
 }
 
@@ -2939,11 +2939,11 @@ textarea {
 .note-index-item {
   width: 100%;
   text-align: left;
-  padding: 14px 16px;
+  padding: 12px 15px;
   border-bottom: 1px solid var(--line-soft);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   transition: background-color 0.15s ease;
 }
 
@@ -2969,12 +2969,12 @@ textarea {
 .note-idx-ident {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   min-width: 0;
 }
 
 .note-idx-company {
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 650;
   color: var(--text);
   overflow: hidden;
@@ -2983,31 +2983,14 @@ textarea {
 }
 
 .note-idx-date {
-  font-size: 12px;
+  font-size: 11.5px;
   font-variant-numeric: tabular-nums;
   color: var(--text-3);
   flex-shrink: 0;
 }
 
-.note-idx-pos {
-  font-size: 12px;
-  color: var(--text-3);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.note-idx-excerpt {
-  font-size: 12.5px;
-  line-height: 1.55;
-  color: var(--text-2);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.note-idx-foot {
+.note-idx-sub {
+  padding-left: 25px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -3015,9 +2998,12 @@ textarea {
   font-size: 12px;
 }
 
-.note-idx-qcount {
-  font-variant-numeric: tabular-nums;
+.note-idx-pos {
+  min-width: 0;
   color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .note-stage {

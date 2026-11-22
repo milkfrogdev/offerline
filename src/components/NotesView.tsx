@@ -419,7 +419,6 @@ export function NotesView({
             <div className="notes-index-list">
               {filtered.map((note) => {
                 const isActive = note.id === activeNote.id;
-                const excerpt = stripMarkdownForPreview(note.content);
                 return (
                   <button
                     key={note.id}
@@ -439,15 +438,11 @@ export function NotesView({
                       </span>
                     </div>
 
-                    {note.position && <div className="note-idx-pos">{note.position}</div>}
-
-                    <div className="note-idx-excerpt">{excerpt}</div>
-
-                    <div className="note-idx-foot">
+                    <div className="note-idx-sub">
+                      <span className="note-idx-pos">{note.position || "未填岗位"}</span>
                       <span className={`note-feeling feel-${note.feeling}`}>
                         {FEELING_LABELS[note.feeling]}
                       </span>
-                      <span className="note-idx-qcount">{excerpt.replace(/\s+/g, "").length} 字</span>
                     </div>
                   </button>
                 );
