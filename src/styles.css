@@ -5158,7 +5158,7 @@ textarea {
   margin-top: -16px;
   transform-style: preserve-3d;
   will-change: transform;
-  transform: perspective(900px) rotateX(7deg) rotateY(-8deg) rotateZ(-0.8deg);
+  transform: perspective(960px) rotateX(5deg) rotateY(-5.5deg) rotateZ(-0.4deg);
 }
 
 .orbit-hud-shadow {

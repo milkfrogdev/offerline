@@ -86,8 +86,8 @@ export function AuthOrbitStage({
       engaged = true;
       const nx = (e.clientX - (rect.left + rect.width / 2)) / (rect.width * 0.5 + pad);
       const ny = (e.clientY - (rect.top + rect.height / 2)) / (rect.height * 0.5 + pad);
-      targetTiltY = Math.max(-22, Math.min(22, nx * 22));
-      targetTiltX = Math.max(-17, Math.min(17, -ny * 17));
+      targetTiltY = Math.max(-16, Math.min(16, nx * 16));
+      targetTiltX = Math.max(-12, Math.min(12, -ny * 12));
     };
 
     const onLeave = () => {
@@ -158,14 +158,14 @@ export function AuthOrbitStage({
       }
 
       if (hudRef.current) {
-        const idleBreathX = prefersReduced || engaged ? 0 : Math.sin(now * 0.0011) * 1.1;
-        const idleBreathY = prefersReduced || engaged ? 0 : Math.cos(now * 0.00085) * 1.3;
-        const rxDeg = 6.5 + tiltX + idleBreathX;
-        const ryDeg = -7.5 + tiltY + idleBreathY;
-        const rzDeg = -0.7 + tiltY * 0.07;
-        hudRef.current.style.transform = `perspective(900px) rotateX(${rxDeg.toFixed(2)}deg) rotateY(${ryDeg.toFixed(2)}deg) rotateZ(${rzDeg.toFixed(2)}deg)`;
-        hudRef.current.style.setProperty("--sx", `${(-tiltY * 1.0 + 7).toFixed(1)}px`);
-        hudRef.current.style.setProperty("--sy", `${(tiltX * 0.85 + 18).toFixed(1)}px`);
+        const idleBreathX = prefersReduced || engaged ? 0 : Math.sin(now * 0.0011) * 0.9;
+        const idleBreathY = prefersReduced || engaged ? 0 : Math.cos(now * 0.00085) * 1.0;
+        const rxDeg = 5 + tiltX + idleBreathX;
+        const ryDeg = -5.5 + tiltY + idleBreathY;
+        const rzDeg = -0.4 + tiltY * 0.05;
+        hudRef.current.style.transform = `perspective(960px) rotateX(${rxDeg.toFixed(2)}deg) rotateY(${ryDeg.toFixed(2)}deg) rotateZ(${rzDeg.toFixed(2)}deg)`;
+        hudRef.current.style.setProperty("--sx", `${(-tiltY * 0.9 + 6).toFixed(1)}px`);
+        hudRef.current.style.setProperty("--sy", `${(tiltX * 0.8 + 16).toFixed(1)}px`);
       }
 
       if (!prefersReduced) {
