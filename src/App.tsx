@@ -4,12 +4,15 @@ import type {
   InterviewNote,
   MailAccountPublic,
   MainTab,
+  MetricFilter,
   ScheduleEvent,
   StageStatus,
   UserProfile,
 } from "../shared/types";
 import { api } from "./api";
 import { AuthView } from "./components/AuthView";
+import { HomeView } from "./components/HomeView";
+import { IconAlertCircle, IconCheckCircle } from "./components/Icons";
 import {
   CalendarSubscribeModal,
   EventModal,
@@ -22,6 +25,7 @@ import { NotesView } from "./components/NotesView";
 import { PipelineView } from "./components/PipelineView";
 import { ScheduleView } from "./components/ScheduleView";
 import { Sidebar } from "./components/Sidebar";
+import { TooltipHost } from "./components/TooltipHost";
 
 const THEME_KEY = "offerline.theme";
 
@@ -37,14 +41,17 @@ export function App() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [registrationOpen, setRegistrationOpen] = useState(true);
 
-  const [activeTab, setActiveTab] = useState<MainTab>("pipeline");
+  const [activeTab, setActiveTab] = useState<MainTab>("home");
   const [records, setRecords] = useState<ApplicationRecord[]>([]);
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [notes, setNotes] = useState<InterviewNote[]>([]);
   const [mailConfig, setMailConfig] = useState<MailAccountPublic | null>(null);
   const [syncingMail, setSyncingMail] = useState(false);
 
+  const [pipelineFilter, setPipelineFilter] = useState<MetricFilter | null>(null);
   const [notesFilter, setNotesFilter] = useState("");
+  const [initialNoteId, setInitialNoteId] = useState<string | null>(null);
+  const [latestNoteId, setLatestNoteId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
   // Modals
@@ -185,7 +192,7 @@ export function App() {
   }
 
   async function handleDeleteRecord(record: ApplicationRecord) {
-    if (!window.confirm(`确定删除「${record.company} · ${record.position}」吗？`)) return;
+    if (!window.confirm(`确定删除「${record.company} ${record.position}」吗？`)) return;
     try {
       await api.deleteRecord(record.id);
       setRecords((prev) => prev.filter((r) => r.id !== record.id));
@@ -269,7 +276,7 @@ export function App() {
   }
 
   async function handleDeleteNote(note: InterviewNote) {
-    if (!window.confirm(`确定删除「${note.company} · ${note.stageName}」的面经吗？`)) return;
+    if (!window.confirm(`确定删除「${note.company} ${note.stageName}」的面经吗？`)) return;
     try {
       await api.deleteNote(note.id);
       setNotes((prev) => prev.filter((n) => n.id !== note.id));
@@ -279,19 +286,41 @@ export function App() {
     }
   }
 
+  async function handleUpdateNoteInline(
+    id: string,
+    payload: {
+      stageName: string;
+      interviewedAt: string | null;
+      feeling: InterviewNote["feeling"];
+      content: string;
+    },
+  ) {
+    try {
+      const updated = await api.updateNote(id, payload);
+      setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)));
+      showToast("已保存面经修改");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "保存失败。", "err");
+      throw err;
+    }
+  }
+
   if (loading) {
     return <div className="boot-screen">正在加载…</div>;
   }
 
   if (!user) {
     return (
-      <AuthView
-        registrationOpen={registrationOpen}
-        theme={theme}
-        onToggleTheme={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
-        onLogin={handleLogin}
-        onRegister={handleRegister}
-      />
+      <>
+        <AuthView
+          registrationOpen={registrationOpen}
+          theme={theme}
+          onToggleTheme={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+          onLogin={handleLogin}
+          onRegister={handleRegister}
+        />
+        <TooltipHost />
+      </>
     );
   }
 
@@ -314,11 +343,40 @@ export function App() {
       />
 
       <main className="main-area">
-        {activeTab === "pipeline" && (
-          <PipelineView
+        <div key={activeTab} className="view-stage">
+        {activeTab === "home" && (
+          <HomeView
+            user={user}
             records={records}
             events={events}
             notes={notes}
+            mailConfig={mailConfig}
+            onNavigatePipeline={(filter) => {
+              if (filter) setPipelineFilter(filter);
+              setActiveTab("pipeline");
+            }}
+            onNavigateSchedule={() => setActiveTab("schedule")}
+            onOpenNoteById={(noteId) => {
+              setInitialNoteId(noteId);
+              setActiveTab("notes");
+            }}
+            onAddRecord={() => setRecordModal({ open: true, editing: null })}
+            onAddEvent={() => setEventModal({ open: true })}
+            onAddNote={(preset) => setNoteModal({ open: true, editing: null, preset })}
+            onConfirmEvent={handleConfirmEvent}
+            onSyncEventToRecord={handleSyncEventToRecord}
+            onVisitCompany={handleVisitCompany}
+            onOpenMailModal={() => setMailModal({ open: true, tab: "imap" })}
+            onOpenParseModal={() => setMailModal({ open: true, tab: "parse" })}
+          />
+        )}
+
+        {activeTab === "pipeline" && (
+          <PipelineView
+            records={records}
+            notes={notes}
+            initialFilter={pipelineFilter}
+            onClearInitialFilter={() => setPipelineFilter(null)}
             onAddRecord={() => setRecordModal({ open: true, editing: null })}
             onAddForCompany={(company, url) =>
               setRecordModal({ open: true, editing: null, presetCompany: company, presetUrl: url })
@@ -351,7 +409,6 @@ export function App() {
                 },
               })
             }
-            onOpenScheduleTab={() => setActiveTab("schedule")}
             onOpenNotesForRecord={(company) => {
               setNotesFilter(company);
               setActiveTab("notes");
@@ -392,13 +449,18 @@ export function App() {
         {activeTab === "notes" && (
           <NotesView
             notes={notes}
+            records={records}
             initialFilter={notesFilter}
+            initialNoteId={initialNoteId}
+            latestCreatedId={latestNoteId}
             onClearInitialFilter={() => setNotesFilter("")}
-            onAddNote={() => setNoteModal({ open: true, editing: null })}
-            onEditNote={(n) => setNoteModal({ open: true, editing: n })}
+            onClearInitialNoteId={() => setInitialNoteId(null)}
+            onAddNote={(preset) => setNoteModal({ open: true, editing: null, preset })}
+            onUpdateNoteInline={handleUpdateNoteInline}
             onDeleteNote={(n) => void handleDeleteNote(n)}
           />
         )}
+        </div>
       </main>
 
       {recordModal.open && (
@@ -433,6 +495,7 @@ export function App() {
       {eventModal.open && (
         <EventModal
           preset={eventModal.preset}
+          records={records}
           existingCompanies={existingCompanies}
           onClose={() => setEventModal({ open: false })}
           onCreated={(ev) => {
@@ -448,12 +511,14 @@ export function App() {
         <NoteModal
           editing={noteModal.editing}
           preset={noteModal.preset}
+          records={records}
           existingCompanies={existingCompanies}
           onClose={() => setNoteModal({ open: false, editing: null })}
           onSaved={(saved, isEdit) => {
             setNotes((prev) =>
               isEdit ? prev.map((n) => (n.id === saved.id ? saved : n)) : [saved, ...prev],
             );
+            if (!isEdit) setLatestNoteId(saved.id);
             showToast(isEdit ? "已更新面经记录" : "已保存面经记录");
           }}
         />
@@ -468,10 +533,15 @@ export function App() {
       )}
 
       {toast && (
-        <div className={`toast toast-${toast.kind}`} role="status">
-          {toast.text}
+        <div key={toast.text} className={`toast toast-${toast.kind}`} role="status">
+          <span className="toast-ico" aria-hidden="true">
+            {toast.kind === "err" ? <IconAlertCircle size={15} /> : <IconCheckCircle size={15} />}
+          </span>
+          <span>{toast.text}</span>
         </div>
       )}
+
+      <TooltipHost />
     </div>
   );
 }

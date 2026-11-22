@@ -9,6 +9,7 @@ import {
   inferStageType,
   normalizeStage,
   reconcileEditedStages,
+  STAGE_TEMPLATES,
   stageProgress,
 } from "../shared/stages";
 import type { ApplicationRecord } from "../shared/types";
@@ -94,6 +95,11 @@ describe("OfferLine 阶段领域模型与分组排序", () => {
     expect(metrics.total).toBe(3);
     expect(metrics.interviewed).toBe(1);
     expect(metrics.failed).toBe(1);
-    expect(stageProgress(baseStages)).toBeCloseTo(0.1);
+    expect(stageProgress(baseStages)).toBeCloseTo(1 / baseStages.length);
+
+    expect(STAGE_TEMPLATES.map((t) => t.label)).toEqual(["实习", "校招", "社招"]);
+    expect(STAGE_TEMPLATES.find((t) => t.id === "campus")?.names).toContain("谈薪");
+    expect(STAGE_TEMPLATES.find((t) => t.id === "social")?.names).toContain("谈薪");
+    expect(inferStageType({ name: "谈薪" })).toBe("other");
   });
 });

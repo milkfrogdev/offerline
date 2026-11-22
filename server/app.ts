@@ -815,7 +815,7 @@ export async function buildApp({
     const { id } = req.params as { id: string };
     const event = await store.getEvent(id, user.id);
     if (!event) throw new ApiError(404, "未找到该日程。", "NOT_FOUND");
-    const ics = buildIcsCalendar([event], `OfferLine · ${event.company}`);
+    const ics = buildIcsCalendar([event], `OfferLine ${event.company}`);
     reply
       .header("Content-Type", "text/calendar; charset=utf-8")
       .header("Content-Disposition", `attachment; filename="offerline-${event.id.slice(0, 8)}.ics"`);

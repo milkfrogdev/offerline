@@ -20,24 +20,25 @@ export const DEFAULT_STAGE_NAMES = [
   "三面",
   "HR面",
   "Offer评估",
+  "谈薪",
   "正式offer",
 ] as const;
 
 export const STAGE_TEMPLATES: { id: string; label: string; names: readonly string[] }[] = [
   {
-    id: "standard",
-    label: "标准十阶段",
+    id: "intern",
+    label: "实习",
+    names: ["投递", "笔试", "简历评估", "一面", "二面", "HR面", "正式offer"],
+  },
+  {
+    id: "campus",
+    label: "校招",
     names: DEFAULT_STAGE_NAMES,
   },
   {
     id: "social",
-    label: "社招精简",
-    names: ["投递", "简历筛选", "一面", "二面", "HR面", "正式offer"],
-  },
-  {
-    id: "global",
-    label: "外企多轮",
-    names: ["投递", "OA", "电面", "技术一面", "技术二面", "HM面", "正式offer"],
+    label: "社招",
+    names: ["投递", "简历筛选", "一面", "二面", "三面", "HR面", "谈薪", "正式offer"],
   },
 ];
 

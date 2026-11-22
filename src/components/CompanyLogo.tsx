@@ -170,7 +170,6 @@ export function CompanyLogo({
     return (
       <span
         className={`company-logo company-logo-${size}${rule?.invertInDark ? " invert-dark" : ""}`}
-        title={name}
         aria-hidden="true"
       >
         <img src={localSrc} alt="" className="brand-img" loading="lazy" decoding="async" />
@@ -180,7 +179,7 @@ export function CompanyLogo({
 
   if (remoteSrc && !remoteFailed) {
     return (
-      <span className={`company-logo company-logo-${size}`} title={name} aria-hidden="true">
+      <span className={`company-logo company-logo-${size}`} aria-hidden="true">
         <img
           src={remoteSrc}
           alt=""
@@ -195,7 +194,7 @@ export function CompanyLogo({
 
   const monogram = name.slice(0, 1).toUpperCase() || "O";
   return (
-    <span className={`company-logo company-logo-${size} is-monogram`} title={name} aria-hidden="true">
+    <span className={`company-logo company-logo-${size} is-monogram`} aria-hidden="true">
       {monogram}
     </span>
   );

@@ -342,8 +342,8 @@ export function parseRecruitmentEmailByRules(input: RawEmailInput): EmailParseRe
   const { kind, stageName, actionHint } = classifyEvent(subject, text);
   const title =
     position !== "待确认岗位"
-      ? `${company} · ${position} ${stageName}`
-      : `${company} · ${stageName}`;
+      ? `${company} ${position} ${stageName}`
+      : `${company} ${stageName}`;
 
   return {
     matched: true,
@@ -435,7 +435,7 @@ export async function parseRecruitmentEmail(
         startAt,
         endAt,
         location: parsed.location || base.location,
-        title: position !== "待确认岗位" ? `${company} · ${position} ${stageName}` : `${company} · ${stageName}`,
+        title: position !== "待确认岗位" ? `${company} ${position} ${stageName}` : `${company} ${stageName}`,
       };
     } finally {
       clearTimeout(timer);

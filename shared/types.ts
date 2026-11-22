@@ -174,5 +174,5 @@ export interface UserProfile {
 }
 
 export type SortMode = "progress" | "visited" | "created" | "updated" | "company";
-export type MainTab = "pipeline" | "schedule" | "notes";
+export type MainTab = "home" | "pipeline" | "schedule" | "notes";
 export type MetricFilter = "all" | "active" | "interview" | "offer" | "failed";
