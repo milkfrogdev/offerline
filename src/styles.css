@@ -4908,192 +4908,484 @@ textarea {
   padding: 18px 20px;
 }
 
-/* ==================== Auth View (Symmetrical Architectural Frame + Centered Sculptural Card) ==================== */
-.auth-stage-center {
+/* ==================== Auth View (Living 3D Spatial Crystal Storefront) ==================== */
+@keyframes authRiver {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@keyframes deckRowFlash {
+  0% {
+    background: var(--accent-tint);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+.auth-cinema {
   position: relative;
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
   background: var(--bg);
+}
+
+.auth-kinetic-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Transparent Floating Header Aligned with Theater */
+.auth-float-nav {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 26px 36px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.auth-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.auth-theme-switch {
+  height: 34px;
+  padding: 0 13px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: var(--card-ring);
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: background-color 0.14s ease, color 0.14s ease, transform 0.12s var(--ease-out);
+}
+
+:root[data-theme="dark"] .auth-theme-switch {
+  background: rgba(20, 26, 40, 0.72);
+}
+
+.auth-theme-switch:hover {
+  color: var(--text);
+  box-shadow: var(--card-ring-hover);
+}
+
+.auth-theme-switch:active {
+  transform: scale(0.95);
+}
+
+/* Unified Centered Spatial Theater */
+.auth-theater {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 18px 36px 36px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.28fr) 412px;
+  gap: 54px;
+  align-items: center;
+}
+
+/* Left Hero Stage */
+.auth-hero-stage {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  animation: viewEnter 0.32s var(--ease-out);
+}
+
+.auth-hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-hero-title {
+  margin: 0;
+  font-size: clamp(38px, 3.5vw, 52px);
+  line-height: 1.12;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--text);
+}
+
+.auth-title-accent {
+  color: var(--accent);
+}
+
+.auth-hero-sub {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+/* ==================== 3D Tilted Orbital Gyroscope + Floating Angled Crystal HUD ==================== */
+@keyframes orbitDashFlow {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -1400;
+  }
+}
+
+.auth-orbit-stage {
+  position: relative;
+  width: 100%;
+  height: 424px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 36px 20px;
-  overflow: hidden;
+  user-select: none;
 }
 
-/* Subtle 1px Architectural Hairline Framing (Zero Gradients / Zero Noise) */
-.auth-arch-lines {
-  position: fixed;
+.auth-orbit-rings {
+  position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
   pointer-events: none;
-  z-index: 0;
+  z-index: 6;
 }
 
-.auth-vline {
+.orbit-ring-base {
+  fill: none;
+  stroke: rgba(15, 23, 42, 0.11);
+  stroke-width: 1.2;
+}
+
+:root[data-theme="dark"] .orbit-ring-base {
+  stroke: rgba(148, 163, 184, 0.16);
+}
+
+.orbit-ring-beam {
+  fill: none;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-dasharray: 120 1280;
+  animation: orbitDashFlow 9s linear infinite;
+}
+
+.orbit-ring-beam.is-cobalt {
+  stroke: var(--accent);
+}
+
+.orbit-ring-beam.is-emerald {
+  stroke: var(--ok-dot);
+  animation-duration: 11.5s;
+  animation-direction: reverse;
+}
+
+/* 100% Frameless Bare Official Tech Brand Logos Orbiting in True 3D Depth */
+.orbit-brand-node {
   position: absolute;
   top: 0;
-  bottom: 0;
-  width: 1px;
-  background: var(--line);
-  opacity: 0.72;
+  left: 0;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  will-change: transform, opacity;
+  transition: filter 0.18s ease;
 }
 
-.auth-vline-l {
-  left: calc(50% - 210px);
+.orbit-brand-node .company-logo-md {
+  width: 30px;
+  height: 30px;
+  transition: transform 0.22s var(--ease-spring);
 }
 
-.auth-vline-r {
-  left: calc(50% + 210px);
+.orbit-brand-node:hover .company-logo-md {
+  transform: scale(1.28);
 }
 
-.auth-center-col {
+.orbit-brand-node.is-selected .company-logo-md {
+  transform: scale(1.22);
+  filter: drop-shadow(0 0 10px rgba(37, 99, 235, 0.42));
+}
+
+:root[data-theme="dark"] .orbit-brand-node.is-selected .company-logo-md {
+  filter: drop-shadow(0 0 12px rgba(96, 165, 250, 0.58));
+}
+
+/* Single Angled 3D Crystal HUD Passing Through the Orbital Heart */
+.orbit-hud-wrap {
   position: relative;
-  z-index: 1;
-  width: 100%;
-  max-width: 420px;
+  z-index: 16;
+  width: min(444px, 80%);
+  transform-style: preserve-3d;
+  will-change: transform;
+  transform: perspective(1200px) rotateX(7deg) rotateY(-8deg) rotateZ(-0.6deg);
+}
+
+.orbit-float-chip {
+  position: absolute;
+  top: -17px;
+  right: 16px;
+  z-index: 20;
+  transform: translateZ(46px);
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 99px;
+  background: var(--ink);
+  color: var(--on-ink);
+  box-shadow: 0 10px 26px -8px rgba(15, 23, 42, 0.34);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.orbit-float-sep {
+  width: 1px;
+  height: 11px;
+  background: currentColor;
+  opacity: 0.28;
+}
+
+.orbit-hud-ribbon {
+  background: rgba(255, 255, 255, 0.90);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border-radius: 16px;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08), 0 26px 56px -22px rgba(15, 23, 42, 0.22);
+  padding: 18px 20px 15px;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  gap: 24px;
-  animation: viewEnter 0.26s var(--ease-out);
+  gap: 15px;
+  animation: viewEnter 0.22s var(--ease-out);
 }
 
-.auth-card-wrap {
-  position: relative;
+:root[data-theme="dark"] .orbit-hud-ribbon {
+  background: rgba(17, 23, 38, 0.84);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.11), 0 30px 66px -18px rgba(0, 0, 0, 0.78);
 }
 
-.auth-card-wrap::before,
-.auth-card-wrap::after {
-  content: "";
-  position: absolute;
-  left: -100vw;
-  width: 300vw;
-  height: 1px;
-  background: var(--line);
-  opacity: 0.72;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.auth-card-wrap::before {
-  top: 0;
-}
-
-.auth-card-wrap::after {
-  bottom: 0;
-}
-
-/* Precision Architectural Corner Crosshair Marks */
-.auth-cross {
-  position: absolute;
-  width: 11px;
-  height: 11px;
-  pointer-events: none;
-  z-index: 2;
-}
-
-.auth-cross::before,
-.auth-cross::after {
-  content: "";
-  position: absolute;
-  background: var(--line-strong);
-}
-
-.auth-cross::before {
-  top: 5px;
-  left: 0;
-  right: 0;
-  height: 1px;
-}
-
-.auth-cross::after {
-  left: 5px;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-}
-
-.auth-cross-tl {
-  top: -5px;
-  left: -5px;
-}
-
-.auth-cross-tr {
-  top: -5px;
-  right: -5px;
-}
-
-.auth-cross-bl {
-  bottom: -5px;
-  left: -5px;
-}
-
-.auth-cross-br {
-  bottom: -5px;
-  right: -5px;
-}
-
-.auth-card {
-  position: relative;
-  z-index: 1;
-  background: var(--surface);
-  border-radius: 14px;
-  box-shadow: var(--card-ring);
-  overflow: hidden;
-}
-
-.auth-card-head {
-  padding: 18px 26px;
-  border-bottom: 1px solid var(--line-soft);
+.orbit-hud-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 
-.auth-card-brand {
+.orbit-hud-brand {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 11px;
+  min-width: 0;
 }
 
-.auth-theme-icon-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+.orbit-hud-ident {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.orbit-hud-name {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  color: var(--text-2);
-  transition: background-color 0.14s ease, color 0.14s ease;
-}
-
-.auth-theme-icon-btn:hover {
-  background: var(--surface-2);
+  gap: 7px;
+  font-size: 15px;
+  font-weight: 700;
   color: var(--text);
 }
 
-.auth-card-body {
-  padding: 26px 26px 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+.orbit-hud-role {
+  font-size: 12px;
+  color: var(--text-3);
 }
 
-.auth-form-head {
+.orbit-hud-hint {
+  font-size: 11.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.auth-demo-track {
+  display: flex;
+  align-items: flex-start;
+}
+
+.auth-pnode {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.auth-pnode-row {
+  position: relative;
+  width: 100%;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-pdot {
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  border: 1.5px solid var(--tl-pending-ring);
+  background: var(--surface);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+  transition: transform 0.18s var(--ease-spring), background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.auth-pnode:hover .auth-pdot {
+  transform: scale(1.22);
+}
+
+.auth-pnode:active .auth-pdot {
+  transform: scale(0.88);
+}
+
+.auth-pnode.st-pass .auth-pdot {
+  background: var(--ok-dot);
+  border-color: var(--ok-dot);
+}
+
+.auth-pnode.st-current .auth-pdot {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.auth-parm {
+  position: absolute;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+  background: var(--tl-line);
+  z-index: 1;
+  transition: background-color 0.25s var(--ease-out);
+}
+
+.auth-parm.left {
+  left: 0;
+  right: calc(50% + 10.5px);
+}
+
+.auth-parm.right {
+  left: calc(50% + 10.5px);
+  right: 0;
+}
+
+.auth-parm.pass {
+  background: var(--ok-line);
+}
+
+.auth-plabel {
+  font-size: 12px;
+  color: var(--text-3);
+  white-space: nowrap;
+  transition: color 0.14s ease;
+}
+
+.auth-pnode:hover .auth-plabel {
+  color: var(--text);
+}
+
+.auth-pnode.st-pass .auth-plabel {
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+.auth-pnode.st-current .auth-plabel {
+  color: var(--accent);
+  font-weight: 650;
+}
+
+/* Right Frosted-Crystal Sculptural Sign-In Portal */
+.auth-portal {
+  width: 100%;
+  animation: viewEnter 0.34s var(--ease-out);
+}
+
+.auth-portal-card {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-radius: 20px;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08), 0 26px 62px -22px rgba(15, 23, 42, 0.20);
+  padding: 34px 30px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  transition: box-shadow 0.25s var(--ease-out);
+}
+
+:root[data-theme="dark"] .auth-portal-card {
+  background: rgba(17, 22, 35, 0.82);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.10), 0 30px 72px -18px rgba(0, 0, 0, 0.76);
+}
+
+.auth-portal-card.is-focused {
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.35), 0 0 0 5px var(--focus-ring), 0 26px 62px -22px rgba(15, 23, 42, 0.22);
+}
+
+:root[data-theme="dark"] .auth-portal-card.is-focused {
+  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.42), 0 0 0 5px var(--focus-ring), 0 30px 72px -18px rgba(0, 0, 0, 0.78);
+}
+
+.auth-portal-head {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.auth-form-title {
+.auth-portal-title {
   margin: 0;
-  font-size: 22px;
+  font-size: 25px;
   font-weight: 700;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.03em;
   color: var(--text);
 }
 
-.auth-form-desc {
+.auth-portal-desc {
   margin: 0;
   font-size: 13.5px;
   line-height: 1.55;
@@ -5149,12 +5441,12 @@ textarea {
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 17px;
 }
 
 .auth-input {
-  height: 42px;
-  border-radius: 9px;
+  height: 44px;
+  border-radius: 10px;
   padding: 0 13px;
   font-size: 14px;
 }
@@ -5166,14 +5458,14 @@ textarea {
 }
 
 .pwd-input {
-  padding-right: 40px;
+  padding-right: 42px;
 }
 
 .pwd-toggle-btn {
   position: absolute;
   right: 5px;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 7px;
   display: inline-flex;
   align-items: center;
@@ -5188,10 +5480,12 @@ textarea {
 }
 
 .auth-submit {
+  position: relative;
+  overflow: hidden;
   width: 100%;
-  height: 44px;
-  border-radius: 9px;
-  font-size: 14px;
+  height: 45px;
+  border-radius: 10px;
+  font-size: 14.5px;
   font-weight: 600;
   margin-top: 4px;
 }
@@ -5202,110 +5496,6 @@ textarea {
 
 .auth-submit:hover:not(:disabled) svg {
   transform: translateX(3px);
-}
-
-/* Unboxed Minimalist 5-Node OfferLine Timeline Emblem Below Card */
-.auth-emblem-track {
-  display: flex;
-  align-items: flex-start;
-  padding: 0 10px;
-}
-
-.auth-enode {
-  flex: 1 1 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-}
-
-.auth-enode-row {
-  position: relative;
-  width: 100%;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.auth-edot {
-  width: 17px;
-  height: 17px;
-  border-radius: 50%;
-  border: 1.5px solid var(--tl-pending-ring);
-  background: var(--bg);
-  color: #ffffff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  z-index: 2;
-  transition: transform 0.18s var(--ease-spring), background-color 0.2s ease, border-color 0.2s ease;
-}
-
-.auth-enode:hover .auth-edot {
-  transform: scale(1.16);
-}
-
-.auth-enode:active .auth-edot {
-  transform: scale(0.9);
-}
-
-.auth-enode.st-pass .auth-edot {
-  background: var(--ok-dot);
-  border-color: var(--ok-dot);
-}
-
-.auth-enode.st-current .auth-edot {
-  background: var(--accent);
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3.5px var(--accent-soft);
-}
-
-.auth-earm {
-  position: absolute;
-  top: 50%;
-  height: 1.5px;
-  transform: translateY(-50%);
-  background: var(--tl-line);
-  z-index: 1;
-  transition: background-color 0.24s var(--ease-out);
-}
-
-.auth-earm.left {
-  left: 0;
-  right: calc(50% + 8.5px);
-}
-
-.auth-earm.right {
-  left: calc(50% + 8.5px);
-  right: 0;
-}
-
-.auth-earm.pass {
-  background: var(--ok-line);
-}
-
-.auth-elabel {
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--text-3);
-  white-space: nowrap;
-  transition: color 0.14s ease;
-}
-
-.auth-enode:hover .auth-elabel {
-  color: var(--text);
-}
-
-.auth-enode.st-pass .auth-elabel {
-  color: var(--text-2);
-}
-
-.auth-enode.st-current .auth-elabel {
-  color: var(--accent);
-  font-weight: 600;
 }
 
 /* ==================== Forms & Modals ==================== */
@@ -6405,6 +6595,16 @@ textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px;
   }
+
+  .auth-theater {
+    grid-template-columns: minmax(0, 1.15fr) 392px;
+    gap: 34px;
+    padding: 20px 24px 36px;
+  }
+
+  .auth-float-nav {
+    padding: 20px 24px 0;
+  }
 }
 
 @media (max-width: 960px) {
@@ -6445,10 +6645,28 @@ textarea {
     padding: 0 14px;
   }
 
-  .auth-arch-lines,
-  .auth-cross,
-  .auth-card-wrap::before,
-  .auth-card-wrap::after {
+  .auth-float-nav {
+    padding: 18px 18px 0;
+  }
+
+  .auth-nav-pill {
+    display: none;
+  }
+
+  .auth-theater {
+    grid-template-columns: 1fr;
+    max-width: 460px;
+    gap: 24px;
+    padding: 24px 18px 40px;
+    align-content: center;
+  }
+
+  .auth-portal {
+    order: -1;
+  }
+
+  .auth-hero-text,
+  .auth-orbit-stage {
     display: none;
   }
 
