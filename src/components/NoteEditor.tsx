@@ -232,7 +232,9 @@ export function NoteEditor({
 }) {
   const [mdView, setMdView] = useState<"wysiwyg" | "source">("wysiwyg");
   const [expanded, setExpanded] = useState(false);
+  const [, setSelectionTick] = useState(0);
   const lastEmittedRef = useRef<string>(value);
+  const sourceRef = useRef<HTMLTextAreaElement>(null);
   const saveRef = useRef(onSaveShortcut);
   saveRef.current = onSaveShortcut;
 
@@ -269,6 +271,10 @@ export function NoteEditor({
       const md = tiptapJsonToMarkdown(ed.getJSON());
       lastEmittedRef.current = md;
       onChange(md);
+      setSelectionTick((n) => n + 1);
+    },
+    onSelectionUpdate: () => {
+      setSelectionTick((n) => n + 1);
     },
   });
 
@@ -322,6 +328,41 @@ export function NoteEditor({
       editor.commands.setContent(markdownToHtml(value), { emitUpdate: false });
     }
     setMdView(nextView);
+  }
+
+  function insertSourceMarkdown(prefix: string, suffix = "", fallbackText = "") {
+    const ta = sourceRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const selected = value.slice(start, end) || fallbackText;
+    const next = value.slice(0, start) + prefix + selected + suffix + value.slice(end);
+    lastEmittedRef.current = next;
+    onChange(next);
+    requestAnimationFrame(() => {
+      ta.focus();
+      const selStart = start + prefix.length;
+      ta.setSelectionRange(selStart, selStart + selected.length);
+    });
+  }
+
+  function applyMdAction(kind: "heading" | "bold" | "code" | "bullet" | "todo" | "quote") {
+    if (mdView === "source") {
+      if (kind === "heading") insertSourceMarkdown("## ", "", "标题");
+      else if (kind === "bold") insertSourceMarkdown("**", "**", "加粗文字");
+      else if (kind === "code") insertSourceMarkdown("`", "`", "code");
+      else if (kind === "bullet") insertSourceMarkdown("- ", "", "列表项");
+      else if (kind === "todo") insertSourceMarkdown("- [ ] ", "", "待复盘事项");
+      else if (kind === "quote") insertSourceMarkdown("> ", "", "引用要点");
+      return;
+    }
+    if (!editor) return;
+    if (kind === "heading") editor.chain().focus().toggleHeading({ level: 2 }).run();
+    else if (kind === "bold") editor.chain().focus().toggleBold().run();
+    else if (kind === "code") editor.chain().focus().toggleCode().run();
+    else if (kind === "bullet") editor.chain().focus().toggleBulletList().run();
+    else if (kind === "todo") editor.chain().focus().toggleTaskList().run();
+    else if (kind === "quote") editor.chain().focus().toggleBlockquote().run();
   }
 
   const wordCount = useMemo(
@@ -512,16 +553,32 @@ export function NoteEditor({
         </div>
       )}
 
-      {/* 模式 B：Typora 式所见即所得 Markdown 精简语法提示与源码切换 */}
+      {/* 模式 B：Typora 式所见即所得 Markdown 精简快捷命令条与源码切换 */}
       {mode === "markdown" && (
         <div className="md-mode-bar">
-          <div className="md-syntax-hints">
-            <span><code>#</code> 标题</span>
-            <span><code>**粗体**</code></span>
-            <span><code>`代码`</code></span>
-            <span><code>-</code> 列表</span>
-            <span><code>[ ]</code> 待办</span>
-            <span><code>&gt;</code> 引用</span>
+          <div className="md-quick-bar" role="toolbar" aria-label="Markdown 快捷语法">
+            {(
+              [
+                { key: "heading", token: "#", label: "标题", active: mdView === "wysiwyg" && Boolean(editor?.isActive("heading")), tip: "输入 # 加空格快速创建标题" },
+                { key: "bold", token: "**", label: "粗体", active: mdView === "wysiwyg" && Boolean(editor?.isActive("bold")), tip: "输入 **粗体** 或 Ctrl+B" },
+                { key: "code", token: "`", label: "代码", active: mdView === "wysiwyg" && Boolean(editor?.isActive("code")), tip: "输入 `行内代码`" },
+                { key: "bullet", token: "-", label: "列表", active: mdView === "wysiwyg" && Boolean(editor?.isActive("bulletList")), tip: "输入 - 加空格创建列表" },
+                { key: "todo", token: "[]", label: "待办", active: mdView === "wysiwyg" && Boolean(editor?.isActive("taskList")), tip: "输入 [ ] 加空格创建复盘待办" },
+                { key: "quote", token: ">", label: "引用", active: mdView === "wysiwyg" && Boolean(editor?.isActive("blockquote")), tip: "输入 > 加空格插入引用块" },
+              ] as const
+            ).map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                className={`md-quick-btn${item.active ? " is-active" : ""}`}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => applyMdAction(item.key)}
+                data-tip={item.tip}
+              >
+                <span className="md-quick-token" aria-hidden="true">{item.token}</span>
+                <span>{item.label}</span>
+              </button>
+            ))}
           </div>
           <div className="md-bar-right">
             <div className="md-sub-switch" role="group" aria-label="Markdown 视图">
@@ -560,6 +617,7 @@ export function NoteEditor({
       {/* 文档内容区 */}
       {mode === "markdown" && mdView === "source" ? (
         <textarea
+          ref={sourceRef}
           className={`md-source-textarea${isCompactMode ? " is-compact" : ""}`}
           value={value}
           placeholder="直接编写或粘贴标准 Markdown…"
