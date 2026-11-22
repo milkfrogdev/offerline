@@ -164,7 +164,36 @@ describe("OfferLine 服务端安全、日程、邮箱与面经集成测试", () 
       expect(icsRes.body).toContain("BEGIN:VCALENDAR");
       expect(icsRes.body).toContain("腾讯");
 
-      // 5. 邮箱配置保存密文、绝不返回明文密码
+      // 5. 未配 IMAP 也可独立保存个人大模型配置，且密文不回传明文、SSRF 测试拦截内网地址
+      const llmOnlySave = await app.inject({
+        method: "PUT",
+        url: "/api/mail/llm-config",
+        headers: { origin: ORIGIN, cookie: cookieB, "content-type": "application/json" },
+        payload: {
+          llmEnabled: false,
+          llmBaseUrl: "https://api.deepseek.com/v1",
+          llmModel: "deepseek-chat",
+          llmApiKey: "sk-unit-test-secret-llm-key",
+        },
+      });
+      expect(llmOnlySave.statusCode).toBe(200);
+      expect(llmOnlySave.body).not.toContain("sk-unit-test-secret-llm-key");
+      expect(llmOnlySave.json().hasLlmKey).toBe(true);
+      expect(llmOnlySave.json().configured).toBe(false);
+
+      const llmSsrf = await app.inject({
+        method: "POST",
+        url: "/api/mail/test-llm",
+        headers: { origin: ORIGIN, cookie: cookieB, "content-type": "application/json" },
+        payload: {
+          baseUrl: "http://127.0.0.1:11434/v1",
+          model: "qwen2.5",
+          apiKey: "sk-local-test",
+        },
+      });
+      expect(llmSsrf.statusCode).toBe(400);
+
+      // 5b. 邮箱配置保存密文、绝不返回明文密码
       const mailSave = await app.inject({
         method: "PUT",
         url: "/api/mail/config",

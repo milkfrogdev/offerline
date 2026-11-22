@@ -5,6 +5,7 @@ import {
   normalizeCompanyName,
 } from "../shared/companies.js";
 import type { EmailParseResult, EventKind, EventTimeMode } from "../shared/types.js";
+import { callOpenAiCompatibleJson } from "./llm-client.js";
 import { sanitizeExternalUrl } from "./security.js";
 
 export interface RawEmailInput {
@@ -936,6 +937,7 @@ export function parseRecruitmentEmailByRules(input: RawEmailInput): EmailParseRe
     actionHint,
     snippet,
     reason,
+    parserSource: "rules",
   });
 
   // Gate 1: Non-recruitment noise (OTP / billing / calendar reminder / alerts)
@@ -1016,6 +1018,7 @@ export function parseRecruitmentEmailByRules(input: RawEmailInput): EmailParseRe
     timeMode,
     location,
     snippet,
+    parserSource: "rules",
   };
 }
 
@@ -1043,25 +1046,12 @@ export async function parseRecruitmentEmail(
   const refIso = new Date(input.date || Date.now()).toISOString();
 
   try {
-    const endpoint = `${llm.baseUrl.replace(/\/+$/, "")}/chat/completions`;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15_000);
-    try {
-      const resp = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${llm.apiKey}`,
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: llm.model,
-          temperature: 0,
-          response_format: { type: "json_object" },
-          messages: [
-            {
-              role: "system",
-              content: `你是 OfferLine 求职日程邮件解析器。只提取需要候选人参加或处理的「面试、笔试、在线测评、Offer/录用意向」邮件，返回严格 JSON（不要代码块）：
+    const llmRes = await callOpenAiCompatibleJson(
+      llm,
+      [
+        {
+          role: "system",
+          content: `你是 OfferLine 求职日程邮件解析器。只提取需要候选人参加或处理的「面试、笔试、在线测评、Offer/录用意向」邮件，返回严格 JSON（不要代码块）：
 {"matched":boolean,"company":string,"position":string,"stageName":"一面"|"二面"|"三面"|"终面"|"HR面"|"面试"|"笔试"|"测评"|"录用意向"|"正式Offer","kind":"interview"|"written_test"|"assessment"|"offer","actionHint":"schedule"|"offer"|"fail","timeMode":"scheduled"|"deadline"|"flexible","startAt":string|null,"endAt":string|null,"location":string|null}
 
 严格规则：
@@ -1071,115 +1061,113 @@ export async function parseRecruitmentEmail(
 4. stageName 只能从上述枚举中选；如果面试邮件没写明第几轮，必须填"面试"，严禁臆测"一面"。
 5. timeMode：有明确面试/笔试时间点填"scheduled"；只有确认/完成截止日期或有效天数填"deadline"（startAt 填截止时间，endAt 填 null）；无具体时间也无截止日期填"flexible"（startAt 和 endAt 均填 null，绝不要填发件时间！）。
 6. location 优先填真实会议链接、笔试登录链接、测评链接或意向书链接，严禁填图片 URL、下载客户端链接、公众号文章或退订链接。时间用 ISO-8601（带 +08:00 或 Z）。`,
-            },
-            {
-              role: "user",
-              content: `发件人: ${input.from}\n主题: ${input.subject}\n发件时间参考: ${refIso}${ics ? `\nICS日程附件: start=${ics.startAt || ""} end=${ics.endAt || ""} loc=${ics.location || ""}` : ""}\n正文:\n${cleanText.slice(0, 3200)}`,
-            },
-          ],
-        }),
-      });
-      if (!resp.ok) return base;
-      const json = (await resp.json()) as {
-        choices?: { message?: { content?: string } }[];
-      };
-      const rawContent = json.choices?.[0]?.message?.content;
-      if (!rawContent) return base;
-      const parsed = JSON.parse(rawContent) as Partial<EmailParseResult> & {
-        timeMode?: EventTimeMode;
-      };
+        },
+        {
+          role: "user",
+          content: `发件人: ${input.from}\n主题: ${input.subject}\n发件时间参考: ${refIso}${ics ? `\nICS日程附件: start=${ics.startAt || ""} end=${ics.endAt || ""} loc=${ics.location || ""}` : ""}\n正文:\n${cleanText.slice(0, 3200)}`,
+        },
+      ],
+      { timeoutMs: 15_000 },
+    );
 
-      if (parsed.matched === false || parsed.actionHint === "fail") {
-        return {
-          ...base,
-          matched: false,
-          confidence: 0,
-          actionHint: parsed.actionHint === "fail" ? "fail" : base.actionHint,
-          reason:
-            parsed.actionHint === "fail"
-              ? "识别为拒信或流程终止通知，已按规则忽略不写入日程"
-              : "大模型判定为非有效求职日程邮件",
-        };
-      }
+    if (!llmRes.ok) return base;
+    const parsed = llmRes.data as Partial<EmailParseResult> & {
+      timeMode?: EventTimeMode;
+    };
 
-      const kind: EventKind =
-        parsed.kind === "interview" ||
-        parsed.kind === "written_test" ||
-        parsed.kind === "assessment" ||
-        parsed.kind === "offer"
-          ? parsed.kind
-          : base.kind !== "other"
-            ? base.kind
-            : "interview";
-
-      const rawCompany = (parsed.company || "").trim();
-      const company =
-        normalizeCompanyName(rawCompany) ||
-        (base.company && base.company !== "待确认公司" ? base.company : "") ||
-        rawCompany ||
-        "待确认公司";
-
-      const llmPos = cleanPosition(parsed.position || "", company);
-      const position = llmPos || base.position || "";
-      const stageName = normalizeStageName(parsed.stageName || base.stageName, kind);
-
-      const timeMode: EventTimeMode =
-        parsed.timeMode === "scheduled" ||
-        parsed.timeMode === "deadline" ||
-        parsed.timeMode === "flexible"
-          ? parsed.timeMode
-          : base.timeMode || "flexible";
-
-      let startAt: string | undefined;
-      let endAt: string | undefined;
-      if (timeMode === "flexible") {
-        startAt = undefined;
-        endAt = undefined;
-      } else {
-        startAt =
-          parsed.startAt && !Number.isNaN(Date.parse(parsed.startAt))
-            ? new Date(parsed.startAt).toISOString()
-            : base.startAt;
-        if (timeMode === "deadline") {
-          endAt = undefined;
-        } else {
-          endAt =
-            parsed.endAt && !Number.isNaN(Date.parse(parsed.endAt))
-              ? new Date(parsed.endAt).toISOString()
-              : base.endAt ||
-                (startAt ? new Date(Date.parse(startAt) + 60 * 60_000).toISOString() : undefined);
-        }
-      }
-
-      let location = base.location;
-      if (parsed.location && typeof parsed.location === "string") {
-        const trimmedLoc = parsed.location.trim();
-        if (/^https?:\/\//i.test(trimmedLoc)) {
-          const validUrl = cleanExtractedUrl(trimmedLoc);
-          if (validUrl) location = validUrl;
-        } else if (trimmedLoc.length >= 3) {
-          location = trimmedLoc;
-        }
-      }
-
+    if (parsed.matched === false || parsed.actionHint === "fail") {
       return {
         ...base,
-        matched: true,
-        confidence: Math.max(base.confidence, 92),
-        company,
-        position,
-        stageName,
-        kind,
-        actionHint: kind === "offer" ? "offer" : "schedule",
-        startAt,
-        endAt,
-        timeMode,
-        location,
-        title: buildEventTitle(company, position, stageName),
+        matched: false,
+        confidence: 0,
+        actionHint: parsed.actionHint === "fail" ? "fail" : base.actionHint,
+        parserSource: "llm",
+        reason:
+          parsed.actionHint === "fail"
+            ? "识别为拒信或流程终止通知，已按规则忽略不写入日程"
+            : "大模型判定为非有效求职日程邮件",
       };
-    } finally {
-      clearTimeout(timer);
     }
+
+    const kind: EventKind =
+      parsed.kind === "interview" ||
+      parsed.kind === "written_test" ||
+      parsed.kind === "assessment" ||
+      parsed.kind === "offer"
+        ? parsed.kind
+        : base.kind !== "other"
+          ? base.kind
+          : "interview";
+
+    const rawCompany = typeof parsed.company === "string" ? parsed.company.trim() : "";
+    const company =
+      normalizeCompanyName(rawCompany) ||
+      (base.company && base.company !== "待确认公司" ? base.company : "") ||
+      rawCompany ||
+      "待确认公司";
+
+    const llmPos = cleanPosition(typeof parsed.position === "string" ? parsed.position : "", company);
+    const position = llmPos || base.position || "";
+    const stageName = normalizeStageName(
+      typeof parsed.stageName === "string" ? parsed.stageName : base.stageName,
+      kind,
+    );
+
+    const timeMode: EventTimeMode =
+      parsed.timeMode === "scheduled" ||
+      parsed.timeMode === "deadline" ||
+      parsed.timeMode === "flexible"
+        ? parsed.timeMode
+        : base.timeMode || "flexible";
+
+    let startAt: string | undefined;
+    let endAt: string | undefined;
+    if (timeMode === "flexible") {
+      startAt = undefined;
+      endAt = undefined;
+    } else {
+      startAt =
+        typeof parsed.startAt === "string" && !Number.isNaN(Date.parse(parsed.startAt))
+          ? new Date(parsed.startAt).toISOString()
+          : base.startAt;
+      if (timeMode === "deadline") {
+        endAt = undefined;
+      } else {
+        endAt =
+          typeof parsed.endAt === "string" && !Number.isNaN(Date.parse(parsed.endAt))
+            ? new Date(parsed.endAt).toISOString()
+            : base.endAt ||
+              (startAt ? new Date(Date.parse(startAt) + 60 * 60_000).toISOString() : undefined);
+      }
+    }
+
+    let location = base.location;
+    if (typeof parsed.location === "string" && parsed.location.trim()) {
+      const trimmedLoc = parsed.location.trim();
+      if (/^https?:\/\//i.test(trimmedLoc)) {
+        const validUrl = cleanExtractedUrl(trimmedLoc);
+        if (validUrl) location = validUrl;
+      } else if (trimmedLoc.length >= 3) {
+        location = trimmedLoc;
+      }
+    }
+
+    return {
+      ...base,
+      matched: true,
+      confidence: Math.max(base.confidence, 92),
+      company,
+      position,
+      stageName,
+      kind,
+      actionHint: kind === "offer" ? "offer" : "schedule",
+      startAt,
+      endAt,
+      timeMode,
+      location,
+      parserSource: "llm",
+      title: buildEventTitle(company, position, stageName),
+    };
   } catch {
     return base;
   }

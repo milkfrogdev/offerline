@@ -4,6 +4,11 @@ import { buildInitialStages, createDefaultStageDrafts } from "../shared/stages";
 import type { ApplicationRecord, ScheduleEvent } from "../shared/types";
 import { buildIcsCalendar } from "../server/ics";
 import {
+  assertSafeLlmUrl,
+  extractJsonObject,
+  normalizeLlmEndpoint,
+} from "../server/llm-client";
+import {
   htmlToCleanText,
   parseIcsEvent,
   parseRecruitmentEmailByRules,
@@ -465,5 +470,40 @@ describe("求职邮件深度解析、去噪、归一化与 ICS 生成", () => {
     expect(ics).toContain("DTSTART;VALUE=DATE:20261023");
     expect(ics).toContain("SUMMARY:[截止] 科大讯飞 录用意向");
     expect(ics).not.toContain("华为 测评");
+  });
+
+  it("个人大模型客户端支持智能 URL 归一化、SSRF 防护与容错 JSON 提取", async () => {
+    expect(normalizeLlmEndpoint("https://api.deepseek.com")).toBe(
+      "https://api.deepseek.com/v1/chat/completions",
+    );
+    expect(normalizeLlmEndpoint("https://api.deepseek.com/v1/")).toBe(
+      "https://api.deepseek.com/v1/chat/completions",
+    );
+    expect(normalizeLlmEndpoint("https://api.deepseek.com/v1/chat/completions")).toBe(
+      "https://api.deepseek.com/v1/chat/completions",
+    );
+    expect(normalizeLlmEndpoint("https://open.bigmodel.cn/api/paas/v4")).toBe(
+      "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+    );
+    expect(normalizeLlmEndpoint("https://dashscope.aliyuncs.com/compatible-mode/v1")).toBe(
+      "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+    );
+    expect(normalizeLlmEndpoint("https://generativelanguage.googleapis.com/v1beta/openai")).toBe(
+      "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    );
+    expect(normalizeLlmEndpoint("file:///etc/passwd")).toBeNull();
+
+    // 默认拦截本机与内网/云元数据 IP，仅显式 allowLocal=true 时放行本地模型
+    expect((await assertSafeLlmUrl("http://127.0.0.1:11434/v1/chat/completions", false)).ok).toBe(false);
+    expect((await assertSafeLlmUrl("http://169.254.169.254/latest/meta-data", false)).ok).toBe(false);
+    expect((await assertSafeLlmUrl("http://192.168.1.10:8000/v1/chat/completions", false)).ok).toBe(false);
+    expect((await assertSafeLlmUrl("http://localhost:11434/v1/chat/completions", false)).ok).toBe(false);
+    expect((await assertSafeLlmUrl("http://127.0.0.1:11434/v1/chat/completions", true)).ok).toBe(true);
+
+    // 兼容 <think> 思考块 + Markdown 围栏 JSON 提取
+    expect(
+      extractJsonObject('<think>先分析邮件...</think>\n```json\n{"matched":true,"company":"腾讯"}\n```'),
+    ).toEqual({ matched: true, company: "腾讯" });
+    expect(extractJsonObject('结果如下：{"ok":true,"n":1} 结束')).toEqual({ ok: true, n: 1 });
   });
 });

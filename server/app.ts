@@ -31,6 +31,7 @@ import {
 } from "../shared/types.js";
 import { resolveSiteBrandIcon } from "./brand-icon.js";
 import { buildIcsCalendar } from "./ics.js";
+import { assertSafeLlmUrl, normalizeLlmEndpoint, testLlmConnection } from "./llm-client.js";
 import { buildEventTitle, parseRecruitmentEmail } from "./mail-parser.js";
 import {
   findDuplicateEmailEvent,
@@ -196,7 +197,16 @@ const mailConfigSchema = z
     folder: z.string().trim().min(1).max(64).default("INBOX"),
     pollIntervalMin: z.number().int().min(5).max(180).default(10),
     lookbackDays: z.number().int().min(1).max(30).default(7),
-    llmEnabled: z.boolean().default(false),
+    llmEnabled: z.boolean().optional(),
+    llmBaseUrl: z.string().trim().max(240).optional(),
+    llmModel: z.string().trim().max(100).optional(),
+    llmApiKey: z.string().max(256).optional(),
+  })
+  .strict();
+
+const llmConfigSchema = z
+  .object({
+    llmEnabled: z.boolean(),
     llmBaseUrl: z.string().trim().max(240).default(""),
     llmModel: z.string().trim().max(100).default(""),
     llmApiKey: z.string().max(256).optional(),
@@ -835,6 +845,10 @@ export async function buildApp({
         ? encryptSecret(body.llmApiKey.trim(), masterKey)
         : existing?.llmKeyEnc || "";
 
+    const nextLlmEnabled = body.llmEnabled ?? existing?.llmEnabled ?? false;
+    const nextLlmBaseUrl = body.llmBaseUrl ?? existing?.llmBaseUrl ?? "";
+    const nextLlmModel = body.llmModel ?? existing?.llmModel ?? "";
+
     const now = new Date().toISOString();
     await store.upsertMailAccount({
       userId: user.id,
@@ -849,6 +863,60 @@ export async function buildApp({
       pollIntervalMin: body.pollIntervalMin,
       lookbackDays: body.lookbackDays,
       lastUid: existing?.lastUid ?? 0,
+      llmEnabled: nextLlmEnabled,
+      llmBaseUrl: nextLlmBaseUrl,
+      llmModel: nextLlmModel,
+      llmKeyEnc,
+      lastSyncedAt: existing?.lastSyncedAt,
+      lastError: existing?.lastError,
+      lastMatchedCount: existing?.lastMatchedCount ?? 0,
+      updatedAt: now,
+    });
+
+    return toPublicMailAccount(await store.getMailAccount(user.id));
+  });
+
+  app.put("/api/mail/llm-config", async (req) => {
+    const user = await requireUser(req);
+    const body = llmConfigSchema.parse(req.body);
+    const existing = await store.getMailAccount(user.id);
+
+    const llmKeyEnc =
+      body.llmApiKey && body.llmApiKey.trim()
+        ? encryptSecret(body.llmApiKey.trim(), masterKey)
+        : existing?.llmKeyEnc || "";
+
+    if (body.llmEnabled) {
+      const endpoint = normalizeLlmEndpoint(body.llmBaseUrl);
+      if (!endpoint) {
+        throw new ApiError(400, "请填写有效的模型 API Base URL（以 https:// 开头）。", "INVALID_LLM_URL");
+      }
+      if (!body.llmModel.trim()) {
+        throw new ApiError(400, "请填写模型名称（例如 deepseek-chat）。", "LLM_MODEL_REQUIRED");
+      }
+      if (!llmKeyEnc) {
+        throw new ApiError(400, "启用大模型增强前请填写 API Key。", "LLM_KEY_REQUIRED");
+      }
+      const ssrf = await assertSafeLlmUrl(endpoint);
+      if (!ssrf.ok) {
+        throw new ApiError(400, ssrf.error, "LLM_URL_BLOCKED");
+      }
+    }
+
+    const now = new Date().toISOString();
+    await store.upsertMailAccount({
+      userId: user.id,
+      enabled: existing?.enabled ?? false,
+      provider: existing?.provider ?? "qq",
+      host: existing?.host ?? "",
+      port: existing?.port ?? 993,
+      secure: existing?.secure ?? true,
+      email: existing?.email ?? "",
+      passwordEnc: existing?.passwordEnc ?? "",
+      folder: existing?.folder || "INBOX",
+      pollIntervalMin: existing?.pollIntervalMin ?? 10,
+      lookbackDays: existing?.lookbackDays ?? 7,
+      lastUid: existing?.lastUid ?? 0,
       llmEnabled: body.llmEnabled,
       llmBaseUrl: body.llmBaseUrl,
       llmModel: body.llmModel,
@@ -860,6 +928,38 @@ export async function buildApp({
     });
 
     return toPublicMailAccount(await store.getMailAccount(user.id));
+  });
+
+  app.post("/api/mail/test-llm", async (req) => {
+    const user = await requireUser(req);
+    await enforceLimit(`llm-test:${user.id}`, 12, 10 * 60_000);
+    const body = z
+      .object({
+        baseUrl: z.string().trim().min(4, "请填写模型 API Base URL").max(240),
+        model: z.string().trim().min(1, "请填写模型名称").max(100),
+        apiKey: z.string().max(256).optional(),
+      })
+      .strict()
+      .parse(req.body);
+
+    let apiKey = body.apiKey?.trim() || "";
+    if (!apiKey) {
+      const existing = await store.getMailAccount(user.id);
+      if (!existing?.llmKeyEnc) {
+        throw new ApiError(400, "请先填写 API Key 再测试连通性。", "LLM_KEY_REQUIRED");
+      }
+      apiKey = decryptSecret(existing.llmKeyEnc, masterKey);
+    }
+
+    const res = await testLlmConnection({
+      baseUrl: body.baseUrl,
+      model: body.model,
+      apiKey,
+    });
+    if (!res.ok) {
+      throw new ApiError(400, res.error, "LLM_TEST_FAILED");
+    }
+    return res;
   });
 
   app.delete("/api/mail/config", async (req) => {

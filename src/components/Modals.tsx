@@ -163,6 +163,94 @@ function detectProviderFromEmail(addr: string): MailProvider | null {
   return null;
 }
 
+type LlmProviderKey = "deepseek" | "qwen" | "zhipu" | "kimi" | "openai" | "custom";
+
+const LLM_PRESET_ORDER: LlmProviderKey[] = ["deepseek", "qwen", "zhipu", "kimi", "openai", "custom"];
+
+const LLM_PRESETS: Record<
+  LlmProviderKey,
+  {
+    label: string;
+    baseUrl: string;
+    model: string;
+    placeholderUrl: string;
+    placeholderModel: string;
+    guideUrl?: string;
+    guideLabel?: string;
+    tip: string;
+  }
+> = {
+  deepseek: {
+    label: "DeepSeek",
+    baseUrl: "https://api.deepseek.com/v1",
+    model: "deepseek-chat",
+    placeholderUrl: "https://api.deepseek.com/v1",
+    placeholderModel: "deepseek-chat",
+    guideUrl: "https://platform.deepseek.com/api_keys",
+    guideLabel: "获取 DeepSeek Key",
+    tip: "性价比极高且支持原生 JSON 输出，100 封日常邮箱解析成本不到几分钱。",
+  },
+  qwen: {
+    label: "通义千问",
+    baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    model: "qwen-plus",
+    placeholderUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    placeholderModel: "qwen-plus",
+    guideUrl: "https://bailian.console.aliyun.com/?apiKey=1",
+    guideLabel: "前往阿里云百炼",
+    tip: "阿里云百炼 OpenAI 兼容端点，推荐 qwen-plus 或 qwen-turbo。",
+  },
+  zhipu: {
+    label: "智谱 GLM",
+    baseUrl: "https://open.bigmodel.cn/api/paas/v4",
+    model: "glm-4-flash",
+    placeholderUrl: "https://open.bigmodel.cn/api/paas/v4",
+    placeholderModel: "glm-4-flash",
+    guideUrl: "https://open.bigmodel.cn/usercenter/apikeys",
+    guideLabel: "前往智谱开放平台",
+    tip: "智谱开放平台兼容接口，glm-4-flash 响应快且支持高免费额度。",
+  },
+  kimi: {
+    label: "月之暗面 Kimi",
+    baseUrl: "https://api.moonshot.cn/v1",
+    model: "moonshot-v1-8k",
+    placeholderUrl: "https://api.moonshot.cn/v1",
+    placeholderModel: "moonshot-v1-8k",
+    guideUrl: "https://platform.moonshot.cn/console/api-keys",
+    guideLabel: "前往 Moonshot 控制台",
+    tip: "Moonshot OpenAI 兼容接口，长中文邮件正文理解稳定。",
+  },
+  openai: {
+    label: "OpenAI",
+    baseUrl: "https://api.openai.com/v1",
+    model: "gpt-4o-mini",
+    placeholderUrl: "https://api.openai.com/v1",
+    placeholderModel: "gpt-4o-mini",
+    guideUrl: "https://platform.openai.com/api-keys",
+    guideLabel: "前往 OpenAI",
+    tip: "需服务器出站网络可访问 api.openai.com，推荐轻量快速的 gpt-4o-mini。",
+  },
+  custom: {
+    label: "自定义兼容",
+    baseUrl: "",
+    model: "",
+    placeholderUrl: "https://your-gateway.example/v1",
+    placeholderModel: "输入模型 ID",
+    tip: "支持硅基流动、火山方舟、OpenRouter、自建聚合网关等任意 OpenAI 兼容接口；自动兼容省略 /v1 或完整路径。",
+  },
+};
+
+function detectLlmPreset(baseUrl: string): LlmProviderKey {
+  const lower = baseUrl.trim().toLowerCase();
+  if (!lower) return "deepseek";
+  if (lower.includes("deepseek.com")) return "deepseek";
+  if (lower.includes("dashscope.aliyuncs.com")) return "qwen";
+  if (lower.includes("bigmodel.cn")) return "zhipu";
+  if (lower.includes("moonshot.cn")) return "kimi";
+  if (lower.includes("api.openai.com")) return "openai";
+  return "custom";
+}
+
 const SAMPLE_INTERVIEW_EMAIL = {
   subject: "【字节跳动】后端开发工程师二面面试邀请",
   from: "字节跳动招聘 <campus-noreply@bytedance.com>",
@@ -762,12 +850,12 @@ export function MailSettingsModal({
   onEventCreated,
 }: {
   config: MailAccountPublic | null;
-  initialTab?: "imap" | "parse";
+  initialTab?: "imap" | "llm" | "parse";
   onClose: () => void;
   onConfigUpdated: (cfg: MailAccountPublic) => void;
   onEventCreated: (ev: ScheduleEvent) => void;
 }) {
-  const [tab, setTab] = useState<"imap" | "parse">(initialTab);
+  const [tab, setTab] = useState<"imap" | "llm" | "parse">(initialTab);
   const [enabled, setEnabled] = useState(config?.enabled ?? true);
   const [provider, setProvider] = useState<MailProvider>(config?.provider || "qq");
   const [host, setHost] = useState(config?.host || PROVIDER_PRESETS.qq.host);
@@ -778,14 +866,23 @@ export function MailSettingsModal({
   const [folder, setFolder] = useState(config?.folder || "INBOX");
   const [pollIntervalMin, setPollIntervalMin] = useState(config?.pollIntervalMin || 10);
   const [lookbackDays, setLookbackDays] = useState(config?.lookbackDays || 7);
+
+  // 独立大模型增强状态
+  const [llmPreset, setLlmPreset] = useState<LlmProviderKey>(() =>
+    detectLlmPreset(config?.llmBaseUrl || ""),
+  );
   const [llmEnabled, setLlmEnabled] = useState(config?.llmEnabled ?? false);
-  const [llmBaseUrl, setLlmBaseUrl] = useState(config?.llmBaseUrl || "");
-  const [llmModel, setLlmModel] = useState(config?.llmModel || "");
+  const [llmBaseUrl, setLlmBaseUrl] = useState(
+    config?.llmBaseUrl || LLM_PRESETS.deepseek.baseUrl,
+  );
+  const [llmModel, setLlmModel] = useState(config?.llmModel || LLM_PRESETS.deepseek.model);
   const [llmApiKey, setLlmApiKey] = useState("");
+  const [testingLlm, setTestingLlm] = useState(false);
+  const [savingLlm, setSavingLlm] = useState(false);
 
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [advancedOpen, setAdvancedOpen] = useState(provider === "custom" || Boolean(config?.llmEnabled));
+  const [advancedOpen, setAdvancedOpen] = useState(provider === "custom");
   const [feedback, setFeedback] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
   // 粘贴解析状态
@@ -865,14 +962,9 @@ export function MailSettingsModal({
         folder: folder.trim() || "INBOX",
         pollIntervalMin: Number(pollIntervalMin) || 10,
         lookbackDays: Number(lookbackDays) || 7,
-        llmEnabled,
-        llmBaseUrl: llmBaseUrl.trim(),
-        llmModel: llmModel.trim(),
-        llmApiKey: llmApiKey.trim() || undefined,
       });
       onConfigUpdated(saved);
       setPassword("");
-      setLlmApiKey("");
       setFeedback({ kind: "ok", text: "邮箱监听配置已加密保存。" });
     } catch (err) {
       setFeedback({
@@ -881,6 +973,68 @@ export function MailSettingsModal({
       });
     } finally {
       setSaving(false);
+    }
+  }
+
+  function selectLlmPreset(p: LlmProviderKey) {
+    setLlmPreset(p);
+    setFeedback(null);
+    if (p !== "custom") {
+      setLlmBaseUrl(LLM_PRESETS[p].baseUrl);
+      setLlmModel(LLM_PRESETS[p].model);
+    } else {
+      setLlmBaseUrl("");
+      setLlmModel("");
+    }
+  }
+
+  async function handleTestLlm() {
+    setFeedback(null);
+    setTestingLlm(true);
+    try {
+      const res = await api.testLlmConfig({
+        baseUrl: llmBaseUrl.trim(),
+        model: llmModel.trim(),
+        apiKey: llmApiKey.trim() || undefined,
+      });
+      setFeedback({
+        kind: "ok",
+        text: `连通成功，响应耗时 ${res.latencyMs}ms（${res.jsonMode === "native" ? "原生 JSON 模式" : "兼容 JSON 提取模式"}）。`,
+      });
+    } catch (err) {
+      setFeedback({
+        kind: "err",
+        text: err instanceof Error ? err.message : "大模型连通性测试失败。",
+      });
+    } finally {
+      setTestingLlm(false);
+    }
+  }
+
+  async function handleSaveLlm(e: React.FormEvent) {
+    e.preventDefault();
+    setFeedback(null);
+    setSavingLlm(true);
+    try {
+      const saved = await api.saveLlmConfig({
+        llmEnabled,
+        llmBaseUrl: llmBaseUrl.trim(),
+        llmModel: llmModel.trim(),
+        llmApiKey: llmApiKey.trim() || undefined,
+      });
+      onConfigUpdated(saved);
+      setLlmApiKey("");
+      setFeedback({
+        kind: "ok",
+        text: llmEnabled ? "大模型增强配置已加密保存，后续同步与粘贴解析自动生效。" : "已关闭大模型增强，恢复纯本地规则解析。",
+      });
+    } catch (err) {
+      setFeedback({
+        kind: "err",
+        text: err instanceof Error ? err.message : "保存大模型配置失败。",
+      });
+    } finally {
+      setSavingLlm(false);
     }
   }
 
@@ -926,6 +1080,17 @@ export function MailSettingsModal({
           }}
         >
           IMAP 自动监听
+        </button>
+        <button
+          type="button"
+          className={`modal-tab${tab === "llm" ? " active" : ""}`}
+          onClick={() => {
+            setTab("llm");
+            setFeedback(null);
+          }}
+        >
+          <span>大模型增强</span>
+          {config?.llmEnabled && <span className="tab-badge-ok">已启用</span>}
         </button>
         <button
           type="button"
@@ -1107,56 +1272,9 @@ export function MailSettingsModal({
                     checked={enabled}
                     onChange={(e) => setEnabled(e.target.checked)}
                   />
-                  <span>开启后台自动监听（发现新面试/笔试通知自动生成待确认日程）</span>
-                </label>
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={llmEnabled}
-                    onChange={(e) => setLlmEnabled(e.target.checked)}
-                  />
-                  <span>可选：配置个人大模型 API 增强复杂邮件解析</span>
+                  <span>开启后台自动监听（以只读模式扫描新邮件，不改未读状态）</span>
                 </label>
               </div>
-
-              {llmEnabled && (
-                <div className="llm-box">
-                  <div className="form-row-2">
-                    <label className="field">
-                      <span className="field-label">API Base URL（兼容 OpenAI）</span>
-                      <input
-                        type="url"
-                        className="input"
-                        placeholder="https://api.deepseek.com/v1"
-                        value={llmBaseUrl}
-                        onChange={(e) => setLlmBaseUrl(e.target.value)}
-                      />
-                    </label>
-                    <label className="field">
-                      <span className="field-label">模型名称</span>
-                      <input
-                        type="text"
-                        className="input"
-                        placeholder="deepseek-chat"
-                        value={llmModel}
-                        onChange={(e) => setLlmModel(e.target.value)}
-                      />
-                    </label>
-                  </div>
-                  <label className="field">
-                    <span className="field-label">
-                      API Key {config?.hasLlmKey ? "（已加密保存，留空不修改）" : ""}
-                    </span>
-                    <input
-                      type="password"
-                      className="input"
-                      placeholder="sk-..."
-                      value={llmApiKey}
-                      onChange={(e) => setLlmApiKey(e.target.value)}
-                    />
-                  </label>
-                </div>
-              )}
             </div>
           )}
 
@@ -1185,6 +1303,123 @@ export function MailSettingsModal({
               </button>
               <button type="submit" className="btn btn-primary" disabled={saving}>
                 {saving ? "保存中…" : "保存配置"}
+              </button>
+            </div>
+          </div>
+        </form>
+      ) : tab === "llm" ? (
+        <form className="modal-form" onSubmit={handleSaveLlm}>
+          <div className="field">
+            <span className="field-label">常用厂商预设（任意 OpenAI 兼容接口均适用）</span>
+            <div className="provider-row">
+              {LLM_PRESET_ORDER.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  className={`provider-chip${llmPreset === p ? " active" : ""}`}
+                  onClick={() => selectLlmPreset(p)}
+                >
+                  {LLM_PRESETS[p].label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mail-tip-row">
+            <span className="field-hint">{LLM_PRESETS[llmPreset].tip}</span>
+            {LLM_PRESETS[llmPreset].guideUrl && (
+              <a
+                href={LLM_PRESETS[llmPreset].guideUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-link"
+              >
+                <span>{LLM_PRESETS[llmPreset].guideLabel}</span>
+                <IconExternal size={12} />
+              </a>
+            )}
+          </div>
+
+          <div className="switch-row">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={llmEnabled}
+                onChange={(e) => setLlmEnabled(e.target.checked)}
+              />
+              <span>启用个人大模型增强（IMAP 同步与粘贴解析自动共用，未配 IMAP 也能单独开启）</span>
+            </label>
+          </div>
+
+          <div className="form-row-2">
+            <label className="field">
+              <span className="field-label">API Base URL</span>
+              <input
+                type="url"
+                className="input"
+                placeholder={LLM_PRESETS[llmPreset].placeholderUrl}
+                value={llmBaseUrl}
+                onChange={(e) => {
+                  setLlmBaseUrl(e.target.value);
+                  setLlmPreset(detectLlmPreset(e.target.value));
+                }}
+                required={llmEnabled}
+              />
+            </label>
+            <label className="field">
+              <span className="field-label">模型名称</span>
+              <input
+                type="text"
+                className="input"
+                placeholder={LLM_PRESETS[llmPreset].placeholderModel}
+                value={llmModel}
+                onChange={(e) => setLlmModel(e.target.value)}
+                required={llmEnabled}
+              />
+            </label>
+          </div>
+
+          <label className="field">
+            <span className="field-label">
+              API Key {config?.hasLlmKey ? "（已加密保存，留空不修改）" : ""}
+            </span>
+            <input
+              type="password"
+              className="input"
+              placeholder={
+                config?.hasLlmKey ? "已加密保存，如需更换请重新填写" : "粘贴个人 API Key（sk-...）"
+              }
+              value={llmApiKey}
+              onChange={(e) => setLlmApiKey(e.target.value)}
+              required={llmEnabled && !config?.hasLlmKey}
+            />
+          </label>
+
+          <p className="security-note">
+            验证码、账单、拒信、调研问卷与宣讲广告由本地规则 0 Token 拦截，仅疑似求职日程邮件才调模型；Key 服务端 AES-256-GCM 密文存储，异常时无损回退本地规则。
+          </p>
+
+          {feedback && (
+            <div className={feedback.kind === "ok" ? "form-ok" : "form-error"}>
+              {feedback.text}
+            </div>
+          )}
+
+          <div className="modal-actions between">
+            <button
+              type="button"
+              className="btn btn-soft"
+              disabled={testingLlm || !llmBaseUrl.trim() || !llmModel.trim()}
+              onClick={() => void handleTestLlm()}
+            >
+              {testingLlm ? "测试连通中…" : "测试模型连通"}
+            </button>
+            <div className="modal-actions-right">
+              <button type="button" className="btn btn-soft" onClick={onClose}>
+                取消
+              </button>
+              <button type="submit" className="btn btn-primary" disabled={savingLlm}>
+                {savingLlm ? "保存中…" : "保存模型配置"}
               </button>
             </div>
           </div>
@@ -1244,7 +1479,9 @@ export function MailSettingsModal({
 
           {preview && preview.matched && (
             <div className="parse-preview-box">
-              <div className="parse-preview-title">解析结果（置信度 {preview.confidence}%）</div>
+              <div className="parse-preview-title">
+                解析结果（{preview.parserSource === "llm" ? "大模型增强" : "本地规则"}，置信度 {preview.confidence}%）
+              </div>
               <div className="parse-grid">
                 <div>
                   <span className="parse-k">公司</span>

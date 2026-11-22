@@ -62,7 +62,7 @@ export function App() {
     presetCompany?: string;
     presetUrl?: string;
   }>({ open: false, editing: null });
-  const [mailModal, setMailModal] = useState<{ open: boolean; tab: "imap" | "parse" }>({
+  const [mailModal, setMailModal] = useState<{ open: boolean; tab: "imap" | "llm" | "parse" }>({
     open: false,
     tab: "imap",
   });

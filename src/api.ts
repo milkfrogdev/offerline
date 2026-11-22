@@ -176,13 +176,37 @@ export const api = {
     folder: string;
     pollIntervalMin: number;
     lookbackDays: number;
+    llmEnabled?: boolean;
+    llmBaseUrl?: string;
+    llmModel?: string;
+    llmApiKey?: string;
+  }) =>
+    request<MailAccountPublic>("/api/mail/config", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  saveLlmConfig: (payload: {
     llmEnabled: boolean;
     llmBaseUrl: string;
     llmModel: string;
     llmApiKey?: string;
   }) =>
-    request<MailAccountPublic>("/api/mail/config", {
+    request<MailAccountPublic>("/api/mail/llm-config", {
       method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  testLlmConfig: (payload: {
+    baseUrl: string;
+    model: string;
+    apiKey?: string;
+  }) =>
+    request<{
+      ok: boolean;
+      latencyMs: number;
+      normalizedEndpoint: string;
+      jsonMode: "native" | "fallback";
+    }>("/api/mail/test-llm", {
+      method: "POST",
       body: JSON.stringify(payload),
     }),
   deleteMailConfig: () =>

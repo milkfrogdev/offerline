@@ -69,6 +69,7 @@ OfferLine App (Node 24 + Fastify 5, port 3002)
 | [server/app.ts](../server/app.ts) | Fastify 路由、Zod 校验、CSRF、限流、认证与业务编排 |
 | [server/store.ts](../server/store.ts) | `Store` 抽象接口、`MySqlStore` 与 `JsonFileStore` |
 | [server/mail-parser.ts](../server/mail-parser.ts) | HTML/ICS 清洗、6 重去噪与拒信拦截、规则提取与可选 LLM 增强 |
+| [server/llm-client.ts](../server/llm-client.ts) | 个人 OpenAI 兼容大模型 URL 归一化、SSRF 拦截、JSON 容错降级与连通测速 |
 | [server/mail-sync.ts](../server/mail-sync.ts) | 只读 IMAP 增量扫描、同公司/集团唯一流程推断、同场日程语义去重 |
 | [server/ics.ts](../server/ics.ts) | RFC 5545 标准日历文件与私有 Webcal 订阅生成 |
 | [server/security.ts](../server/security.ts) | scrypt、SHA-256、AES-256-GCM 加解密与外链消毒 |

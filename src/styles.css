@@ -2299,6 +2299,19 @@ textarea {
   color: var(--on-ink);
 }
 
+.tab-badge-ok {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: var(--ok-soft, rgba(16, 185, 129, 0.12));
+  color: var(--ok, #059669);
+  font-size: 11px;
+  font-weight: 600;
+}
+
 /* Editorial Day Groups */
 .day-groups {
   display: flex;

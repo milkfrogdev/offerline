@@ -169,6 +169,7 @@ export interface EmailParseResult {
   location?: string;
   snippet: string;
   reason?: string;
+  parserSource?: "rules" | "llm";
 }
 
 export interface UserProfile {
