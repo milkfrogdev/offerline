@@ -6,7 +6,6 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { z } from "zod";
 import {
-  advanceStagesToTarget,
   applyStageStatusChange,
   buildInitialStages,
   createDefaultStageDrafts,
@@ -17,11 +16,13 @@ import {
 import {
   EVENT_KINDS,
   EVENT_STATUSES,
+  EVENT_TIME_MODES,
   MAIL_PROVIDERS,
   NOTE_FEELINGS,
   PRIORITY_LEVELS,
   STAGE_STATUSES,
   type ApplicationRecord,
+  type EventTimeMode,
   type InterviewNote,
   type ScheduleEvent,
   type Stage,
@@ -30,9 +31,11 @@ import {
 } from "../shared/types.js";
 import { resolveSiteBrandIcon } from "./brand-icon.js";
 import { buildIcsCalendar } from "./ics.js";
-import { parseRecruitmentEmail } from "./mail-parser.js";
+import { buildEventTitle, parseRecruitmentEmail } from "./mail-parser.js";
 import {
-  matchRecordForEmail,
+  findDuplicateEmailEvent,
+  inferRecordForEmail,
+  mergeDuplicateEvent,
   syncUserMailbox,
   testImapConnection,
 } from "./mail-sync.js";
@@ -132,6 +135,7 @@ const createEventSchema = z
     kind: z.enum(EVENT_KINDS).default("interview"),
     startAt: z.string().min(8).max(40),
     endAt: z.string().max(40).optional(),
+    timeMode: z.enum(EVENT_TIME_MODES).default("scheduled"),
     location: z.string().trim().max(500).optional(),
     source: z.enum(["email", "manual"]).default("manual"),
     status: z.enum(EVENT_STATUSES).default("confirmed"),
@@ -149,6 +153,7 @@ const updateEventSchema = z
     kind: z.enum(EVENT_KINDS).optional(),
     startAt: z.string().min(8).max(40).optional(),
     endAt: z.string().max(40).nullable().optional(),
+    timeMode: z.enum(EVENT_TIME_MODES).optional(),
     location: z.string().trim().max(500).nullable().optional(),
     status: z.enum(EVENT_STATUSES).optional(),
     notes: z.string().max(4000).optional(),
@@ -682,7 +687,8 @@ export async function buildApp({
       title: body.title,
       kind: body.kind,
       startAt: startIso,
-      endAt: endIso,
+      endAt: body.timeMode === "scheduled" ? endIso : undefined,
+      timeMode: body.timeMode,
       location: body.location || undefined,
       source: body.source,
       status: body.status,
@@ -730,6 +736,7 @@ export async function buildApp({
       kind: body.kind ?? existing.kind,
       startAt: nextStart,
       endAt: nextEnd,
+      timeMode: body.timeMode ?? existing.timeMode ?? "scheduled",
       location: body.location === undefined ? existing.location : body.location || undefined,
       status: body.status ?? existing.status,
       notes: body.notes !== undefined ? body.notes : existing.notes || "",
@@ -745,69 +752,6 @@ export async function buildApp({
     const ok = await store.deleteEvent(id, user.id);
     if (!ok) throw new ApiError(404, "未找到该日程。", "NOT_FOUND");
     return { ok: true };
-  });
-
-  app.post("/api/events/:id/sync-record", async (req) => {
-    const user = await requireUser(req);
-    const { id } = req.params as { id: string };
-    const event = await store.getEvent(id, user.id);
-    if (!event) throw new ApiError(404, "未找到该日程。", "NOT_FOUND");
-
-    const now = new Date().toISOString();
-    const records = await store.listRecords(user.id);
-    let targetRecord = event.recordId
-      ? records.find((r) => r.id === event.recordId)
-      : matchRecordForEmail(records, event.company, event.position);
-
-    const outcome: "current" | "pass" | "fail" =
-      event.kind === "offer"
-        ? "pass"
-        : event.stageName === "流程终止"
-          ? "fail"
-          : "current";
-
-    if (!targetRecord) {
-      const stages = advanceStagesToTarget(
-        buildInitialStages(createDefaultStageDrafts()),
-        event.stageName || "一面",
-        outcome,
-      );
-      targetRecord = {
-        id: randomUUID(),
-        userId: user.id,
-        company: event.company,
-        position: event.position || "研发岗位",
-        stages,
-        status: "active",
-        priority: "normal",
-        pinned: false,
-        notes: "",
-        createdAt: now,
-        updatedAt: now,
-      };
-      await store.insertRecord(user.id, targetRecord);
-    } else {
-      targetRecord = {
-        ...targetRecord,
-        stages: advanceStagesToTarget(
-          targetRecord.stages,
-          event.stageName || "一面",
-          outcome,
-        ),
-        updatedAt: now,
-      };
-      await store.updateRecord(user.id, targetRecord);
-    }
-
-    const updatedEvent: ScheduleEvent = {
-      ...event,
-      recordId: targetRecord.id,
-      status: event.status === "pending_confirm" ? "confirmed" : event.status,
-      syncedToRecord: true,
-      updatedAt: now,
-    };
-    await store.updateEvent(user.id, updatedEvent);
-    return { event: updatedEvent, record: targetRecord };
   });
 
   app.get("/api/events/:id/ics", async (req, reply) => {
@@ -1017,27 +961,77 @@ export async function buildApp({
       llm,
     );
 
+    const records = await store.listRecords(user.id);
+    const inferred = parsed.matched
+      ? inferRecordForEmail(records, parsed.company, parsed.position)
+      : { matchType: "none" as const };
+    const matchedRecord = inferred.record;
+    const matchedRecordSummary = matchedRecord
+      ? {
+          id: matchedRecord.id,
+          company: matchedRecord.company,
+          position: matchedRecord.position,
+          matchType: inferred.matchType,
+        }
+      : null;
+
     if (!body.createEvent || !parsed.matched) {
-      return { parsed, event: null };
+      return { parsed, matchedRecord: matchedRecordSummary, event: null, merged: false };
     }
 
     const now = new Date().toISOString();
-    const records = await store.listRecords(user.id);
-    const matchedRecord = matchRecordForEmail(records, parsed.company, parsed.position);
+    const company = matchedRecord?.company || parsed.company;
+    const position = parsed.position || matchedRecord?.position || "";
+    const timeMode: EventTimeMode = parsed.timeMode || (parsed.startAt ? "scheduled" : "flexible");
     const startAt = parsed.startAt || now;
-    const endAt = parsed.endAt || new Date(Date.parse(startAt) + 60 * 60_000).toISOString();
+    const endAt =
+      timeMode === "scheduled"
+        ? parsed.endAt || new Date(Date.parse(startAt) + 60 * 60_000).toISOString()
+        : undefined;
+
+    const existingEvents = await store.listEvents(user.id);
+    const dup = findDuplicateEmailEvent(existingEvents, {
+      company,
+      position,
+      kind: parsed.kind,
+      startAt,
+      timeMode,
+    });
+    if (dup) {
+      const { merged: updatedEv, changed } = mergeDuplicateEvent(
+        dup,
+        {
+          recordId: matchedRecord?.id,
+          company,
+          position,
+          stageName: parsed.stageName,
+          startAt,
+          endAt,
+          timeMode,
+          location: parsed.location,
+          mailSubject: body.subject.slice(0, 280) || undefined,
+          mailSnippet: parsed.snippet,
+        },
+        now,
+      );
+      if (changed) {
+        await store.updateEvent(user.id, updatedEv);
+      }
+      return { parsed, matchedRecord: matchedRecordSummary, event: updatedEv, merged: true };
+    }
+
     const event: ScheduleEvent = {
       id: randomUUID(),
       userId: user.id,
       recordId: matchedRecord?.id,
-      company: matchedRecord?.company || parsed.company,
-      position:
-        parsed.position !== "待确认岗位" ? parsed.position : matchedRecord?.position || "",
+      company,
+      position,
       stageName: parsed.stageName,
-      title: parsed.title,
+      title: buildEventTitle(company, position, parsed.stageName),
       kind: parsed.kind,
       startAt,
       endAt,
+      timeMode,
       location: parsed.location,
       source: "email",
       mailSubject: body.subject.slice(0, 280) || undefined,
@@ -1050,7 +1044,7 @@ export async function buildApp({
       updatedAt: now,
     };
     await store.insertEvent(user.id, event);
-    return { parsed, event };
+    return { parsed, matchedRecord: matchedRecordSummary, event, merged: false };
   });
 
   // ===== Interview Notes (面经记录) =====

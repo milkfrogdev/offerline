@@ -791,6 +791,12 @@ export function MailSettingsModal({
   const [rawText, setRawText] = useState("");
   const [parsing, setParsing] = useState(false);
   const [preview, setPreview] = useState<EmailParseResult | null>(null);
+  const [previewRecord, setPreviewRecord] = useState<{
+    id: string;
+    company: string;
+    position: string;
+    matchType: string;
+  } | null>(null);
 
   function selectProvider(p: MailProvider) {
     setProvider(p);
@@ -886,9 +892,15 @@ export function MailSettingsModal({
         createEvent,
       });
       setPreview(res.parsed);
+      setPreviewRecord(res.matchedRecord || null);
       if (createEvent && res.event) {
         onEventCreated(res.event);
-        setFeedback({ kind: "ok", text: `已生成日程：${res.event.title}` });
+        setFeedback({
+          kind: "ok",
+          text: res.merged
+            ? `检测到同场重复通知，已合并更新：${res.event.title}`
+            : `已生成日程：${res.event.title}`,
+        });
       } else if (!res.parsed.matched) {
         setFeedback({ kind: "err", text: res.parsed.reason || "未能从正文识别出求职日程。" });
       }
@@ -1237,7 +1249,10 @@ export function MailSettingsModal({
                 </div>
                 <div>
                   <span className="parse-k">岗位</span>
-                  <span className="parse-v">{preview.position}</span>
+                  <span className="parse-v">
+                    {preview.position ||
+                      (previewRecord ? `${previewRecord.position}（自动推断）` : "邮件未注明")}
+                  </span>
                 </div>
                 <div>
                   <span className="parse-k">阶段</span>
@@ -1246,9 +1261,28 @@ export function MailSettingsModal({
                 <div>
                   <span className="parse-k">时间</span>
                   <span className="parse-v">
-                    {preview.startAt ? new Date(preview.startAt).toLocaleString("zh-CN") : "未提取到具体时间"}
+                    {preview.timeMode === "flexible"
+                      ? "时间自定，尽早完成"
+                      : preview.timeMode === "deadline" && preview.startAt
+                        ? `截止 ${new Date(preview.startAt).toLocaleDateString("zh-CN")}`
+                        : preview.startAt
+                          ? new Date(preview.startAt).toLocaleString("zh-CN")
+                          : "未提取到具体时间"}
                   </span>
                 </div>
+                {previewRecord && (
+                  <div className="parse-span-2">
+                    <span className="parse-k">关联投递</span>
+                    <span className="parse-v">
+                      {previewRecord.company} {previewRecord.position}
+                      {previewRecord.matchType === "company_sole_active"
+                        ? "（同公司唯一进行中流程）"
+                        : previewRecord.matchType === "group_sole_active"
+                          ? "（同集团唯一进行中流程）"
+                          : ""}
+                    </span>
+                  </div>
+                )}
                 {preview.location && (
                   <div className="parse-span-2">
                     <span className="parse-k">地点 / 链接</span>

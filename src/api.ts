@@ -3,6 +3,7 @@ import type {
   EmailParseResult,
   EventKind,
   EventStatus,
+  EventTimeMode,
   InterviewNote,
   MailAccountPublic,
   MailProvider,
@@ -135,6 +136,7 @@ export const api = {
   updateEvent: (
     id: string,
     payload: {
+      recordId?: string | null;
       company?: string;
       position?: string;
       stageName?: string | null;
@@ -142,6 +144,7 @@ export const api = {
       kind?: EventKind;
       startAt?: string;
       endAt?: string | null;
+      timeMode?: EventTimeMode;
       location?: string | null;
       status?: EventStatus;
       notes?: string;
@@ -153,11 +156,6 @@ export const api = {
     }),
   deleteEvent: (id: string) =>
     request<{ ok: boolean }>(`/api/events/${encodeURIComponent(id)}`, { method: "DELETE" }),
-  syncEventToRecord: (id: string) =>
-    request<{ event: ScheduleEvent; record: ApplicationRecord }>(
-      `/api/events/${encodeURIComponent(id)}/sync-record`,
-      { method: "POST" },
-    ),
   getCalendarToken: () => request<{ token: string; subscribeUrl: string }>("/api/calendar/token"),
   rotateCalendarToken: () =>
     request<{ token: string; subscribeUrl: string }>("/api/calendar/token/rotate", {
@@ -202,7 +200,7 @@ export const api = {
     }),
   syncMailNow: () =>
     request<{
-      summary: { scanned: number; created: number; skipped: number; syncedAt: string };
+      summary: { scanned: number; created: number; merged: number; skipped: number; syncedAt: string };
       config: MailAccountPublic;
       events: ScheduleEvent[];
     }>("/api/mail/sync", { method: "POST" }),
@@ -212,7 +210,12 @@ export const api = {
     text: string;
     createEvent: boolean;
   }) =>
-    request<{ parsed: EmailParseResult; event: ScheduleEvent | null }>("/api/mail/parse-preview", {
+    request<{
+      parsed: EmailParseResult;
+      matchedRecord: { id: string; company: string; position: string; matchType: string } | null;
+      event: ScheduleEvent | null;
+      merged: boolean;
+    }>("/api/mail/parse-preview", {
       method: "POST",
       body: JSON.stringify(payload),
     }),

@@ -31,6 +31,9 @@ export const EVENT_STATUSES = [
 ] as const;
 export type EventStatus = (typeof EVENT_STATUSES)[number];
 
+export const EVENT_TIME_MODES = ["scheduled", "deadline", "flexible"] as const;
+export type EventTimeMode = (typeof EVENT_TIME_MODES)[number];
+
 export const NOTE_FEELINGS = ["great", "normal", "hard"] as const;
 export type NoteFeeling = (typeof NOTE_FEELINGS)[number];
 
@@ -102,6 +105,7 @@ export interface ScheduleEvent {
   kind: EventKind;
   startAt: string;
   endAt?: string;
+  timeMode?: EventTimeMode;
   location?: string;
   source: "email" | "manual";
   mailMessageId?: string;
@@ -161,6 +165,7 @@ export interface EmailParseResult {
   actionHint: "schedule" | "pass" | "fail" | "offer" | "applied";
   startAt?: string;
   endAt?: string;
+  timeMode?: EventTimeMode;
   location?: string;
   snippet: string;
   reason?: string;

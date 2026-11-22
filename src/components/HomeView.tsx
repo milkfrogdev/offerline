@@ -94,11 +94,19 @@ function formatCountdown(startIso: string, nowMs: number): { text: string; urgen
 
 function meetingActionMeta(url: string, kind: EventKind): { label: string; isExam: boolean } {
   const u = url.toLowerCase();
-  if (kind === "written_test" || kind === "assessment" || /nowcoder|leetcode|exam|code\./.test(u)) {
+  if (kind === "offer") return { label: "查看录用意向", isExam: false };
+  if (kind === "assessment" || /eztest|talovative/.test(u)) {
+    return { label: "打开在线测评", isExam: true };
+  }
+  if (kind === "written_test" || /nowcoder|acmcoder|leetcode|exam|code\./.test(u)) {
     return { label: "进入在线笔试", isExam: true };
   }
-  if (u.includes("meeting.tencent.com")) return { label: "进入腾讯会议", isExam: false };
-  if (u.includes("feishu.cn") || u.includes("larksuite.com")) return { label: "进入飞书会议", isExam: false };
+  if (u.includes("meeting.tencent.com") || u.includes("wemeet")) {
+    return { label: "进入腾讯会议", isExam: false };
+  }
+  if (u.includes("feishu.cn") || u.includes("larksuite.com") || u.includes("zijieimg.com")) {
+    return { label: "进入飞书会议", isExam: false };
+  }
   if (u.includes("zoom.")) return { label: "进入 Zoom", isExam: false };
   if (u.includes("teams.microsoft")) return { label: "进入 Teams", isExam: false };
   return { label: "打开会议链接", isExam: false };
@@ -123,6 +131,16 @@ function timeGreeting(now: Date): string {
   return "晚上好";
 }
 
+function formatEventShortTime(ev: ScheduleEvent, nowMs: number): string {
+  if (ev.timeMode === "flexible") return "时间自定";
+  if (ev.timeMode === "deadline") {
+    const d = new Date(ev.startAt);
+    if (Number.isNaN(d.getTime())) return "待定截止";
+    return `截止 ${d.getMonth() + 1}月${d.getDate()}日`;
+  }
+  return formatFriendlyDay(ev.startAt, nowMs);
+}
+
 export function HomeView({
   user,
   records,
@@ -136,7 +154,8 @@ export function HomeView({
   onAddEvent,
   onAddNote,
   onConfirmEvent,
-  onSyncEventToRecord,
+  onDismissEvent,
+  onOpenRecordInPipeline,
   onVisitCompany,
   onOpenMailModal,
   onOpenParseModal,
@@ -158,7 +177,8 @@ export function HomeView({
     stageName?: string;
   }) => void;
   onConfirmEvent: (ev: ScheduleEvent) => Promise<void>;
-  onSyncEventToRecord: (ev: ScheduleEvent) => Promise<void>;
+  onDismissEvent: (ev: ScheduleEvent) => Promise<void>;
+  onOpenRecordInPipeline: (company: string) => void;
   onVisitCompany: (company: string, url?: string) => Promise<void>;
   onOpenMailModal: () => void;
   onOpenParseModal: () => void;
@@ -212,10 +232,21 @@ export function HomeView({
     [events],
   );
 
+  const recordMap = useMemo(() => {
+    const map = new Map<string, ApplicationRecord>();
+    for (const r of records) map.set(r.id, r);
+    return map;
+  }, [records]);
+
   const upcomingConfirmed = useMemo(() => {
     const cutoff = nowMs - 45 * 60_000;
     return events
-      .filter((e) => e.status === "confirmed" && Date.parse(e.startAt) >= cutoff)
+      .filter(
+        (e) =>
+          e.status === "confirmed" &&
+          e.timeMode !== "flexible" &&
+          Date.parse(e.startAt) >= cutoff,
+      )
       .sort((a, b) => a.startAt.localeCompare(b.startAt));
   }, [events, nowMs]);
 
@@ -225,7 +256,11 @@ export function HomeView({
   const rhythmDays = useMemo(() => {
     const itemsMap = new Map<string, ScheduleEvent[]>();
     const sorted = [...events]
-      .filter((ev) => ev.status === "confirmed" || ev.status === "pending_confirm")
+      .filter(
+        (ev) =>
+          (ev.status === "confirmed" || ev.status === "pending_confirm") &&
+          ev.timeMode !== "flexible",
+      )
       .sort((a, b) => a.startAt.localeCompare(b.startAt));
     for (const ev of sorted) {
       const d = new Date(ev.startAt);
@@ -250,7 +285,8 @@ export function HomeView({
         const lines = dayItems.slice(0, 3).map((ev) => {
           const st = ev.stageName || KIND_LABELS[ev.kind];
           const tag = ev.status === "pending_confirm" ? " [待确认]" : "";
-          return `${formatClock(ev.startAt)} ${ev.company} ${st}${tag}`;
+          const prefix = ev.timeMode === "deadline" ? "截止" : formatClock(ev.startAt);
+          return `${prefix} ${ev.company} ${st}${tag}`;
         });
         if (dayItems.length > 3) lines.push(`另有 ${dayItems.length - 3} 场安排`);
         tip = `${head}（${dayItems.length} 场，点击筛选）\n${lines.join("\n")}`;
@@ -612,38 +648,62 @@ export function HomeView({
               </div>
 
               <div className="home-triage-list">
-                {pendingEvents.slice(0, 2).map((ev) => (
-                  <div key={ev.id} className="home-triage-row">
-                    <div className="home-triage-ident">
-                      <CompanyLogo company={ev.company} size="sm" />
-                      <div className="home-triage-info">
-                        <div className="home-triage-title">{ev.title}</div>
-                        <div className="home-triage-meta">
-                          <span className="home-triage-time">{formatFriendlyDay(ev.startAt, nowMs)}</span>
-                          {ev.stageName && <span className="event-kind">{ev.stageName}</span>}
+                {pendingEvents.slice(0, 2).map((ev) => {
+                  const linked = ev.recordId ? recordMap.get(ev.recordId) : undefined;
+                  return (
+                    <div key={ev.id} className="home-triage-row">
+                      <div className="home-triage-ident">
+                        <CompanyLogo company={ev.company} size="sm" />
+                        <div className="home-triage-info">
+                          <div className="home-triage-title">{ev.title}</div>
+                          <div className="home-triage-meta">
+                            <span className="home-triage-time">
+                              {formatEventShortTime(ev, nowMs)}
+                            </span>
+                            {ev.stageName && <span className="event-kind">{ev.stageName}</span>}
+                            {linked && (
+                              <button
+                                type="button"
+                                className="event-record-link"
+                                onClick={() => onOpenRecordInPipeline(linked.company)}
+                                data-tip="已自动关联该投递，点击前往手动更新进度"
+                              >
+                                <span>关联：{linked.position}</span>
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="home-triage-ops">
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm"
-                        onClick={() => void onSyncEventToRecord(ev)}
-                      >
-                        <IconCheck size={13} />
-                        <span>同步进度</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-soft btn-sm"
-                        onClick={() => void onConfirmEvent(ev)}
-                      >
-                        仅加入
-                      </button>
+                      <div className="home-triage-ops">
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm"
+                          onClick={() => void onConfirmEvent(ev)}
+                        >
+                          <IconCheck size={13} />
+                          <span>加入日程</span>
+                        </button>
+                        {linked && (
+                          <button
+                            type="button"
+                            className="btn btn-soft btn-sm"
+                            onClick={() => onOpenRecordInPipeline(linked.company)}
+                          >
+                            更新进度
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="btn-text-muted"
+                          onClick={() => void onDismissEvent(ev)}
+                        >
+                          忽略
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
           )}

@@ -49,6 +49,7 @@ export function App() {
   const [syncingMail, setSyncingMail] = useState(false);
 
   const [pipelineFilter, setPipelineFilter] = useState<MetricFilter | null>(null);
+  const [pipelineQuery, setPipelineQuery] = useState("");
   const [notesFilter, setNotesFilter] = useState("");
   const [initialNoteId, setInitialNoteId] = useState<string | null>(null);
   const [latestNoteId, setLatestNoteId] = useState<string | null>(null);
@@ -208,11 +209,16 @@ export function App() {
       const res = await api.syncMailNow();
       setMailConfig(res.config);
       setEvents(res.events);
-      showToast(
-        res.summary.created > 0
-          ? `同步完成，新发现 ${res.summary.created} 条日程`
-          : `同步完成，扫描 ${res.summary.scanned} 封邮件，暂无新日程`,
-      );
+      const { created, merged, scanned } = res.summary;
+      if (created > 0 && merged > 0) {
+        showToast(`同步完成，新发现 ${created} 条日程，已合并 ${merged} 封重复提醒`);
+      } else if (created > 0) {
+        showToast(`同步完成，新发现 ${created} 条日程`);
+      } else if (merged > 0) {
+        showToast(`同步完成，已合并 ${merged} 封重复提醒到已有日程`);
+      } else {
+        showToast(`同步完成，扫描 ${scanned} 封邮件，暂无新日程`);
+      }
     } catch (err) {
       showToast(err instanceof Error ? err.message : "邮箱同步失败。", "err");
     } finally {
@@ -230,20 +236,10 @@ export function App() {
     }
   }
 
-  async function handleSyncEventToRecord(ev: ScheduleEvent) {
-    try {
-      const res = await api.syncEventToRecord(ev.id);
-      setEvents((prev) => prev.map((e) => (e.id === res.event.id ? res.event : e)));
-      setRecords((prev) => {
-        const exists = prev.some((r) => r.id === res.record.id);
-        return exists
-          ? prev.map((r) => (r.id === res.record.id ? res.record : r))
-          : [res.record, ...prev];
-      });
-      showToast(`已同步「${res.record.company}」进度到时间线`);
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : "同步进度失败。", "err");
-    }
+  function handleOpenRecordInPipeline(company: string) {
+    setPipelineFilter("all");
+    setPipelineQuery(company);
+    setActiveTab("pipeline");
   }
 
   async function handleToggleCompleteEvent(ev: ScheduleEvent) {
@@ -364,7 +360,8 @@ export function App() {
             onAddEvent={() => setEventModal({ open: true })}
             onAddNote={(preset) => setNoteModal({ open: true, editing: null, preset })}
             onConfirmEvent={handleConfirmEvent}
-            onSyncEventToRecord={handleSyncEventToRecord}
+            onDismissEvent={handleDismissEvent}
+            onOpenRecordInPipeline={handleOpenRecordInPipeline}
             onVisitCompany={handleVisitCompany}
             onOpenMailModal={() => setMailModal({ open: true, tab: "imap" })}
             onOpenParseModal={() => setMailModal({ open: true, tab: "parse" })}
@@ -377,6 +374,8 @@ export function App() {
             notes={notes}
             initialFilter={pipelineFilter}
             onClearInitialFilter={() => setPipelineFilter(null)}
+            initialQuery={pipelineQuery}
+            onClearInitialQuery={() => setPipelineQuery("")}
             onAddRecord={() => setRecordModal({ open: true, editing: null })}
             onAddForCompany={(company, url) =>
               setRecordModal({ open: true, editing: null, presetCompany: company, presetUrl: url })
@@ -419,6 +418,7 @@ export function App() {
         {activeTab === "schedule" && (
           <ScheduleView
             events={events}
+            records={records}
             mailConfig={mailConfig}
             syncing={syncingMail}
             onSyncMail={handleSyncMail}
@@ -427,7 +427,7 @@ export function App() {
             onOpenSubscribeModal={() => setSubscribeOpen(true)}
             onAddEvent={() => setEventModal({ open: true })}
             onConfirmEvent={handleConfirmEvent}
-            onSyncEventToRecord={handleSyncEventToRecord}
+            onOpenRecordInPipeline={handleOpenRecordInPipeline}
             onToggleComplete={handleToggleCompleteEvent}
             onDismissEvent={handleDismissEvent}
             onDeleteEvent={handleDeleteEvent}

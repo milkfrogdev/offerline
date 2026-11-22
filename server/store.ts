@@ -7,6 +7,7 @@ import type {
   EncryptedEnvelope,
   EventKind,
   EventStatus,
+  EventTimeMode,
   InterviewNote,
   MailAccountPublic,
   MailProvider,
@@ -182,6 +183,9 @@ function normalizeRow(row: Record<string, unknown>): ApplicationRecord {
 function normalizeEvent(row: Record<string, unknown>): ScheduleEvent {
   const kind = String(row.kind || "interview") as EventKind;
   const status = String(row.status || "confirmed") as EventStatus;
+  const rawMode = String(row.time_mode ?? row.timeMode ?? "scheduled");
+  const timeMode: EventTimeMode =
+    rawMode === "deadline" || rawMode === "flexible" ? rawMode : "scheduled";
   return {
     id: String(row.id),
     userId: Number(row.user_id ?? row.userId),
@@ -193,6 +197,7 @@ function normalizeEvent(row: Record<string, unknown>): ScheduleEvent {
     kind,
     startAt: String(row.start_at ?? row.startAt),
     endAt: (row.end_at ?? row.endAt) ? String(row.end_at ?? row.endAt) : undefined,
+    timeMode,
     location: row.location ? String(row.location) : undefined,
     source: row.source === "email" ? "email" : "manual",
     mailMessageId: (row.mail_message_id ?? row.mailMessageId)
@@ -356,6 +361,7 @@ export class MysqlStore implements Store {
         kind VARCHAR(24) NOT NULL DEFAULT 'interview',
         start_at VARCHAR(40) NOT NULL,
         end_at VARCHAR(40) NULL,
+        time_mode VARCHAR(16) NOT NULL DEFAULT 'scheduled',
         location TEXT NULL,
         source VARCHAR(16) NOT NULL DEFAULT 'manual',
         mail_message_id VARCHAR(255) NULL,
@@ -423,6 +429,21 @@ export class MysqlStore implements Store {
         CONSTRAINT fk_ol_mail_proc_user FOREIGN KEY (user_id) REFERENCES ol_users(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
+    const [timeModeCols] = await this.pool.query<RowDataPacket[]>(
+      `SELECT 1 FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ol_events' AND COLUMN_NAME = 'time_mode'
+       LIMIT 1`,
+    );
+    if (timeModeCols.length === 0) {
+      try {
+        await this.pool.query(
+          "ALTER TABLE ol_events ADD COLUMN time_mode VARCHAR(16) NOT NULL DEFAULT 'scheduled' AFTER end_at",
+        );
+      } catch (err: unknown) {
+        const code = (err as { code?: string })?.code;
+        if (code !== "ER_DUP_FIELDNAME") throw err;
+      }
+    }
   }
 
   async ping() {
@@ -739,8 +760,8 @@ export class MysqlStore implements Store {
   async insertEvent(userId: number, ev: ScheduleEvent): Promise<void> {
     await this.pool.query(
       `INSERT INTO ol_events
-       (id, user_id, record_id, company, position, stage_name, title, kind, start_at, end_at, location, source, mail_message_id, mail_subject, mail_from, mail_snippet, status, synced_to_record, notes, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, user_id, record_id, company, position, stage_name, title, kind, start_at, end_at, time_mode, location, source, mail_message_id, mail_subject, mail_from, mail_snippet, status, synced_to_record, notes, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         ev.id,
         userId,
@@ -752,6 +773,7 @@ export class MysqlStore implements Store {
         ev.kind,
         ev.startAt,
         ev.endAt ?? null,
+        ev.timeMode || "scheduled",
         ev.location ?? null,
         ev.source,
         ev.mailMessageId ?? null,
@@ -770,7 +792,7 @@ export class MysqlStore implements Store {
   async updateEvent(userId: number, ev: ScheduleEvent): Promise<void> {
     await this.pool.query(
       `UPDATE ol_events
-       SET record_id = ?, company = ?, position = ?, stage_name = ?, title = ?, kind = ?, start_at = ?, end_at = ?, location = ?, status = ?, synced_to_record = ?, notes = ?, updated_at = ?
+       SET record_id = ?, company = ?, position = ?, stage_name = ?, title = ?, kind = ?, start_at = ?, end_at = ?, time_mode = ?, location = ?, status = ?, synced_to_record = ?, notes = ?, updated_at = ?
        WHERE id = ? AND user_id = ?`,
       [
         ev.recordId ?? null,
@@ -781,6 +803,7 @@ export class MysqlStore implements Store {
         ev.kind,
         ev.startAt,
         ev.endAt ?? null,
+        ev.timeMode || "scheduled",
         ev.location ?? null,
         ev.status,
         ev.syncedToRecord ? 1 : 0,

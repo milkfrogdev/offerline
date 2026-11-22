@@ -120,6 +120,8 @@ export function PipelineView({
   notes,
   initialFilter,
   onClearInitialFilter,
+  initialQuery,
+  onClearInitialQuery,
   onAddRecord,
   onAddForCompany,
   onEditRecord,
@@ -135,6 +137,8 @@ export function PipelineView({
   notes: InterviewNote[];
   initialFilter?: MetricFilter | null;
   onClearInitialFilter?: () => void;
+  initialQuery?: string;
+  onClearInitialQuery?: () => void;
   onAddRecord: () => void;
   onAddForCompany: (company: string, url?: string) => void;
   onEditRecord: (record: ApplicationRecord) => void;
@@ -160,6 +164,12 @@ export function PipelineView({
     setMetricFilter(initialFilter);
     onClearInitialFilter?.();
   }, [initialFilter, onClearInitialFilter]);
+
+  useEffect(() => {
+    if (!initialQuery) return;
+    setQuery(initialQuery);
+    onClearInitialQuery?.();
+  }, [initialQuery, onClearInitialQuery]);
 
   const popoverRef = useRef<HTMLDivElement>(null);
   const sortRef = useRef<HTMLDivElement>(null);

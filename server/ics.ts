@@ -16,6 +16,14 @@ function toIcsUtc(iso: string): string {
   return d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
 }
 
+function toCstDateStamp(ms: number): string {
+  const cst = new Date(ms + 8 * 3600_000);
+  const y = cst.getUTCFullYear();
+  const m = String(cst.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(cst.getUTCDate()).padStart(2, "0");
+  return `${y}${m}${d}`;
+}
+
 function foldLine(line: string): string {
   if (line.length <= 72) return line;
   const parts: string[] = [];
@@ -43,12 +51,11 @@ export function buildIcsCalendar(events: readonly ScheduleEvent[], calName = "Of
 
   for (const ev of events) {
     if (ev.status === "dismissed") continue;
+    // Do not pollute external calendars with unscheduled/flexible-time tasks
+    if (ev.timeMode === "flexible") continue;
+
     const startMs = Date.parse(ev.startAt);
     if (Number.isNaN(startMs)) continue;
-    const endIso =
-      ev.endAt && !Number.isNaN(Date.parse(ev.endAt))
-        ? ev.endAt
-        : new Date(startMs + 60 * 60_000).toISOString();
 
     const descParts: string[] = [];
     descParts.push(`公司：${ev.company}`);
@@ -61,17 +68,37 @@ export function buildIcsCalendar(events: readonly ScheduleEvent[], calName = "Of
     lines.push("BEGIN:VEVENT");
     lines.push(foldLine(`UID:${ev.id}@offerline`));
     lines.push(`DTSTAMP:${stamp}`);
-    lines.push(`DTSTART:${toIcsUtc(ev.startAt)}`);
-    lines.push(`DTEND:${toIcsUtc(endIso)}`);
-    lines.push(foldLine(`SUMMARY:${escapeIcsText(ev.title)}`));
+
+    if (ev.timeMode === "deadline") {
+      const dateStart = toCstDateStamp(startMs);
+      const dateEnd = toCstDateStamp(startMs + 24 * 3600_000);
+      lines.push(`DTSTART;VALUE=DATE:${dateStart}`);
+      lines.push(`DTEND;VALUE=DATE:${dateEnd}`);
+      lines.push(foldLine(`SUMMARY:${escapeIcsText(`[截止] ${ev.title}`)}`));
+    } else {
+      const endIso =
+        ev.endAt && !Number.isNaN(Date.parse(ev.endAt))
+          ? ev.endAt
+          : new Date(startMs + 60 * 60_000).toISOString();
+      lines.push(`DTSTART:${toIcsUtc(ev.startAt)}`);
+      lines.push(`DTEND:${toIcsUtc(endIso)}`);
+      lines.push(foldLine(`SUMMARY:${escapeIcsText(ev.title)}`));
+    }
+
     if (ev.location) {
       lines.push(foldLine(`LOCATION:${escapeIcsText(ev.location)}`));
     }
     lines.push(foldLine(`DESCRIPTION:${escapeIcsText(descParts.join("\n"))}`));
     lines.push("BEGIN:VALARM");
-    lines.push("TRIGGER:-PT30M");
+    lines.push(ev.timeMode === "deadline" ? "TRIGGER:-PT12H" : "TRIGGER:-PT30M");
     lines.push("ACTION:DISPLAY");
-    lines.push(foldLine(`DESCRIPTION:${escapeIcsText(`30 分钟后：${ev.title}`)}`));
+    lines.push(
+      foldLine(
+        `DESCRIPTION:${escapeIcsText(
+          ev.timeMode === "deadline" ? `今日截止：${ev.title}` : `30 分钟后：${ev.title}`,
+        )}`,
+      ),
+    );
     lines.push("END:VALARM");
     lines.push("END:VEVENT");
   }

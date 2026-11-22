@@ -1,5 +1,10 @@
 import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { EventKind, MailAccountPublic, ScheduleEvent } from "../../shared/types";
+import type {
+  ApplicationRecord,
+  EventKind,
+  MailAccountPublic,
+  ScheduleEvent,
+} from "../../shared/types";
 import { CompanyLogo } from "./CompanyLogo";
 import {
   IconCalendar,
@@ -132,18 +137,29 @@ function formatSyncAgo(iso?: string): string {
   return `${Math.floor(h / 24)} 天前已同步`;
 }
 
-function meetingMetaForUrl(url: string, kind: EventKind): { label: string; isExam: boolean } {
+function meetingMetaForUrl(
+  url: string,
+  kind: EventKind,
+): { label: string; isExam: boolean; isOffer?: boolean } {
   const lower = url.toLowerCase();
-  if (lower.includes("feishu.cn") || lower.includes("larksuite.com")) return { label: "进入飞书会议", isExam: false };
-  if (lower.includes("meeting.tencent.com")) return { label: "进入腾讯会议", isExam: false };
+  if (kind === "offer") return { label: "查看录用意向", isExam: false, isOffer: true };
+  if (kind === "assessment" || lower.includes("eztest") || lower.includes("talovative")) {
+    return { label: "打开在线测评", isExam: true };
+  }
+  if (lower.includes("feishu.cn") || lower.includes("larksuite.com") || lower.includes("zijieimg.com")) {
+    return { label: "进入飞书会议", isExam: false };
+  }
+  if (lower.includes("meeting.tencent.com") || lower.includes("wemeet")) {
+    return { label: "进入腾讯会议", isExam: false };
+  }
   if (lower.includes("zoom.us") || lower.includes("zoom.com")) return { label: "进入 Zoom", isExam: false };
   if (lower.includes("dingtalk.com")) return { label: "进入钉钉会议", isExam: false };
   if (lower.includes("teams.microsoft.com")) return { label: "进入 Teams", isExam: false };
   if (
     kind === "written_test" ||
-    kind === "assessment" ||
     lower.includes("exam") ||
     lower.includes("nowcoder") ||
+    lower.includes("acmcoder") ||
     lower.includes("code.")
   ) {
     return { label: "打开在线笔试", isExam: true };
@@ -176,8 +192,19 @@ function buildMonthGrid(year: number, month: number): { date: Date; key: string;
   return cells;
 }
 
+function formatInboxTimeLabel(ev: ScheduleEvent): string {
+  if (ev.timeMode === "flexible") return "时间自定，尽早完成";
+  if (ev.timeMode === "deadline") {
+    const d = new Date(ev.startAt);
+    if (Number.isNaN(d.getTime())) return "截止时间待定";
+    return `截止 ${d.getMonth() + 1}月${d.getDate()}日`;
+  }
+  return `${formatQuickDateTime(ev.startAt)}${ev.endAt ? `–${formatClock(ev.endAt)}` : ""}`;
+}
+
 export function ScheduleView({
   events,
+  records,
   mailConfig,
   syncing,
   onSyncMail,
@@ -186,13 +213,14 @@ export function ScheduleView({
   onOpenSubscribeModal,
   onAddEvent,
   onConfirmEvent,
-  onSyncEventToRecord,
+  onOpenRecordInPipeline,
   onToggleComplete,
   onDismissEvent,
   onDeleteEvent,
   onWriteNoteFromEvent,
 }: {
   events: ScheduleEvent[];
+  records: ApplicationRecord[];
   mailConfig: MailAccountPublic | null;
   syncing: boolean;
   onSyncMail: () => Promise<void>;
@@ -201,7 +229,7 @@ export function ScheduleView({
   onOpenSubscribeModal: () => void;
   onAddEvent: () => void;
   onConfirmEvent: (event: ScheduleEvent) => Promise<void>;
-  onSyncEventToRecord: (event: ScheduleEvent) => Promise<void>;
+  onOpenRecordInPipeline: (company: string) => void;
   onToggleComplete: (event: ScheduleEvent) => Promise<void>;
   onDismissEvent: (event: ScheduleEvent) => Promise<void>;
   onDeleteEvent: (event: ScheduleEvent) => Promise<void>;
@@ -261,10 +289,19 @@ export function ScheduleView({
     [events],
   );
 
+  const recordMap = useMemo(() => {
+    const map = new Map<string, ApplicationRecord>();
+    for (const r of records) map.set(r.id, r);
+    return map;
+  }, [records]);
+
   const upcomingGroups = useMemo(() => {
     const active = confirmedEvents.filter((e) => {
       if (!matchesKindFilter(e, kindFilter)) return false;
-      if (selectedDayKey && isoToLocalKey(e.startAt) !== selectedDayKey) return false;
+      if (selectedDayKey) {
+        if (e.timeMode === "flexible") return false;
+        if (isoToLocalKey(e.startAt) !== selectedDayKey) return false;
+      }
       return true;
     });
     const map = new Map<
@@ -278,11 +315,16 @@ export function ScheduleView({
       }
     >();
     for (const ev of active) {
-      const key = isoToLocalKey(ev.startAt);
+      const isFlex = ev.timeMode === "flexible";
+      const key = isFlex ? "flexible" : isoToLocalKey(ev.startAt);
       let entry = map.get(key);
       if (!entry) {
-        const meta = formatDayMeta(ev.startAt);
-        entry = { key, dayNum: meta.dayNum, label: meta.label, isToday: meta.isToday, items: [] };
+        if (isFlex) {
+          entry = { key, dayNum: "待做", label: "时间自定（尽早完成）", isToday: false, items: [] };
+        } else {
+          const meta = formatDayMeta(ev.startAt);
+          entry = { key, dayNum: meta.dayNum, label: meta.label, isToday: meta.isToday, items: [] };
+        }
         map.set(key, entry);
       }
       entry.items.push(ev);
@@ -300,13 +342,18 @@ export function ScheduleView({
 
   const nextUpcomingEvent = useMemo(() => {
     const cutoff = Date.now() - 30 * 60_000;
-    return confirmedEvents.find((e) => Date.parse(e.startAt) >= cutoff) || confirmedEvents[0] || null;
+    const dated = confirmedEvents.filter((e) => e.timeMode !== "flexible");
+    return dated.find((e) => Date.parse(e.startAt) >= cutoff) || dated[0] || null;
   }, [confirmedEvents]);
 
   const dayMarkers = useMemo(() => {
     const map = new Map<string, { confirmed: number; pending: number; items: ScheduleEvent[] }>();
     const sorted = [...events]
-      .filter((ev) => ev.status === "confirmed" || ev.status === "pending_confirm")
+      .filter(
+        (ev) =>
+          (ev.status === "confirmed" || ev.status === "pending_confirm") &&
+          ev.timeMode !== "flexible",
+      )
       .sort((a, b) => a.startAt.localeCompare(b.startAt));
     for (const ev of sorted) {
       const key = isoToLocalKey(ev.startAt);
@@ -398,6 +445,7 @@ export function ScheduleView({
               <div className="agenda-surface is-inbox">
                 {pendingEvents.map((ev) => {
                   const isLink = !!(ev.location && /^https?:\/\//i.test(ev.location));
+                  const linked = ev.recordId ? recordMap.get(ev.recordId) : undefined;
                   return (
                     <article key={ev.id} className="inbox-row">
                       <div className="inbox-row-main">
@@ -408,10 +456,17 @@ export function ScheduleView({
                             <span className="event-kind">{KIND_LABELS[ev.kind]}</span>
                           </div>
                           <div className="event-meta-row">
-                            <span className="event-time">
-                              {formatQuickDateTime(ev.startAt)}
-                              {ev.endAt ? `–${formatClock(ev.endAt)}` : ""}
-                            </span>
+                            <span className="event-time">{formatInboxTimeLabel(ev)}</span>
+                            {linked && (
+                              <button
+                                type="button"
+                                className="event-record-link"
+                                onClick={() => onOpenRecordInPipeline(linked.company)}
+                                data-tip="自动推断关联到该公司进行中的投递，点击前往手动更新进度"
+                              >
+                                <span>关联：{linked.company} {linked.position}</span>
+                              </button>
+                            )}
                             {ev.location &&
                               (isLink ? (
                                 (() => {
@@ -423,7 +478,7 @@ export function ScheduleView({
                                       rel="noopener noreferrer"
                                       className="meeting-link"
                                     >
-                                      {m.isExam ? <IconCode size={13} /> : <IconVideo size={13} />}
+                                      {m.isOffer ? null : m.isExam ? <IconCode size={13} /> : <IconVideo size={13} />}
                                       <span>{m.label}</span>
                                       <IconExternal size={11} />
                                     </a>
@@ -449,18 +504,20 @@ export function ScheduleView({
                         <button
                           type="button"
                           className="btn btn-primary btn-sm"
-                          onClick={() => void onSyncEventToRecord(ev)}
-                        >
-                          <IconCheck size={13} />
-                          <span>确认并同步进度</span>
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-soft btn-sm"
                           onClick={() => void onConfirmEvent(ev)}
                         >
-                          仅加入日程
+                          <IconCheck size={13} />
+                          <span>加入日程</span>
                         </button>
+                        {linked && (
+                          <button
+                            type="button"
+                            className="btn btn-soft btn-sm"
+                            onClick={() => onOpenRecordInPipeline(linked.company)}
+                          >
+                            去更新进度
+                          </button>
+                        )}
                         <button
                           type="button"
                           className="btn-text-muted"
@@ -535,15 +592,33 @@ export function ScheduleView({
                     <div className="agenda-surface">
                       {group.items.map((ev) => {
                         const isLink = !!(ev.location && /^https?:\/\//i.test(ev.location));
-                        const dur = formatDuration(ev.startAt, ev.endAt);
+                        const dur =
+                          ev.timeMode === "scheduled" || !ev.timeMode
+                            ? formatDuration(ev.startAt, ev.endAt)
+                            : "";
+                        const linked = ev.recordId ? recordMap.get(ev.recordId) : undefined;
                         return (
                           <article key={ev.id} className="agenda-row">
                             <div className="agenda-time-col">
-                              <span className="agenda-start">{formatClock(ev.startAt)}</span>
-                              {ev.endAt && (
-                                <span className="agenda-end">至 {formatClock(ev.endAt)}</span>
+                              {ev.timeMode === "flexible" ? (
+                                <>
+                                  <span className="agenda-start">自定</span>
+                                  <span className="agenda-end">尽早完成</span>
+                                </>
+                              ) : ev.timeMode === "deadline" ? (
+                                <>
+                                  <span className="agenda-start">截止</span>
+                                  <span className="agenda-end">当日内</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="agenda-start">{formatClock(ev.startAt)}</span>
+                                  {ev.endAt && (
+                                    <span className="agenda-end">至 {formatClock(ev.endAt)}</span>
+                                  )}
+                                  {dur && <span className="agenda-dur">{dur}</span>}
+                                </>
                               )}
-                              {dur && <span className="agenda-dur">{dur}</span>}
                             </div>
 
                             <span className="agenda-vline" aria-hidden="true" />
@@ -568,7 +643,7 @@ export function ScheduleView({
                                             rel="noopener noreferrer"
                                             className="meeting-link"
                                           >
-                                            {m.isExam ? <IconCode size={13} /> : <IconVideo size={13} />}
+                                            {m.isOffer ? null : m.isExam ? <IconCode size={13} /> : <IconVideo size={13} />}
                                             <span>{m.label}</span>
                                             <IconExternal size={11} />
                                           </a>
@@ -586,24 +661,26 @@ export function ScheduleView({
                             </div>
 
                             <div className="agenda-actions">
-                              {!ev.syncedToRecord && (
+                              {linked && (
                                 <button
                                   type="button"
                                   className="btn-inline-sync"
-                                  onClick={() => void onSyncEventToRecord(ev)}
-                                  data-tip="自动推进对应岗位的投递时间线"
+                                  onClick={() => onOpenRecordInPipeline(linked.company)}
+                                  data-tip="前往投递列表手动更新该岗位进度"
                                 >
-                                  同步进度
+                                  更新进度
                                 </button>
                               )}
-                              <a
-                                href={`/api/events/${encodeURIComponent(ev.id)}/ics`}
-                                className="row-icon-btn agenda-icon-btn"
-                                data-tip="导出 .ics 到系统日历"
-                                aria-label="导出日历文件"
-                              >
-                                <IconDownload size={17} />
-                              </a>
+                              {ev.timeMode !== "flexible" && (
+                                <a
+                                  href={`/api/events/${encodeURIComponent(ev.id)}/ics`}
+                                  className="row-icon-btn agenda-icon-btn"
+                                  data-tip="导出 .ics 到系统日历"
+                                  aria-label="导出日历文件"
+                                >
+                                  <IconDownload size={17} />
+                                </a>
+                              )}
                               <button
                                 type="button"
                                 className="row-icon-btn agenda-icon-btn"
@@ -745,7 +822,8 @@ export function ScheduleView({
                     const previewLines = mark.items.slice(0, 3).map((ev) => {
                       const stage = ev.stageName || KIND_LABELS[ev.kind];
                       const tag = ev.status === "pending_confirm" ? " [待确认]" : "";
-                      return `${formatClock(ev.startAt)} ${ev.company} ${stage}${tag}`;
+                      const prefix = ev.timeMode === "deadline" ? "截止" : formatClock(ev.startAt);
+                      return `${prefix} ${ev.company} ${stage}${tag}`;
                     });
                     if (mark.items.length > 3) {
                       previewLines.push(`另有 ${mark.items.length - 3} 场安排`);

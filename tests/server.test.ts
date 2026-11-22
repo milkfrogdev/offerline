@@ -53,7 +53,7 @@ describe("OfferLine 服务端安全、日程、邮箱与面经集成测试", () 
     }
   });
 
-  it("支持投递 CRUD、粘贴邮件解析生成日程、一键同步时间线、ICS 订阅、邮箱密文存储与面经记录", async () => {
+  it("支持投递 CRUD、粘贴邮件解析生成与去重日程、单活流程推断、拒信拦截、ICS 订阅、邮箱密文存储与面经记录", async () => {
     const { app, store } = await createTestApp();
     try {
       const regA = await app.inject({
@@ -82,15 +82,15 @@ describe("OfferLine 服务端安全、日程、邮箱与面经集成测试", () 
       expect(recRes.statusCode).toBe(201);
       const rec = recRes.json();
 
-      // 2. 粘贴邮件解析并生成日程
+      // 2. 粘贴邮件解析并生成日程（即使邮件不写岗位，也能自动推断关联同公司唯一进行中流程，绝不篡改时间线）
       const parseRes = await app.inject({
         method: "POST",
         url: "/api/mail/parse-preview",
         headers: { origin: ORIGIN, cookie: cookieA, "content-type": "application/json" },
         payload: {
-          subject: "【腾讯】后台开发二面面试邀请",
+          subject: "【腾讯】二面面试邀请",
           from: "腾讯招聘 <recruit@tencent.com>",
-          text: "岗位：后台开发\n面试时间：2026年11月26日 15:00-16:00\n会议链接：https://meeting.tencent.com/dm/test123",
+          text: "面试时间：2026年11月26日 15:00-16:00\n会议链接：https://meeting.tencent.com/dm/test123",
           createEvent: true,
         },
       });
@@ -98,17 +98,55 @@ describe("OfferLine 服务端安全、日程、邮箱与面经集成测试", () 
       const createdEvent = parseRes.json().event;
       expect(createdEvent.company).toBe("腾讯");
       expect(createdEvent.recordId).toBe(rec.id);
+      expect(createdEvent.position).toBe("后台开发");
+      expect(parseRes.json().matchedRecord.matchType).toBe("company_sole_active");
 
-      // 3. 一键将日程同步到投递时间线（自动推进到二面）
-      const syncRecRes = await app.inject({
+      // 2b. 同场提醒重复解析自动语义合并，不重复创建第二条日程
+      const dupRes = await app.inject({
         method: "POST",
-        url: `/api/events/${createdEvent.id}/sync-record`,
-        headers: { origin: ORIGIN, cookie: cookieA },
+        url: "/api/mail/parse-preview",
+        headers: { origin: ORIGIN, cookie: cookieA, "content-type": "application/json" },
+        payload: {
+          subject: "【腾讯】面试提醒",
+          from: "腾讯招聘 <recruit@tencent.com>",
+          text: "面试时间：2026-11-26 15:00-16:00\n会议链接：https://meeting.tencent.com/dm/test123",
+          createEvent: true,
+        },
       });
-      expect(syncRecRes.statusCode).toBe(200);
-      const syncedRec = syncRecRes.json().record;
-      expect(syncedRec.stages[5].name).toBe("二面");
-      expect(syncedRec.stages[5].status).toBe("current");
+      expect(dupRes.statusCode).toBe(200);
+      expect(dupRes.json().merged).toBe(true);
+      expect(dupRes.json().event.id).toBe(createdEvent.id);
+
+      // 2c. 拒信严格拦截，不写入日程
+      const rejectRes = await app.inject({
+        method: "POST",
+        url: "/api/mail/parse-preview",
+        headers: { origin: ORIGIN, cookie: cookieA, "content-type": "application/json" },
+        payload: {
+          subject: "感谢您应聘某科技公司",
+          from: "招聘组 <hr@example.com>",
+          text: "很遗憾地通知您，本次投递流程已结束，简历已录入人才库。",
+          createEvent: true,
+        },
+      });
+      expect(rejectRes.statusCode).toBe(200);
+      expect(rejectRes.json().parsed.matched).toBe(false);
+      expect(rejectRes.json().event).toBeNull();
+
+      // 3. 确认日程只更新日程状态，原投递时间线保持未篡改
+      const patchEvRes = await app.inject({
+        method: "PATCH",
+        url: `/api/events/${createdEvent.id}`,
+        headers: { origin: ORIGIN, cookie: cookieA, "content-type": "application/json" },
+        payload: { status: "confirmed" },
+      });
+      expect(patchEvRes.statusCode).toBe(200);
+      const listRecAfter = await app.inject({
+        method: "GET",
+        url: "/api/records",
+        headers: { cookie: cookieA },
+      });
+      expect(listRecAfter.json().items[0].stages).toEqual(rec.stages);
 
       // 4. 日历私有订阅令牌 & ICS 端点
       const tokenRes = await app.inject({
