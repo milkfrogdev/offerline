@@ -57,19 +57,41 @@ export function AuthOrbitStage({
     let tiltY = 0;
     let targetTiltX = 0;
     let targetTiltY = 0;
+    let engaged = false;
     let lastTs = performance.now();
     let rafId = 0;
 
     const onMove = (e: PointerEvent) => {
+      const targetEl = e.target as HTMLElement | null;
+      if (targetEl?.closest(".auth-portal")) {
+        engaged = false;
+        targetTiltX = 0;
+        targetTiltY = 0;
+        return;
+      }
       const rect = stageEl.getBoundingClientRect();
       if (!rect.width || !rect.height) return;
-      const nx = (e.clientX - (rect.left + rect.width / 2)) / (window.innerWidth * 0.42);
-      const ny = (e.clientY - (rect.top + rect.height / 2)) / (window.innerHeight * 0.42);
-      targetTiltY = Math.max(-20, Math.min(20, nx * 20));
-      targetTiltX = Math.max(-16, Math.min(16, -ny * 16));
+      const pad = 56;
+      const inZone =
+        e.clientX >= rect.left - pad &&
+        e.clientX <= rect.right + pad &&
+        e.clientY >= rect.top - pad &&
+        e.clientY <= rect.bottom + pad;
+      if (!inZone) {
+        engaged = false;
+        targetTiltX = 0;
+        targetTiltY = 0;
+        return;
+      }
+      engaged = true;
+      const nx = (e.clientX - (rect.left + rect.width / 2)) / (rect.width * 0.5 + pad);
+      const ny = (e.clientY - (rect.top + rect.height / 2)) / (rect.height * 0.5 + pad);
+      targetTiltY = Math.max(-22, Math.min(22, nx * 22));
+      targetTiltX = Math.max(-17, Math.min(17, -ny * 17));
     };
 
     const onLeave = () => {
+      engaged = false;
       targetTiltX = 0;
       targetTiltY = 0;
     };
@@ -87,8 +109,10 @@ export function AuthOrbitStage({
         angle += dt * speed;
       }
 
-      tiltX += (targetTiltX - tiltX) * 0.11;
-      tiltY += (targetTiltY - tiltY) * 0.11;
+      const tiltRate = engaged ? 9.5 : 5.8;
+      const tiltAlpha = 1 - Math.exp(-tiltRate * dt);
+      tiltX += (targetTiltX - tiltX) * tiltAlpha;
+      tiltY += (targetTiltY - tiltY) * tiltAlpha;
 
       const w = stageEl.clientWidth || 720;
       const h = stageEl.clientHeight || 420;
@@ -121,8 +145,8 @@ export function AuthOrbitStage({
 
         const cosR = Math.cos(roll);
         const sinR = Math.sin(roll);
-        const px = cx + lx * cosR - ly * sinR + tiltY * (1.2 + depth * 0.9);
-        const py = cy + lx * sinR + ly * cosR - tiltX * (0.9 + depth * 0.75);
+        const px = cx + lx * cosR - ly * sinR + tiltY * (1.0 + depth * 0.7);
+        const py = cy + lx * sinR + ly * cosR - tiltX * (0.8 + depth * 0.6);
 
         const scale = 0.8 + (depth + 1) * 0.2;
         const opacity = 0.56 + (depth + 1) * 0.22;
@@ -134,12 +158,14 @@ export function AuthOrbitStage({
       }
 
       if (hudRef.current) {
-        const rxDeg = 7 + tiltX;
-        const ryDeg = -8 + tiltY;
-        const rzDeg = -0.8 + tiltY * 0.08;
+        const idleBreathX = prefersReduced || engaged ? 0 : Math.sin(now * 0.0011) * 1.1;
+        const idleBreathY = prefersReduced || engaged ? 0 : Math.cos(now * 0.00085) * 1.3;
+        const rxDeg = 6.5 + tiltX + idleBreathX;
+        const ryDeg = -7.5 + tiltY + idleBreathY;
+        const rzDeg = -0.7 + tiltY * 0.07;
         hudRef.current.style.transform = `perspective(900px) rotateX(${rxDeg.toFixed(2)}deg) rotateY(${ryDeg.toFixed(2)}deg) rotateZ(${rzDeg.toFixed(2)}deg)`;
-        hudRef.current.style.setProperty("--sx", `${(-tiltY * 1.1).toFixed(1)}px`);
-        hudRef.current.style.setProperty("--sy", `${(tiltX * 0.9 + 18).toFixed(1)}px`);
+        hudRef.current.style.setProperty("--sx", `${(-tiltY * 1.0 + 7).toFixed(1)}px`);
+        hudRef.current.style.setProperty("--sy", `${(tiltX * 0.85 + 18).toFixed(1)}px`);
       }
 
       if (!prefersReduced) {
