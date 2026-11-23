@@ -2,8 +2,7 @@
   <img src="docs/assets/logo.svg" alt="OfferLine" width="56" height="56" />
   <h1>OfferLine</h1>
   <p><strong>从投递到 Offer，都在一条时间线上。</strong></p>
-  <p>面向个人求职周期的开源自托管工作台：全链路进度追踪、只读邮箱自动解析日程、私有 ICS 日历订阅与斜杠命令面经知识库。</p>
-  <p><sub>Self-hosted personal job search workspace: pipeline tracking, read-only email-to-schedule parsing, private ICS calendar sync, and Markdown interview notes.</sub></p>
+  <p>秋招、春招或跳槽时投了几十家公司，表格容易越改越乱，面试邀请和会议链接又老埋在收件箱里。<br />OfferLine 把投递时间线、只读邮箱监听抓日程和面试复盘放在一个自己部署的网页里。</p>
 
   <p>
     <strong>简体中文</strong>
@@ -16,114 +15,119 @@
     <img src="https://img.shields.io/badge/Fastify-5-0f172a?style=flat-square&logo=fastify&logoColor=white" alt="Fastify 5" />
     <img src="https://img.shields.io/badge/MySQL-8.4-2563eb?style=flat-square&logo=mysql&logoColor=white" alt="MySQL 8.4" />
     <img src="https://img.shields.io/badge/Docker-Compose-0ea5e9?style=flat-square&logo=docker&logoColor=white" alt="Docker Compose" />
-    <img src="https://img.shields.io/badge/License-MIT-10b981?style=flat-square" alt="MIT License" />
+    <img src="https://img.shields.io/badge/License-MIT-10b981?style=flat-square&logo=opensourceinitiative&logoColor=white" alt="MIT License" />
   </p>
 
   <p>
-    <a href="#界面预览">界面预览</a>
+    <a href="#1-一条时间线看清所有投递">投递时间线</a>
     &nbsp;&nbsp;/&nbsp;&nbsp;
-    <a href="#核心能力">核心能力</a>
+    <a href="#2-只读邮箱监听与日程解析可选">邮箱监听与解析</a>
     &nbsp;&nbsp;/&nbsp;&nbsp;
-    <a href="#邮箱解析与大模型增强">邮箱解析</a>
+    <a href="#3-首页总览与-markdown-面经">首页与面经</a>
     &nbsp;&nbsp;/&nbsp;&nbsp;
-    <a href="#快速部署">快速部署</a>
+    <a href="#4-隐私与数据安全">数据安全</a>
     &nbsp;&nbsp;/&nbsp;&nbsp;
-    <a href="#设计文档">设计文档</a>
+    <a href="#5-快速部署">快速部署</a>
+    &nbsp;&nbsp;/&nbsp;&nbsp;
+    <a href="#技术栈与设计文档">设计文档</a>
   </p>
 </div>
 
 <br />
 
 <div align="center">
-  <img src="docs/assets/offerline-demo.gif" alt="OfferLine 功能全景演示" width="100%" />
+  <img src="docs/assets/offerline-demo.gif" alt="OfferLine 功能演示" width="100%" />
 </div>
 
 ---
 
-## 界面预览
+## 1. 一条时间线看清所有投递
 
-<p><strong>概览工作台</strong><br /><sub>下一场面试实时倒计时、投递转化漏斗、待确认邮箱日程与 7 天节奏带</sub></p>
-<img src="docs/assets/preview-home.png" alt="OfferLine 概览工作台" width="100%" />
+不用每次改进度都点进详情弹窗。打开「投递」页，每家公司走到哪一轮直接平铺在眼前：
+
+<img src="docs/assets/preview-pipeline.png" alt="投递时间线" width="100%" />
 
 <br />
 
+- **同公司多岗位收在一张卡里**：同一家大厂投了两个部门，点 `+ 加岗位` 就能在同一张卡片下各走各的时间线，不会散成满屏重复记录。
+- **节点就地一点就更新**：从投递、笔试、一面到正式 Offer 排成一行，点一下节点就能切状态（通过 / 当前 / 跳过 / 未通过 / 拒绝）。
+- **不同大厂走自己的流程**：内置实习、校招、社招三套模板（校招和社招默认带「谈薪」），像华为机考、综合测评这类特殊环节可以直接增删或拖拽重排。
+- **直达官网进度，顺手记住上次刷过的时间**：点「官网进度」直接跳对应公司的招聘查询页，同时按距上次访问的天数分色提醒（2 天内绿、3–5 天琥珀、6–10 天橙、超过 10 天红），哪家太久没看一眼就能挑出来。
+- **置顶与自动沉底**：最想去的公司点亮星标固定在最前面；挂掉或拒掉的流程自动沉到底部，不挡视线。
+- **内置 62 家常见科技公司原版图标**：输入公司名自动归并别名并联想图标；没收录的公司填上官网地址后，服务端会经 SSRF 检查代抓图标，抓不到则显示单字标。
+
+---
+
+## 2. 只读邮箱监听与日程解析（可选）
+
+求职季收件箱里天天混着验证码、账单、宣讲直播、面试满意度调研和感谢信。如果不想手动把每封面试邮件抄进日历，可以打开邮箱监听：
+
+<img src="docs/assets/preview-schedule.png" alt="只读邮箱监听与日程工作台" width="100%" />
+
+<br />
+
+### 会不会动我的邮箱状态？
+不会。底层通过 `imapflow` 以只读模式（IMAP `EXAMINE`）打开收件箱，**绝不把未读邮件标成已读**，也不删除或移动任何邮件。支持 QQ 邮箱、163、126、Gmail、Outlook、腾讯企业邮以及任意自定义 IMAP。
+
+### 广告、校招直播和感谢信会不会塞进日程？
+不会。邮件拉下来后会先清掉 `<head>/<style>/<script>` 防止样式代码截断正文，展开 `<a href>` 保留藏在按钮里的会议或笔试链接，同时读取 `.ics` 日历附件。接着先过本地零 Token 规则过滤：
+- 自动挡掉验证码、账单、专家平台、面试体验调研、校招直播宣传和纯投递回执；
+- **收到拒信或流程终止通知直接跳过，绝不往日程表里塞**；
+- 同一场笔试或面试发来多封提醒邮件时，按语义自动合并补全字段，不重复建卡。
+
+### 会不会擅自改坏我记好的投递进度？
+不会。提取出的面试和笔试先落进「待确认日程」，系统只读推断它对应哪条投递记录，**绝不自动改写你的时间线，也不偷偷新建投递**。你核对一眼点确认，才会排进正式议程；点「编辑」还能对照原邮件正文顺手改轮次、时间或绑定岗位。
+
+### 三种时间形态与跨端日历订阅
+- 区分 **具体时刻**（面试）、**截止日期**（笔试/录用意向确认）和 **时间自定**（随到随考测评）三种日程。
+- 生成个人专属的 `.ics` 订阅链接，安卓日历、iOS、飞书和 Outlook 都能直接订阅（自动跳过时间自定项，截止项转为全天提醒）。
+
+### 本地规则 + 可选大模型增强
+- 默认纯本地规则就能跑通完整解析，零费用、不依赖外部 API。
+- 想进一步提高复杂邮件的提取准确度，可以在独立的「大模型增强」页签里填自己的 Key（内置 DeepSeek、通义千问、智谱 GLM、Kimi、OpenAI 和自定义 OpenAI 兼容接口 6 项预设，支持自动补全接口路径和实时测速）。
+- **不连 IMAP 也能用**：不想配邮箱授权码时，直接把收到的邮件正文复制粘贴进去，同样可以用本地规则或个人大模型一键解析建日程。
+
+---
+
+## 3. 首页总览与 Markdown 面经
+
+### 首页（`概览`）
+打开先看今天最紧要的事：下一场面试实时倒计时和一键入会入口（腾讯会议 / 飞书 / Zoom / 牛客 / 赛码），开面前给「看往轮面经」，面完自动切「面后写复盘」；下面紧跟待确认邮箱通知，右侧是点击可筛选的投递统计和近 7 天日程带。
+
+<img src="docs/assets/preview-home.png" alt="OfferLine 首页概览" width="100%" />
+
+<br />
+
+### 面经与登录页
 <table>
   <tr>
     <td width="50%">
-      <strong>全链路投递时间线</strong><br />
-      <sub>按公司聚合岗位，62 家海内外科技企业官方图标，横向节点就地点击切换进度</sub>
+      <strong>按公司和轮次归档的 Markdown 面经</strong><br />
+      <sub>所见即所得写复盘，行首敲 <code>/</code> 支持中英文和拼音首字母插代码块、待办或面试题模板（如 <code>/dm</code>、<code>/db</code>，打 <code>Java/Go</code> 和网址不误触发）；随时一键切 <code>MD 源码</code> 导出原文，不锁数据。</sub>
       <br /><br />
-      <img src="docs/assets/preview-pipeline.png" alt="投递时间线" width="100%" />
+      <img src="docs/assets/preview-notes.png" alt="Markdown 面经编辑器" width="100%" />
     </td>
     <td width="50%">
-      <strong>日程工作台与迷你月历</strong><br />
-      <sub>左栏待确认邮箱通知与按日议程，右栏交互迷你月历与悬停场次预览</sub>
+      <strong>浅色 / 深色双主题与独立登录页</strong><br />
+      <sub>60fps Canvas 动态背景与大厂图标星轨，支持浅色和深色两套主题切换；个人自托管注册完自己的账号后，把 <code>REGISTRATION_OPEN</code> 设为 <code>false</code> 即可关掉公开注册。</sub>
       <br /><br />
-      <img src="docs/assets/preview-schedule.png" alt="日程与迷你月历" width="100%" />
-    </td>
-  </tr>
-  <tr>
-    <td width="50%">
-      <strong>极简面经知识库与 <code>/</code> 斜杠命令</strong><br />
-      <sub>所见即所得 Markdown，输入 <code>/</code> 呼出中英/拼音块菜单，支持全屏专注模式</sub>
-      <br /><br />
-      <img src="docs/assets/preview-notes.png" alt="面经知识库与斜杠命令" width="100%" />
-    </td>
-    <td width="50%">
-      <strong>3D 星轨登录门面</strong><br />
-      <sub>60fps Canvas 动态星网与无框大厂星轨陀螺仪，支持浅色 / 深色双主题</sub>
-      <br /><br />
-      <img src="docs/assets/preview-auth.png" alt="3D 星轨登录页" width="100%" />
+      <img src="docs/assets/preview-auth.png" alt="OfferLine 登录页" width="100%" />
     </td>
   </tr>
 </table>
 
 ---
 
-## 核心能力
+## 4. 隐私与数据安全
 
-### 1. 全链路投递追踪（`投递`）
-- **横向时间线直点**：单页平铺每个岗位的完整阶段节点，就地点击切换状态（通过 / 当前 / 跳过 / 未通过 / 拒绝），告别反复弹窗。
-- **灵活流程与拖拽编排**：内置实习、校招、社招三套常用模板，支持自由增删与拖拽重排阶段。
-- **官方品牌图标体系**：内置 62 家海内外科技企业官方矢量图标与公司/集团名称归一化词典，其余公司支持经 SSRF 安全代理自动拉取官网图标或生成单字标。
-- **节奏感知**：支持公司置顶、官网访问新鲜度打卡与已终止流程自动沉底。
-
-### 2. 概览工作台（`概览`）
-- **考前聚焦**：首页「下一场安排」实时倒计时，一键进入腾讯会议 / 飞书 / Zoom / 牛客 / 赛码；开面前自动切换为「看往轮面经」或「编辑安排」，开面后切为「面后写复盘」。
-- **投递统计与 7 日节奏**：总投递、推进中、进面率、Offer 转化条点击直达对应筛选，7 天节奏带悬停直看当日所有面试与笔试。
-
-### 3. 极简面经知识库（`面经`）
-- **所见即所得 Markdown**：支持鼠标点选单色工具栏，也支持 `# `、`**`、`- `、`[ ] `、`> ` 即时渲染，底层统一存标准 Markdown 文本并可随时切 `MD 源码` 粘贴整篇原文。
-- **飞书 / 语雀风 `/` 斜杠命令**：行首或空格后敲 `/` 唤起命令菜单，支持中文、英文与拼音首字母筛选（如 `/dm` 代码块、`/db` 待办、`/tm` 面试题复盘模板），词中斜杠（如 `Java/Go`、`https://`）不误触发。
-- **全屏沉浸写作**：支持一键 Portal 全屏放大，`Esc` 优先关闭斜杠菜单再收起全屏，不误关外层弹窗。
+- **账号密码与会话**：`crypto.scrypt` 加随机盐哈希，`HttpOnly` + `SameSite=Lax` Cookie 会话，写操作强制校验同源 `Origin` 并做限流。
+- **凭据密文落库**：邮箱 IMAP 授权码和个人大模型 API Key 全部经服务端 `AES-256-GCM` 加密存储，接口不回传明文。
+- **浏览器端零知识加密**：单条投递支持在浏览器内用 `WebCrypto (PBKDF2-SHA256 + AES-256-GCM)` 加密薪资等敏感备注，服务器只存密文。
+- **网络与出站防护**：Docker 部署下 MySQL 锁在 `internal` 内网不暴露宿主机端口；抓图标和调大模型出站均拦截私网 IP 和云元数据地址（如需连本机 Ollama，显式设置 `ALLOW_LOCAL_LLM=true` 即可放行）。
 
 ---
 
-## 邮箱解析与大模型增强
-
-求职季收件箱混杂了大量验证码、账单、宣讲直播、面试调研问卷和拒信。OfferLine 的邮件管线针对真实中文与英文招聘邮箱做了专门加固：
-
-| 环节 | 实现方式 |
-|---|---|
-| **严格只读拉取** | `imapflow` 统一以 `readOnly: true`（IMAP `EXAMINE`）打开收件箱，**绝不改动邮件未读状态**，支持 QQ、163、126、Gmail、Outlook、腾讯企业邮与自定义 IMAP |
-| **正文与附件清洗** | 剥离 `<head>/<style>/<script>` 防止 CSS 截断正文，展开 `<a href>` 保留隐藏会议/笔试链接，同步解析 RFC 5545 `.ics` 日历附件 |
-| **6 重前置门控** | 零 Token 规则层直接拦截验证码/账单、专家平台、面试体验/满意度调研、校招直播与热招宣传、**拒信/流程终止**（不污染日程）以及纯投递回执 |
-| **三态时间与去重** | 区分 `固定时刻 (scheduled)` / `截止日期 (deadline)` / `时间自定 (flexible)`；同一场考试连发多封提醒自动语义去重合并字段；`.ics` 订阅跳过时间自定项、截止项转为全天提醒 |
-| **非破坏性单活关联** | **绝不自动篡改投递时间线或静默建新记录**，按「同公司+岗位 → 同公司唯一进行中流程 → 同集团唯一进行中流程」只读推断关联岗位，附带一键直达更新与三合一编辑兜底弹窗 |
-| **可选大模型增强** | 独立「大模型增强」页签（默认零 Token 本地规则已可完整解析；按需开启大模型增强，不连 IMAP 也能单独保存给粘贴解析使用），内置 DeepSeek、通义千问、智谱 GLM、Kimi、OpenAI、自定义兼容 6 项预设，支持智能 URL 归一化、实时连通测速、`response_format` 降级与 DNS/私网 SSRF 防护 |
-
----
-
-## 隐私与安全设计
-
-- **账号与会话**：`crypto.scrypt` 加随机盐哈希密码，`HttpOnly` + `SameSite=Lax` Cookie 会话，写请求强制同源 `Origin` 校验与限流。
-- **服务端凭据加密**：IMAP 授权码与可选大模型 API Key 经 `AES-256-GCM` 密文落库，接口永不回传明文。
-- **浏览器端零知识保险箱**：单条投递支持在浏览器侧以 `WebCrypto PBKDF2-SHA256 + AES-256-GCM` 加密敏感薪资/备注后仅上传密文。
-- **网络与出站隔离**：Docker 部署下 MySQL 锁在 `internal` 内网不暴露宿主机端口；官网图标代理与大模型出站均做 DNS + IPv4/IPv6 私网及云元数据拦截（自托管连本地 Ollama 可通过 `ALLOW_LOCAL_LLM=true` 显式放行）。
-
----
-
-## 快速部署
+## 5. 快速部署
 
 ### 方式一：Docker Compose 自托管（推荐）
 
@@ -143,9 +147,9 @@ EOF
 docker compose up -d --build
 ```
 
-应用监听容器内 `3002` 端口，前置 Nginx / Caddy 反代并开启 HTTPS 即可。
+服务监听容器内 `3002` 端口，前置 Nginx 或 Caddy 反代并配好 HTTPS 即可访问。
 
-### 方式二：本地开发与体验（Node.js ≥ 22，零数据库启动）
+### 方式二：本机直接体验（Node.js ≥ 22，不用装数据库）
 
 ```bash
 npm install
@@ -153,37 +157,37 @@ npm run build
 ALLOW_HTTP=true APP_ORIGIN=http://127.0.0.1:3002 npm start
 ```
 
-未配置 `MYSQL_HOST` 时自动回落到本地原子落盘 JSON 存储，打开 `http://127.0.0.1:3002` 注册即可使用。
+不填 `MYSQL_HOST` 时会自动回落到本地 JSON 文件存储，浏览器打开 `http://127.0.0.1:3002` 注册就能用。
 
-### 环境变量一览
+### 环境变量
 
 | 变量名 | 默认值 | 说明 |
 |---|---|---|
 | `APP_PORT` | `3002` | 服务监听端口 |
-| `APP_ORIGIN` | `http://127.0.0.1:3002` | 对外访问 Origin，用于 CSRF 校验与日历订阅链接 |
-| `ALLOW_HTTP` | `false` | 本地或纯内网 HTTP 访问时设为 `true` |
-| `REGISTRATION_OPEN` | `true` | 个人自用完成注册后可改为 `false` 关闭新用户注册 |
-| `MAIL_ENCRYPTION_KEY` | — | 服务端加密邮箱授权码与模型 Key 的 32 字节随机密钥 |
-| `ALLOW_LOCAL_LLM` | `false` | 如需连接本机/内网 Ollama 或 vLLM，显式设为 `true` |
-| `MYSQL_HOST` / `MYSQL_DATABASE` / `MYSQL_USER` / `MYSQL_PASSWORD` | — | MySQL 8.4 连接参数（留空则走本地 JSON 文件存储） |
+| `APP_ORIGIN` | `http://127.0.0.1:3002` | 对外访问地址，用于同源校验和 `.ics` 日历订阅链接 |
+| `ALLOW_HTTP` | `false` | 本机或纯 HTTP 局域网访问时设为 `true` |
+| `REGISTRATION_OPEN` | `true` | 自己注册完账号后改为 `false` 即可禁止他人注册 |
+| `MAIL_ENCRYPTION_KEY` | — | 加密邮箱授权码和模型 Key 的 32 字节随机密钥 |
+| `ALLOW_LOCAL_LLM` | `false` | 需要连接本机或内网 Ollama / vLLM 时设为 `true` |
+| `MYSQL_HOST` / `MYSQL_DATABASE` / `MYSQL_USER` / `MYSQL_PASSWORD` | — | MySQL 8.4 连接配置（留空则走本地 JSON 存储） |
 
 ---
 
 ## 技术栈与设计文档
 
 - **前端**：React 19 / TypeScript / Vite / Tiptap v3 / `@dnd-kit`（离线内置 `Inter` + `HarmonyOS Sans SC`）
-- **后端**：Node.js 24 / Fastify 5 / Zod / MySQL 8.4（`mysql2` 纯 JS 驱动）/ `imapflow` / `mailparser`
+- **后端**：Node.js 24 / Fastify 5 / Zod / MySQL 8.4（`mysql2`）/ `imapflow` / `mailparser`
 
-更详细的工程设计可查阅仓库内文档：
+更细的实现取舍与表结构见仓库文档：
 
-- [系统架构与安全设计（docs/architecture.md）](docs/architecture.md) — 整体分层、MySQL 8.4 8 表模型与零停机增量迁移、SSRF 与网络隔离边界。
-- [求职邮件解析与日程同步设计（docs/mail-parsing-design.md）](docs/mail-parsing-design.md) — 7 阶段解析管道、12 类真实异常 Case 对策、去自动改时间线取舍、三态时间模型与可选大模型增强适配。
+- [系统架构与安全设计（docs/architecture.md）](docs/architecture.md)
+- [求职邮件解析与日程同步设计（docs/mail-parsing-design.md）](docs/mail-parsing-design.md)
 
 ## 开发与测试
 
 ```bash
-npm run check   # TypeScript 前后端类型检查
-npm test        # Vitest 单元测试与 Fastify 集成测试
+npm run check   # 前后端 TypeScript 类型检查
+npm test        # Vitest 单元测试与 Fastify 接口测试
 npm run build   # 构建 dist/web 与 dist/server
 ```
 

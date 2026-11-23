@@ -1,8 +1,8 @@
 <div align="center">
   <img src="docs/assets/logo.svg" alt="OfferLine" width="56" height="56" />
   <h1>OfferLine</h1>
-  <p><strong>Turn every application, interview schedule, and debrief note into a clear line to your Offer.</strong></p>
-  <p>A self-hosted open-source workspace for personal job searches: end-to-end pipeline tracking, read-only IMAP email parsing, private ICS calendar feeds, and slash-command Markdown notes.</p>
+  <p><strong>Every application, interview, and debrief note on one clear timeline.</strong></p>
+  <p>When you are juggling dozens of applications, spreadsheets rot fast and interview links get buried in your inbox.<br />OfferLine puts your application timeline, read-only email schedule parser, and Markdown interview notes into one self-hosted web app.</p>
 
   <p>
     <a href="README.md">简体中文</a>
@@ -19,13 +19,15 @@
   </p>
 
   <p>
-    <a href="#preview">Preview</a>
+    <a href="#1-one-timeline-for-every-application">Timeline</a>
     &nbsp;&nbsp;/&nbsp;&nbsp;
-    <a href="#key-features">Features</a>
+    <a href="#2-read-only-email-listener--schedule-parser-optional">Email Listener</a>
     &nbsp;&nbsp;/&nbsp;&nbsp;
-    <a href="#email-parsing--optional-llm">Email Parsing</a>
+    <a href="#3-overview-and-markdown-interview-notes">Overview &amp; Notes</a>
     &nbsp;&nbsp;/&nbsp;&nbsp;
-    <a href="#quick-start">Quick Start</a>
+    <a href="#4-privacy--security">Security</a>
+    &nbsp;&nbsp;/&nbsp;&nbsp;
+    <a href="#5-quick-start">Quick Start</a>
     &nbsp;&nbsp;/&nbsp;&nbsp;
     <a href="#design-docs">Design Docs</a>
   </p>
@@ -39,90 +41,93 @@
 
 ---
 
-## Preview
+## 1. One Timeline for Every Application
 
-<p><strong>Overview Dashboard</strong><br /><sub>Next-interview countdown, application funnel, pending email queue, and 7-day schedule strip</sub></p>
+Open the Pipeline view and see where every single company stands without clicking through modals:
+
+<img src="docs/assets/preview-pipeline.png" alt="Application Pipeline Timeline" width="100%" />
+
+<br />
+
+- **Multiple roles under one company**: Applied to two teams at the same company? Click `+ Add Role` to keep independent timelines stacked cleanly inside the same company card.
+- **Single-click inline updates**: Every stage from Application and OA to Final Offer sits on one row. Click any dot in place to mark it passed, current, skipped, or failed.
+- **Custom hiring flows per company**: Ships with Internship, Campus, and Experienced templates, and lets you add, delete, or drag-reorder stages whenever a company uses its own interview pipeline.
+- **One-click portal jump with visit freshness**: Jump straight to a company's career portal and automatically refresh its last-checked badge (green within 2 days, amber at 3–5 days, orange at 6–10 days, red past 10 days) so stale portals stand out immediately.
+- **Pin priorities, auto-sink closed threads**: Star top-choice companies to keep them on top; rejected or closed applications drop to the bottom automatically.
+- **62 built-in company icons**: Shared company-name normalization plus 62 crisp local icons; unlisted companies fetch favicons through an SSRF-checked proxy with a clean monogram fallback.
+
+---
+
+## 2. Read-Only Email Listener & Schedule Parser (Optional)
+
+Job-search inboxes are packed with OTP codes, receipts, campus livestreams, post-interview surveys, and rejection letters. Enable the optional email listener when you want schedules extracted without manual copy-paste:
+
+<img src="docs/assets/preview-schedule.png" alt="Read-Only Email Listener and Schedule" width="100%" />
+
+<br />
+
+### Does it mark my unread emails as read?
+No. OfferLine opens your mailbox via `imapflow` in strict `readOnly: true` mode (IMAP `EXAMINE`). It never marks unread messages as seen, and never modifies or deletes mail. Presets cover QQ Mail, 163, 126, Gmail, Outlook, Tencent Exmail, and custom IMAP servers.
+
+### Will ads, surveys, or rejections clutter my calendar?
+No. Incoming mail is stripped of `<head>/<style>/<script>`, `<a href>` links hidden behind buttons are expanded, and RFC 5545 `.ics` attachments are parsed. A zero-token local rule layer then filters out noise before anything reaches your schedule:
+- Drops OTPs, billing notices, recruiting livestreams, interview experience surveys, and plain application receipts;
+- **Skips rejection / process-closed emails** so they never pollute your agenda;
+- Semantically deduplicates repeated reminders for the same online assessment or interview.
+
+### Does it overwrite my pipeline stages automatically?
+No. Parsed interviews and assessments land in a **Pending Confirmation** queue first. OfferLine infers the matching application record read-only without mutating your timeline or creating duplicate cards; nothing enters your calendar until you review and confirm (or tweak details side-by-side against the original email).
+
+### Three time modes & calendar subscriptions
+- Handles **scheduled** interviews, **deadline** tasks (OA / offer reply), and **flexible** self-paced assessments separately.
+- Generates a private `.ics` feed compatible with Android Calendar, iOS, Feishu/Lark, and Outlook (skipping flexible items and turning deadlines into all-day reminders).
+
+### Local rules + optional personal LLM
+- Local rules work out of the box with zero token cost.
+- For harder edge cases, enable the standalone **LLM Enhancement** tab with your own OpenAI-compatible API key (presets for DeepSeek, Qwen, Zhipu GLM, Kimi, OpenAI, or custom endpoints, with URL normalization and live latency testing).
+- **Works without IMAP too**: You can skip IMAP credentials entirely and paste raw email text directly to parse and schedule.
+
+---
+
+## 3. Overview and Markdown Interview Notes
+
+### Overview Dashboard
+Shows your next confirmed interview with a live countdown, one-click meeting link, and pending email items right at the top. Before an interview starts, it surfaces prior round notes for that company; afterward, it switches to writing a debrief. The right column gives clickable conversion stats and a 7-day agenda strip.
+
 <img src="docs/assets/preview-home.png" alt="OfferLine Overview Dashboard" width="100%" />
 
 <br />
 
+### Interview Notes & Sign-In
 <table>
   <tr>
     <td width="50%">
-      <strong>Application Pipeline</strong><br />
-      <sub>Grouped by company with 62 built-in brand logos and inline single-click stage switching</sub>
+      <strong>Markdown Interview Notes by Company &amp; Round</strong><br />
+      <sub>WYSIWYG Markdown editor with a <code>/</code> slash command menu for headings, code blocks, checklists, and debrief templates (ignores mid-word slashes like <code>Java/Go</code> and URLs). Toggle <code>MD Source</code> anytime so your notes are never locked in.</sub>
       <br /><br />
-      <img src="docs/assets/preview-pipeline.png" alt="Application Pipeline" width="100%" />
+      <img src="docs/assets/preview-notes.png" alt="Markdown Interview Notes" width="100%" />
     </td>
     <td width="50%">
-      <strong>Schedule &amp; Mini Calendar</strong><br />
-      <sub>Pending email triage inbox, daily agenda timeline, and interactive hover-preview calendar</sub>
+      <strong>Light / Dark Themes &amp; Standalone Sign-In</strong><br />
+      <sub>60fps Canvas backdrop with light and dark modes. After creating your own account on a self-hosted instance, set <code>REGISTRATION_OPEN=false</code> to lock sign-ups.</sub>
       <br /><br />
-      <img src="docs/assets/preview-schedule.png" alt="Schedule and Calendar" width="100%" />
-    </td>
-  </tr>
-  <tr>
-    <td width="50%">
-      <strong>Markdown Interview Notes &amp; <code>/</code> Slash Commands</strong><br />
-      <sub>WYSIWYG Markdown editor with slash block palette, raw source toggle, and zen fullscreen</sub>
-      <br /><br />
-      <img src="docs/assets/preview-notes.png" alt="Interview Notes with Slash Menu" width="100%" />
-    </td>
-    <td width="50%">
-      <strong>3D Orbital Sign-In Page</strong><br />
-      <sub>60fps procedural starfield canvas, 3D orbital brand showcase, light &amp; dark themes</sub>
-      <br /><br />
-      <img src="docs/assets/preview-auth.png" alt="3D Orbital Login" width="100%" />
+      <img src="docs/assets/preview-auth.png" alt="OfferLine Sign-In Page" width="100%" />
     </td>
   </tr>
 </table>
 
 ---
 
-## Key Features
+## 4. Privacy & Security
 
-### 1. Application Pipeline
-- **Inline horizontal stepper**: Click any stage node directly on the page to mark it passed, current, skipped, or failed without modal hops.
-- **Templates & drag-and-drop**: Built-in Internship, Campus, and Experienced templates with `@dnd-kit` vertical reordering.
-- **Company identity**: 62 built-in brand icons plus a shared normalization catalog (`shared/companies.ts`) and an SSRF-guarded favicon proxy (`/api/brand-icon`) for unlisted companies.
-- **Progress clarity**: Pin priority companies, track career-portal visit freshness, and auto-sink closed applications.
-
-### 2. Overview Command Deck
-- **Pre-interview spotlight**: Live countdown to your next confirmed session with direct meeting/exam links; switches contextually between reviewing prior rounds for that company before the interview and writing a debrief afterward.
-- **Conversion funnel & 7-day rhythm**: Clickable funnel stats and a 7-day schedule strip with multi-line hover previews.
-
-### 3. Minimalist Interview Notes
-- **Unified WYSIWYG Markdown**: Use the monochrome toolbar or live Markdown shortcuts (`# `, `**`, `- `, `[ ] `, `> `) backed by plain Markdown storage, with an instant `MD Source` toggle.
-- **`/` Slash command palette**: Type `/` at the start of a line or after whitespace to insert headings, lists, checklists, code blocks, quotes, dividers, or an interview Q&A debrief block (supports English, Chinese, and Pinyin search; ignores mid-word slashes like `Java/Go` or URLs).
-- **Zen fullscreen**: Portal fullscreen canvas where `Esc` dismisses the slash menu before collapsing fullscreen.
+- **Auth & sessions**: `crypto.scrypt` salted password hashing, `HttpOnly` + `SameSite=Lax` session cookies, same-origin CSRF enforcement, and per-route rate limiting.
+- **Encrypted credentials**: IMAP app passwords and personal LLM API keys are encrypted at rest with `AES-256-GCM` and never returned in plaintext.
+- **Client-side encryption**: Optional browser `WebCrypto (PBKDF2-SHA256 + AES-256-GCM)` encryption for sensitive compensation notes before upload.
+- **Network isolation**: MySQL stays on a Docker `internal` network with no host port exposed; outbound icon and LLM requests block private/loopback/cloud-metadata IPs by default (set `ALLOW_LOCAL_LLM=true` to connect a local Ollama or vLLM instance).
 
 ---
 
-## Email Parsing & Optional LLM
-
-OfferLine ships with a hardened, zero-token rule engine plus an optional bring-your-own OpenAI-compatible LLM enhancer:
-
-| Stage | Design |
-|---|---|
-| **Strict read-only IMAP** | Opens mailboxes with `readOnly: true` (IMAP `EXAMINE`), never marking unread emails as seen; presets for QQ, 163, 126, Gmail, Outlook, Tencent Exmail, and custom IMAP |
-| **HTML & ICS extraction** | Strips `<head>/<style>/<script>` to prevent CSS truncation, expands `<a href>` links so hidden meeting/exam buttons survive, and parses RFC 5545 `.ics` invites |
-| **6-gate noise filter** | Blocks OTPs/invoices, freelance platforms, post-interview experience surveys, campus livestreams/promos, **rejections** (kept out of schedules), and pure application receipts at 0 tokens |
-| **3-mode times & dedup** | Separates `scheduled`, `deadline`, and `flexible` events; semantically merges duplicate exam reminders; exports timed events and all-day `[Deadline]` reminders to `.ics` while skipping `flexible` tasks |
-| **Non-destructive record linking** | Never auto-mutates your pipeline timeline or silently spawns duplicate records; infers the linked record read-only (`company + position -> sole active in company -> sole active in corporate group`) with a 1-click edit modal |
-| **Standalone personal LLM** | Dedicated tab decoupled from IMAP (usable for paste-to-parse alone), 6 provider presets (DeepSeek, Qwen DashScope, Zhipu GLM, Kimi, OpenAI, custom), smart endpoint normalization, live latency probe, `response_format` 400 fallback, and DNS/private-IP SSRF blocking |
-
----
-
-## Privacy & Security
-
-- **Auth & sessions**: `crypto.scrypt` salted password hashes, `HttpOnly` + `SameSite=Lax` cookies, same-origin CSRF checks, and per-route rate limiting.
-- **Encrypted secrets**: IMAP app passwords and personal LLM keys are encrypted at rest with `AES-256-GCM` and never returned in plaintext.
-- **Client-side vault**: Optional browser `WebCrypto` (`PBKDF2-SHA256` + `AES-256-GCM`) encryption for sensitive compensation notes.
-- **Network isolation**: MySQL stays on an `internal` Docker network with no host port exposure; outbound icon and LLM requests block loopback, RFC1918, and cloud metadata IPs by default (set `ALLOW_LOCAL_LLM=true` to connect local Ollama/vLLM).
-
----
-
-## Quick Start
+## 5. Quick Start
 
 ### Option 1: Docker Compose (Recommended)
 
@@ -142,9 +147,9 @@ EOF
 docker compose up -d --build
 ```
 
-The app listens on container port `3002` behind your reverse proxy (Nginx / Caddy with HTTPS).
+The container listens on port `3002` behind your reverse proxy (Nginx / Caddy with HTTPS).
 
-### Option 2: Local Node.js (Node ≥ 22, zero-DB fallback)
+### Option 2: Run Locally (Node.js ≥ 22, No Database Required)
 
 ```bash
 npm install
@@ -152,19 +157,19 @@ npm run build
 ALLOW_HTTP=true APP_ORIGIN=http://127.0.0.1:3002 npm start
 ```
 
-Without `MYSQL_HOST`, OfferLine automatically uses atomic local JSON file storage. Open `http://127.0.0.1:3002` to register.
+Without `MYSQL_HOST`, OfferLine falls back to atomic local JSON storage. Open `http://127.0.0.1:3002` and register.
 
 ---
 
 ## Design Docs
 
 - [System Architecture & Security (docs/architecture.md)](docs/architecture.md) (Chinese)
-- [Email Parsing & Sync Pipeline Design (docs/mail-parsing-design.md)](docs/mail-parsing-design.md) (Chinese)
+- [Email Parsing & Schedule Sync Design (docs/mail-parsing-design.md)](docs/mail-parsing-design.md) (Chinese)
 
 ## Development & Tests
 
 ```bash
-npm run check   # TypeScript type checks (web + server)
+npm run check   # TypeScript checks (web + server)
 npm test        # Vitest unit & Fastify integration tests
 npm run build   # Build dist/web and dist/server
 ```
