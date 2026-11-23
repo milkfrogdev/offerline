@@ -161,10 +161,34 @@ Without `MYSQL_HOST`, OfferLine falls back to atomic local JSON storage. Open `h
 
 ---
 
+## How OfferLine Compares
+
+| Aspect | Spreadsheets | Notion Templates | Hosted Job Trackers (Huntr / Teal) | OfferLine |
+|---|---|---|---|---|
+| Multi-role & custom pipelines | Manual rows, hard to scan | Nested DBs, slow updates | Fixed Kanban columns | Multiple independent timelines per company card, 1-click inline updates |
+| Email-to-schedule parsing | None | Needs external glue | Paid / closed-source | Built-in read-only IMAP (`EXAMINE`), zero-token local filter drops ads & rejections |
+| Calendar sync | Manual | Manual | Limited | Private RFC 5545 `.ics` feed for Android, iOS, Feishu/Lark, and Outlook |
+| Interview notes & portability | Poor for code/long notes | Platform-bound | Plain text boxes | WYSIWYG Markdown + `/` slash commands + raw source toggle |
+| Privacy & cost | Local / cloud doc | Third-party cloud | SaaS subscription & vendor storage | MIT open-source self-hosted, encrypted secrets, optional client-side WebCrypto |
+
+## FAQ
+
+**What job search workflows and mail providers are supported?**
+Works for internships, campus recruiting, and experienced job searches with customizable stage templates. Read-only IMAP works with QQ Mail, 163, 126, Gmail, Outlook, Tencent Exmail, and any standard IMAP server—or skip IMAP completely and paste raw email text.
+
+**Do I need to pay for an LLM API to parse interview emails?**
+No. Built-in local rules plus `.ics` attachment parsing handle standard interview and assessment emails at zero cost. Bringing your own OpenAI-compatible API key (DeepSeek, Qwen, Zhipu GLM, Kimi, OpenAI, or local Ollama) is strictly optional.
+
+**Can I run it locally without Docker or MySQL?**
+Yes. With Node.js 22+, run `npm install && npm run build && npm start`. When `MYSQL_HOST` is omitted, OfferLine automatically stores data in an atomic local JSON file.
+
+---
+
 ## Design Docs
 
 - [System Architecture & Security (docs/architecture.md)](docs/architecture.md) (Chinese)
 - [Email Parsing & Schedule Sync Design (docs/mail-parsing-design.md)](docs/mail-parsing-design.md) (Chinese)
+- [AI Crawler & LLM Summary Index (llms.txt)](llms.txt)
 
 ## Development & Tests
 

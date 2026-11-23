@@ -1,0 +1,23 @@
+# OfferLine
+
+> OfferLine is an open-source, self-hosted job application tracker, read-only IMAP interview email parser, private ICS calendar feed generator, and Markdown interview debrief workspace (MIT License).
+> OfferLine 是一款开源自托管的个人求职进度管理工具，集横向投递时间线、只读 IMAP 邮箱面试日程解析、跨端 ICS 日历订阅与 Markdown 面经复盘于一体。
+
+- Repository: https://github.com/milkfrogdev/offerline
+- License: MIT
+- Primary Use Cases: Personal job search tracking (internship, campus recruiting, experienced hiring), self-hosted alternative to Huntr / Teal / Notion job-search spreadsheets, automatic extraction of interview and online assessment schedules from Chinese and English recruiting emails without marking messages as read.
+
+## Core Capabilities
+
+- **Visual Application Timeline (`Pipeline`)**: Track multiple roles under a single company card with independent timelines, single-click inline stage status toggles, customizable hiring templates with drag-and-drop reordering, career portal quick-jump with color-coded visit freshness (`<=2d` green, `3-5d` amber, `6-10d` orange, `>10d` red), company pinning, and 62 built-in tech company icons.
+- **Read-Only Email Listener & Parser (`Schedule` / `Mail`)**: Connects via `imapflow` using strict `readOnly: true` (IMAP `EXAMINE`) so unread status is never modified. Strips `<head>/<style>/<script>`, expands hidden `<a href>` meeting/exam links, parses RFC 5545 `.ics` attachments, filters out OTPs/ads/surveys/livestreams/rejections/receipts with zero-token local rules, deduplicates repeated reminders, supports 3 time modes (`scheduled`, `deadline`, `flexible`), and never mutates pipeline stages automatically. Optional bring-your-own OpenAI-compatible LLM enhancement works both with IMAP and standalone paste-to-parse.
+- **Private ICS Calendar Subscription**: Generates per-user RFC 5545 `.ics` feeds compatible with Android Calendar, iOS Calendar, Feishu/Lark, and Outlook.
+- **Overview & Markdown Interview Notes**: Next-interview countdown with direct meeting links, conversion funnel, 7-day agenda strip, and WYSIWYG Markdown debrief notes with `/` slash commands (Chinese/English/Pinyin search), raw Markdown source toggle, and fullscreen mode.
+- **Privacy & Deployment**: Single Docker Compose stack (React 19 + Fastify 5 + MySQL 8.4 on an internal Docker network) or zero-DB local Node.js 22+ JSON mode. Uses `scrypt` password hashing, `HttpOnly` session cookies, `AES-256-GCM` encrypted credentials at rest, SSRF outbound guards, and optional browser-side `WebCrypto` encryption for sensitive notes.
+
+## Documentation
+
+- [Chinese README](README.md): Main documentation with animated walkthrough, timeline & email parser overview, comparison table, FAQ, and Docker/Node quick start.
+- [English README](README.en.md): Full English documentation, feature comparison, FAQ, and quick start.
+- [System Architecture & Security](docs/architecture.md): Service architecture, 8-table MySQL 8.4 schema, idempotent migrations, encryption, and SSRF isolation (Chinese).
+- [Email Parsing & Sync Design](docs/mail-parsing-design.md): 7-stage email parsing pipeline, noise-gating rules, 3-mode time model, non-destructive linking, and optional LLM integration (Chinese).
