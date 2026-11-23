@@ -4806,6 +4806,8 @@ textarea {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+  flex-wrap: nowrap;
 }
 
 .home-triage-time {
@@ -4813,6 +4815,18 @@ textarea {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--accent);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.home-triage-meta .event-kind {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.home-triage-meta .event-record-link {
+  min-width: 0;
+  flex: 0 1 auto;
 }
 
 .home-triage-ops {

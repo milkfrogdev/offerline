@@ -914,7 +914,9 @@ export function HomeView({
                   return (
                     <div key={ev.id} className="rhythm-row">
                       <div className="rhythm-time">
-                        <span className="rhythm-clock">{formatClock(ev.startAt)}</span>
+                        <span className="rhythm-clock">
+                          {ev.timeMode === "deadline" ? "截止" : formatClock(ev.startAt)}
+                        </span>
                         <span className="rhythm-day-tag">
                           {evDayKey === todayKey
                             ? "今天"
@@ -936,7 +938,13 @@ export function HomeView({
                           data-tip={m.label}
                           aria-label={m.label}
                         >
-                          {m.isExam ? <IconCode size={15} /> : <IconVideo size={15} />}
+                          {ev.kind === "offer" ? (
+                            <IconExternal size={14} />
+                          ) : m.isExam ? (
+                            <IconCode size={15} />
+                          ) : (
+                            <IconVideo size={15} />
+                          )}
                         </a>
                       )}
                     </div>
