@@ -123,12 +123,12 @@ export function AuthView({
         <section className="auth-hero-stage" aria-label="OfferLine 3D 星轨实景">
           <div className="auth-hero-text">
             <h1 className="auth-hero-title">
-              把每一场面试
+              从投递到 <span className="auth-title-accent">Offer</span>
               <br />
-              走成通往 <span className="auth-title-accent">Offer</span> 的线
+              都在一条时间线上
             </h1>
             <p className="auth-hero-sub">
-              投递进度、邮箱日程和 Markdown 面经，都在这里。
+              投递进度、只读邮箱日程与 Markdown 面经，开源自部署。
             </p>
           </div>
 

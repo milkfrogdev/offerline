@@ -1,7 +1,7 @@
 <div align="center">
   <img src="docs/assets/logo.svg" alt="OfferLine" width="56" height="56" />
   <h1>OfferLine</h1>
-  <p><strong>把每一场投递、面试日程与复盘面经，走成通往 Offer 的线。</strong></p>
+  <p><strong>从投递到 Offer，都在一条时间线上。</strong></p>
   <p>面向个人求职周期的开源自托管工作台：全链路进度追踪、只读邮箱自动解析日程、私有 ICS 日历订阅与斜杠命令面经知识库。</p>
   <p><sub>Self-hosted personal job search workspace: pipeline tracking, read-only email-to-schedule parsing, private ICS calendar sync, and Markdown interview notes.</sub></p>
 
