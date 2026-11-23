@@ -3,6 +3,13 @@
   <h1>OfferLine</h1>
   <p><strong>把每一场投递、面试日程与复盘面经，走成通往 Offer 的线。</strong></p>
   <p>面向个人求职周期的开源自托管工作台：全链路进度追踪、只读邮箱自动解析日程、私有 ICS 日历订阅与斜杠命令面经知识库。</p>
+  <p><sub>Self-hosted personal job search workspace: pipeline tracking, read-only email-to-schedule parsing, private ICS calendar sync, and Markdown interview notes.</sub></p>
+
+  <p>
+    <strong>简体中文</strong>
+    &nbsp;|&nbsp;
+    <a href="README.en.md">English</a>
+  </p>
 
   <p>
     <img src="https://img.shields.io/badge/React-19-149eca?style=flat-square&logo=react&logoColor=white" alt="React 19" />
