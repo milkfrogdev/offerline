@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { currentStageLabel } from "../../shared/stages";
 import type { ApplicationRecord, InterviewNote, NoteFeeling } from "../../shared/types";
 import { CompanyLogo } from "./CompanyLogo";
 import {
@@ -19,12 +18,6 @@ import {
   stripMarkdownForPreview,
   type NoteEditorMode,
 } from "./NoteEditor";
-
-const FEELING_LABELS: Record<NoteFeeling, string> = {
-  great: "发挥顺畅",
-  normal: "正常发挥",
-  hard: "难度偏高",
-};
 
 type FeelingFilter = "all" | NoteFeeling;
 
@@ -440,9 +433,6 @@ export function NotesView({
 
                     <div className="note-idx-sub">
                       <span className="note-idx-pos">{note.position || "未填岗位"}</span>
-                      <span className={`note-feeling feel-${note.feeling}`}>
-                        {FEELING_LABELS[note.feeling]}
-                      </span>
                     </div>
                   </button>
                 );
@@ -450,7 +440,7 @@ export function NotesView({
             </div>
           </aside>
 
-          {/* 右栏：直写式双模面经文档画布（Word 富文本 / Typora 所见即所得 Markdown） */}
+          {/* 右栏：极简面经文档画布 */}
           <section key={activeNote.id} className="note-reader-surface" aria-label="面经文档工作区">
             <header className="note-reader-head">
               <div className="note-reader-top">
@@ -470,28 +460,24 @@ export function NotesView({
                 </div>
 
                 <div className="note-reader-ops">
-                  <div className="editor-mode-switch" role="tablist" aria-label="编辑器模式">
+                  {linkedRecord && (
                     <button
                       type="button"
-                      role="tab"
-                      aria-selected={editorMode === "markdown"}
-                      className={`editor-mode-btn${editorMode === "markdown" ? " active" : ""}`}
-                      onClick={() => changeMode("markdown")}
-                      data-tip="默认所见即所得 Markdown 与源码切换"
+                      className="subtle-btn"
+                      onClick={() =>
+                        onAddNote({
+                          recordId: linkedRecord.id,
+                          company: linkedRecord.company,
+                          position: linkedRecord.position,
+                          stageName:
+                            linkedRecord.stages.find((s) => s.status === "current")?.name || "二面",
+                        })
+                      }
                     >
-                      Markdown
+                      <IconPlus size={13} />
+                      <span>记下一轮</span>
                     </button>
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={editorMode === "rich"}
-                      className={`editor-mode-btn${editorMode === "rich" ? " active" : ""}`}
-                      onClick={() => changeMode("rich")}
-                      data-tip="Word 式富文本工具栏编辑"
-                    >
-                      富文本
-                    </button>
-                  </div>
+                  )}
 
                   {isDirty ? (
                     <button
@@ -546,51 +532,14 @@ export function NotesView({
                       className={`feeling-inline-btn feel-${f}${draftFeeling === f ? " is-active" : ""}`}
                       onClick={() => setDraftFeeling(f)}
                     >
-                      {FEELING_LABELS[f]}
+                      {f === "great" ? "顺畅" : f === "normal" ? "正常" : "偏难"}
                     </button>
                   ))}
                 </div>
               </div>
             </header>
 
-            {/* 关联投递微型进度带 */}
-            {linkedRecord && (
-              <div className="reader-pipeline-strip">
-                <div className="reader-pipe-left">
-                  <span className="reader-pipe-label">关联投递</span>
-                  <span className={`reader-pipe-status tone-${currentStageLabel(linkedRecord.stages).tone}`}>
-                    {currentStageLabel(linkedRecord.stages).label}
-                  </span>
-                  <span className="reader-mini-dots">
-                    {linkedRecord.stages.map((st) => (
-                      <span
-                        key={st.id}
-                        className={`mini-dot st-${st.status}`}
-                        data-tip={st.name}
-                      />
-                    ))}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className="subtle-btn"
-                  onClick={() =>
-                    onAddNote({
-                      recordId: linkedRecord.id,
-                      company: linkedRecord.company,
-                      position: linkedRecord.position,
-                      stageName:
-                        linkedRecord.stages.find((s) => s.status === "current")?.name || "二面",
-                    })
-                  }
-                >
-                  <IconPlus size={13} />
-                  <span>记该公司下一轮</span>
-                </button>
-              </div>
-            )}
-
-            {/* 正文双模式直写编辑区 */}
+            {/* 正文统一编辑区 */}
             <NoteEditor
               docKey={`${activeNote.id}-${activeNote.updatedAt}`}
               value={draftContent}

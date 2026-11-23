@@ -2321,33 +2321,7 @@ export function NoteModal({
 
         <div className="field">
           <div className="field-head-inline">
-            <span className="field-label">问题记录与复盘</span>
-            <div className="editor-mode-switch" role="tablist" aria-label="编辑器模式">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={editorMode === "markdown"}
-                className={`editor-mode-btn${editorMode === "markdown" ? " active" : ""}`}
-                onClick={() => {
-                  setEditorMode("markdown");
-                  saveEditorMode("markdown");
-                }}
-              >
-                Markdown
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={editorMode === "rich"}
-                className={`editor-mode-btn${editorMode === "rich" ? " active" : ""}`}
-                onClick={() => {
-                  setEditorMode("rich");
-                  saveEditorMode("rich");
-                }}
-              >
-                富文本
-              </button>
-            </div>
+            <span className="field-label">问题记录与复盘（支持所见即所得 Markdown）</span>
           </div>
           <NoteEditor
             docKey={editing?.id || "new-note"}

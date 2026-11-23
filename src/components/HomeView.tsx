@@ -151,6 +151,7 @@ export function HomeView({
   onNavigatePipeline,
   onNavigateSchedule,
   onOpenNoteById,
+  onOpenNotesForCompany,
   onAddRecord,
   onAddEvent,
   onAddNote,
@@ -170,6 +171,7 @@ export function HomeView({
   onNavigatePipeline: (filter?: MetricFilter) => void;
   onNavigateSchedule: () => void;
   onOpenNoteById: (noteId: string) => void;
+  onOpenNotesForCompany: (company: string) => void;
   onAddRecord: () => void;
   onAddEvent: () => void;
   onAddNote: (preset?: {
@@ -338,6 +340,12 @@ export function HomeView({
 
   const topSprintRecord = focusRecords[0] || null;
   const countdown = nextUpcoming ? formatCountdown(nextUpcoming.startAt, nowMs) : null;
+  const nextHasStarted = nextUpcoming ? nowMs >= Date.parse(nextUpcoming.startAt) : false;
+  const nextCompanyNoteCount = useMemo(() => {
+    if (!nextUpcoming) return 0;
+    const co = nextUpcoming.company.trim();
+    return notes.filter((n) => n.company.trim() === co).length;
+  }, [nextUpcoming, notes]);
   const nextIsLink = Boolean(nextUpcoming?.location && /^https?:\/\//i.test(nextUpcoming.location));
   const nextMeetingMeta =
     nextUpcoming && nextIsLink && nextUpcoming.location
@@ -457,21 +465,41 @@ export function HomeView({
                     </button>
                   )}
 
-                  <button
-                    type="button"
-                    className="spotlight-ghost-btn"
-                    onClick={() =>
-                      onAddNote({
-                        recordId: nextUpcoming.recordId,
-                        company: nextUpcoming.company,
-                        position: nextUpcoming.position,
-                        stageName: nextUpcoming.stageName || "一面",
-                      })
-                    }
-                  >
-                    <IconNote size={14} />
-                    <span>面后写复盘</span>
-                  </button>
+                  {nextHasStarted ? (
+                    <button
+                      type="button"
+                      className="spotlight-ghost-btn"
+                      onClick={() =>
+                        onAddNote({
+                          recordId: nextUpcoming.recordId,
+                          company: nextUpcoming.company,
+                          position: nextUpcoming.position,
+                          stageName: nextUpcoming.stageName || "一面",
+                        })
+                      }
+                    >
+                      <IconNote size={14} />
+                      <span>面后写复盘</span>
+                    </button>
+                  ) : nextCompanyNoteCount > 0 ? (
+                    <button
+                      type="button"
+                      className="spotlight-ghost-btn"
+                      onClick={() => onOpenNotesForCompany(nextUpcoming.company)}
+                    >
+                      <IconNote size={14} />
+                      <span>看往轮面经</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="spotlight-ghost-btn"
+                      onClick={() => onEditEvent(nextUpcoming)}
+                    >
+                      <IconEdit size={14} />
+                      <span>编辑安排</span>
+                    </button>
+                  )}
                 </div>
 
                 {upcomingConfirmed.length > 1 && (

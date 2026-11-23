@@ -357,6 +357,10 @@ export function App() {
               setInitialNoteId(noteId);
               setActiveTab("notes");
             }}
+            onOpenNotesForCompany={(company) => {
+              setNotesFilter(company);
+              setActiveTab("notes");
+            }}
             onAddRecord={() => setRecordModal({ open: true, editing: null })}
             onAddEvent={() => setEventModal({ open: true })}
             onAddNote={(preset) => setNoteModal({ open: true, editing: null, preset })}

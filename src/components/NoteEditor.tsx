@@ -17,10 +17,6 @@ import {
   IconListOrdered,
   IconListTodo,
   IconQuote,
-  IconRedo,
-  IconStrike,
-  IconUnderline,
-  IconUndo,
 } from "./Icons";
 
 export type NoteEditorMode = "markdown" | "rich";
@@ -346,23 +342,31 @@ export function NoteEditor({
     });
   }
 
-  function applyMdAction(kind: "heading" | "bold" | "code" | "bullet" | "todo" | "quote") {
+  function applyAction(
+    kind: "heading" | "bold" | "italic" | "code" | "bullet" | "ordered" | "todo" | "quote" | "hr",
+  ) {
     if (mdView === "source") {
       if (kind === "heading") insertSourceMarkdown("## ", "", "标题");
       else if (kind === "bold") insertSourceMarkdown("**", "**", "加粗文字");
+      else if (kind === "italic") insertSourceMarkdown("*", "*", "斜体文字");
       else if (kind === "code") insertSourceMarkdown("`", "`", "code");
       else if (kind === "bullet") insertSourceMarkdown("- ", "", "列表项");
+      else if (kind === "ordered") insertSourceMarkdown("1. ", "", "列表项");
       else if (kind === "todo") insertSourceMarkdown("- [ ] ", "", "待复盘事项");
       else if (kind === "quote") insertSourceMarkdown("> ", "", "引用要点");
+      else if (kind === "hr") insertSourceMarkdown("\n---\n", "", "");
       return;
     }
     if (!editor) return;
     if (kind === "heading") editor.chain().focus().toggleHeading({ level: 2 }).run();
     else if (kind === "bold") editor.chain().focus().toggleBold().run();
+    else if (kind === "italic") editor.chain().focus().toggleItalic().run();
     else if (kind === "code") editor.chain().focus().toggleCode().run();
     else if (kind === "bullet") editor.chain().focus().toggleBulletList().run();
+    else if (kind === "ordered") editor.chain().focus().toggleOrderedList().run();
     else if (kind === "todo") editor.chain().focus().toggleTaskList().run();
     else if (kind === "quote") editor.chain().focus().toggleBlockquote().run();
+    else if (kind === "hr") editor.chain().focus().setHorizontalRule().run();
   }
 
   const wordCount = useMemo(
@@ -371,172 +375,117 @@ export function NoteEditor({
   );
 
   const isCompactMode = compact && !expanded;
+  const isWysiwyg = mdView === "wysiwyg";
 
   const editorBody = (
     <div className={`note-editor-shell${isCompactMode ? " is-compact" : ""}${expanded ? " is-zen" : ""}`}>
-      {/* 模式 A：Word 式富文本格式化工具栏 */}
-      {mode === "rich" && editor && (
-        <div className="rich-toolbar" role="toolbar" aria-label="富文本格式工具栏">
-          <div className="rt-group">
-            {([1, 2, 3] as const).map((lvl) => (
-              <button
-                key={lvl}
-                type="button"
-                className={`rt-btn rt-btn-text${editor.isActive("heading", { level: lvl }) ? " is-active" : ""}`}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => editor.chain().focus().toggleHeading({ level: lvl }).run()}
-                data-tip={`${lvl} 级标题`}
-              >
-                H{lvl}
-              </button>
-            ))}
-          </div>
+      {/* 单行极简编辑器工具栏：左侧纯图标动作，右侧仅「源码」切换与「放大」 */}
+      <div className="md-mode-bar" role="toolbar" aria-label="文档格式工具栏">
+        <div className="rt-group">
+          <button
+            type="button"
+            className={`rt-btn rt-btn-text${isWysiwyg && editor?.isActive("heading") ? " is-active" : ""}`}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => applyAction("heading")}
+            data-tip="标题"
+            aria-label="标题"
+          >
+            H
+          </button>
+          <button
+            type="button"
+            className={`rt-btn${isWysiwyg && editor?.isActive("bold") ? " is-active" : ""}`}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => applyAction("bold")}
+            data-tip="加粗 (Ctrl+B)"
+            aria-label="加粗"
+          >
+            <IconBold size={15} />
+          </button>
+          <button
+            type="button"
+            className={`rt-btn${isWysiwyg && editor?.isActive("italic") ? " is-active" : ""}`}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => applyAction("italic")}
+            data-tip="斜体 (Ctrl+I)"
+            aria-label="斜体"
+          >
+            <IconItalic size={15} />
+          </button>
+          <button
+            type="button"
+            className={`rt-btn${isWysiwyg && editor?.isActive("code") ? " is-active" : ""}`}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => applyAction("code")}
+            data-tip="行内代码"
+            aria-label="行内代码"
+          >
+            <IconCode size={15} />
+          </button>
 
           <span className="rt-sep" aria-hidden="true" />
 
-          <div className="rt-group">
-            <button
-              type="button"
-              className={`rt-btn${editor.isActive("bold") ? " is-active" : ""}`}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => editor.chain().focus().toggleBold().run()}
-              data-tip="加粗 (Ctrl+B)"
-              aria-label="加粗"
-            >
-              <IconBold size={15} />
-            </button>
-            <button
-              type="button"
-              className={`rt-btn${editor.isActive("italic") ? " is-active" : ""}`}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => editor.chain().focus().toggleItalic().run()}
-              data-tip="斜体 (Ctrl+I)"
-              aria-label="斜体"
-            >
-              <IconItalic size={15} />
-            </button>
-            <button
-              type="button"
-              className={`rt-btn${editor.isActive("underline") ? " is-active" : ""}`}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => editor.chain().focus().toggleUnderline().run()}
-              data-tip="下划线 (Ctrl+U)"
-              aria-label="下划线"
-            >
-              <IconUnderline size={15} />
-            </button>
-            <button
-              type="button"
-              className={`rt-btn${editor.isActive("strike") ? " is-active" : ""}`}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => editor.chain().focus().toggleStrike().run()}
-              data-tip="删除线"
-              aria-label="删除线"
-            >
-              <IconStrike size={15} />
-            </button>
-            <button
-              type="button"
-              className={`rt-btn${editor.isActive("code") ? " is-active" : ""}`}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => editor.chain().focus().toggleCode().run()}
-              data-tip="行内代码"
-              aria-label="行内代码"
-            >
-              <IconCode size={15} />
-            </button>
-          </div>
+          <button
+            type="button"
+            className={`rt-btn${isWysiwyg && editor?.isActive("bulletList") ? " is-active" : ""}`}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => applyAction("bullet")}
+            data-tip="无序列表"
+            aria-label="无序列表"
+          >
+            <IconListBullet size={15} />
+          </button>
+          <button
+            type="button"
+            className={`rt-btn${isWysiwyg && editor?.isActive("orderedList") ? " is-active" : ""}`}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => applyAction("ordered")}
+            data-tip="有序列表"
+            aria-label="有序列表"
+          >
+            <IconListOrdered size={15} />
+          </button>
+          <button
+            type="button"
+            className={`rt-btn${isWysiwyg && editor?.isActive("taskList") ? " is-active" : ""}`}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => applyAction("todo")}
+            data-tip="待办清单"
+            aria-label="待办清单"
+          >
+            <IconListTodo size={15} />
+          </button>
+          <button
+            type="button"
+            className={`rt-btn${isWysiwyg && editor?.isActive("blockquote") ? " is-active" : ""}`}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => applyAction("quote")}
+            data-tip="引用块"
+            aria-label="引用块"
+          >
+            <IconQuote size={15} />
+          </button>
+          <button
+            type="button"
+            className="rt-btn"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => applyAction("hr")}
+            data-tip="分割线"
+            aria-label="分割线"
+          >
+            <IconHr size={15} />
+          </button>
+        </div>
 
-          <span className="rt-sep" aria-hidden="true" />
-
-          <div className="rt-group">
-            <button
-              type="button"
-              className={`rt-btn${editor.isActive("bulletList") ? " is-active" : ""}`}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => editor.chain().focus().toggleBulletList().run()}
-              data-tip="无序列表"
-              aria-label="无序列表"
-            >
-              <IconListBullet size={15} />
-            </button>
-            <button
-              type="button"
-              className={`rt-btn${editor.isActive("orderedList") ? " is-active" : ""}`}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => editor.chain().focus().toggleOrderedList().run()}
-              data-tip="有序列表"
-              aria-label="有序列表"
-            >
-              <IconListOrdered size={15} />
-            </button>
-            <button
-              type="button"
-              className={`rt-btn${editor.isActive("taskList") ? " is-active" : ""}`}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => editor.chain().focus().toggleTaskList().run()}
-              data-tip="待办复盘清单"
-              aria-label="待办清单"
-            >
-              <IconListTodo size={15} />
-            </button>
-            <button
-              type="button"
-              className={`rt-btn${editor.isActive("blockquote") ? " is-active" : ""}`}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => editor.chain().focus().toggleBlockquote().run()}
-              data-tip="引用块"
-              aria-label="引用块"
-            >
-              <IconQuote size={15} />
-            </button>
-            <button
-              type="button"
-              className={`rt-btn rt-btn-text${editor.isActive("codeBlock") ? " is-active" : ""}`}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-              data-tip="代码块"
-            >
-              代码块
-            </button>
-            <button
-              type="button"
-              className="rt-btn"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => editor.chain().focus().setHorizontalRule().run()}
-              data-tip="插入分割线"
-              aria-label="分割线"
-            >
-              <IconHr size={15} />
-            </button>
-          </div>
-
-          <span className="rt-sep" aria-hidden="true" />
-
-          <div className="rt-group">
-            <button
-              type="button"
-              className="rt-btn"
-              disabled={!editor.can().undo()}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => editor.chain().focus().undo().run()}
-              data-tip="撤销 (Ctrl+Z)"
-              aria-label="撤销"
-            >
-              <IconUndo size={15} />
-            </button>
-            <button
-              type="button"
-              className="rt-btn"
-              disabled={!editor.can().redo()}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => editor.chain().focus().redo().run()}
-              data-tip="重做 (Ctrl+Y)"
-              aria-label="重做"
-            >
-              <IconRedo size={15} />
-            </button>
-          </div>
+        <div className="md-bar-right">
+          <button
+            type="button"
+            className={`editor-source-toggle${mdView === "source" ? " is-active" : ""}`}
+            onClick={() => toggleMdSource(mdView === "source" ? "wysiwyg" : "source")}
+            data-tip={mdView === "source" ? "切回所见即所得" : "查看或粘贴原始 Markdown"}
+          >
+            {mdView === "source" ? "返回预览" : "MD 源码"}
+          </button>
 
           {allowExpand && !expanded && (
             <button
@@ -551,71 +500,10 @@ export function NoteEditor({
             </button>
           )}
         </div>
-      )}
-
-      {/* 模式 B：Typora 式所见即所得 Markdown 精简快捷命令条与源码切换 */}
-      {mode === "markdown" && (
-        <div className="md-mode-bar">
-          <div className="md-quick-bar" role="toolbar" aria-label="Markdown 快捷语法">
-            {(
-              [
-                { key: "heading", token: "#", label: "标题", active: mdView === "wysiwyg" && Boolean(editor?.isActive("heading")), tip: "输入 # 加空格快速创建标题" },
-                { key: "bold", token: "**", label: "粗体", active: mdView === "wysiwyg" && Boolean(editor?.isActive("bold")), tip: "输入 **粗体** 或 Ctrl+B" },
-                { key: "code", token: "`", label: "代码", active: mdView === "wysiwyg" && Boolean(editor?.isActive("code")), tip: "输入 `行内代码`" },
-                { key: "bullet", token: "-", label: "列表", active: mdView === "wysiwyg" && Boolean(editor?.isActive("bulletList")), tip: "输入 - 加空格创建列表" },
-                { key: "todo", token: "[]", label: "待办", active: mdView === "wysiwyg" && Boolean(editor?.isActive("taskList")), tip: "输入 [ ] 加空格创建复盘待办" },
-                { key: "quote", token: ">", label: "引用", active: mdView === "wysiwyg" && Boolean(editor?.isActive("blockquote")), tip: "输入 > 加空格插入引用块" },
-              ] as const
-            ).map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                className={`md-quick-btn${item.active ? " is-active" : ""}`}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => applyMdAction(item.key)}
-                data-tip={item.tip}
-              >
-                <span className="md-quick-token" aria-hidden="true">{item.token}</span>
-                <span>{item.label}</span>
-              </button>
-            ))}
-          </div>
-          <div className="md-bar-right">
-            <div className="md-sub-switch" role="group" aria-label="Markdown 视图">
-              <button
-                type="button"
-                className={`md-sub-btn${mdView === "wysiwyg" ? " active" : ""}`}
-                onClick={() => toggleMdSource("wysiwyg")}
-              >
-                所见即所得
-              </button>
-              <button
-                type="button"
-                className={`md-sub-btn${mdView === "source" ? " active" : ""}`}
-                onClick={() => toggleMdSource("source")}
-              >
-                源码
-              </button>
-            </div>
-
-            {allowExpand && !expanded && (
-              <button
-                type="button"
-                className="editor-expand-btn"
-                onClick={() => toggleExpand(true)}
-                data-tip="全屏放大撰写"
-                aria-label="全屏放大撰写"
-              >
-                <IconExpand size={14} />
-                <span>放大</span>
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      </div>
 
       {/* 文档内容区 */}
-      {mode === "markdown" && mdView === "source" ? (
+      {mdView === "source" ? (
         <textarea
           ref={sourceRef}
           className={`md-source-textarea${isCompactMode ? " is-compact" : ""}`}
@@ -663,28 +551,6 @@ export function NoteEditor({
                 <span className="zen-word-count">{wordCount} 字</span>
               </div>
               <div className="zen-editor-actions">
-                {onModeChange && (
-                  <div className="editor-mode-switch" role="tablist" aria-label="编辑器模式">
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={mode === "markdown"}
-                      className={`editor-mode-btn${mode === "markdown" ? " active" : ""}`}
-                      onClick={() => onModeChange("markdown")}
-                    >
-                      Markdown
-                    </button>
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={mode === "rich"}
-                      className={`editor-mode-btn${mode === "rich" ? " active" : ""}`}
-                      onClick={() => onModeChange("rich")}
-                    >
-                      富文本
-                    </button>
-                  </div>
-                )}
                 <button
                   type="button"
                   className="btn btn-primary btn-sm"
