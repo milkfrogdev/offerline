@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { EditorContent, useEditor, type JSONContent } from "@tiptap/react";
+import { EditorContent, useEditor, type Editor, type JSONContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
@@ -200,7 +200,153 @@ export function stripMarkdownForPreview(md: string): string {
     .trim();
 }
 
-/* ==================== Dual-Mode NoteEditor Component ==================== */
+interface SlashCommandItem {
+  id: string;
+  label: string;
+  desc: string;
+  hint: string;
+  keywords: string[];
+  glyph: "h1" | "h2" | "h3" | "bullet" | "ordered" | "todo" | "codeblock" | "quote" | "hr" | "qa";
+  run: (ed: Editor, range: { from: number; to: number }) => void;
+}
+
+const SLASH_COMMANDS: SlashCommandItem[] = [
+  {
+    id: "h1",
+    label: "一级标题",
+    desc: "章节大标题",
+    hint: "#",
+    keywords: ["h1", "heading", "title", "标题", "大标题", "bt", "dbt"],
+    glyph: "h1",
+    run: (ed, range) => ed.chain().focus().deleteRange(range).setHeading({ level: 1 }).run(),
+  },
+  {
+    id: "h2",
+    label: "二级标题",
+    desc: "常用分节标题",
+    hint: "##",
+    keywords: ["h2", "heading", "小标题", "标题", "xbt", "bt"],
+    glyph: "h2",
+    run: (ed, range) => ed.chain().focus().deleteRange(range).setHeading({ level: 2 }).run(),
+  },
+  {
+    id: "h3",
+    label: "三级标题",
+    desc: "问题或要点标题",
+    hint: "###",
+    keywords: ["h3", "heading", "子标题", "标题", "zbt", "bt"],
+    glyph: "h3",
+    run: (ed, range) => ed.chain().focus().deleteRange(range).setHeading({ level: 3 }).run(),
+  },
+  {
+    id: "bullet",
+    label: "无序列表",
+    desc: "逐条梳理要点",
+    hint: "-",
+    keywords: ["ul", "list", "bullet", "列表", "无序", "lb", "wx"],
+    glyph: "bullet",
+    run: (ed, range) => ed.chain().focus().deleteRange(range).toggleBulletList().run(),
+  },
+  {
+    id: "ordered",
+    label: "有序列表",
+    desc: "按提问顺序编号",
+    hint: "1.",
+    keywords: ["ol", "ordered", "num", "有序", "编号", "列表", "yx", "bh"],
+    glyph: "ordered",
+    run: (ed, range) => ed.chain().focus().deleteRange(range).toggleOrderedList().run(),
+  },
+  {
+    id: "todo",
+    label: "待办清单",
+    desc: "记录待补短板与复盘项",
+    hint: "[]",
+    keywords: ["todo", "task", "check", "待办", "清单", "复盘", "db", "qd"],
+    glyph: "todo",
+    run: (ed, range) => ed.chain().focus().deleteRange(range).toggleTaskList().run(),
+  },
+  {
+    id: "codeblock",
+    label: "代码块",
+    desc: "记录算法手撕或 SQL",
+    hint: "```",
+    keywords: ["code", "codeblock", "snippet", "代码", "代码块", "算法", "手撕", "dm", "sf"],
+    glyph: "codeblock",
+    run: (ed, range) => ed.chain().focus().deleteRange(range).toggleCodeBlock().run(),
+  },
+  {
+    id: "quote",
+    label: "引用块",
+    desc: "摘录面试官原话或结论",
+    hint: ">",
+    keywords: ["quote", "blockquote", "引用", "重点", "yy", "zd"],
+    glyph: "quote",
+    run: (ed, range) => ed.chain().focus().deleteRange(range).toggleBlockquote().run(),
+  },
+  {
+    id: "hr",
+    label: "分割线",
+    desc: "分隔不同考察环节",
+    hint: "---",
+    keywords: ["hr", "divider", "line", "分割线", "分隔", "fg", "fgx"],
+    glyph: "hr",
+    run: (ed, range) => ed.chain().focus().deleteRange(range).setHorizontalRule().run(),
+  },
+  {
+    id: "qa",
+    label: "面试题复盘块",
+    desc: "插入题目 + 考察点 + 改进模板",
+    hint: "模板",
+    keywords: ["qa", "q", "question", "题目", "面试题", "复盘", "模板", "tm", "mst", "fp"],
+    glyph: "qa",
+    run: (ed, range) =>
+      ed
+        .chain()
+        .focus()
+        .deleteRange(range)
+        .insertContent([
+          { type: "heading", attrs: { level: 3 }, content: [{ type: "text", text: "面试题目" }] },
+          {
+            type: "bulletList",
+            content: [
+              {
+                type: "listItem",
+                content: [{ type: "paragraph", content: [{ type: "text", text: "考察点：" }] }],
+              },
+              {
+                type: "listItem",
+                content: [{ type: "paragraph", content: [{ type: "text", text: "回答与改进：" }] }],
+              },
+            ],
+          },
+        ])
+        .run(),
+  },
+];
+
+function SlashGlyph({ glyph }: { glyph: SlashCommandItem["glyph"] }) {
+  if (glyph === "h1") return <span className="slash-glyph-text">H1</span>;
+  if (glyph === "h2") return <span className="slash-glyph-text">H2</span>;
+  if (glyph === "h3") return <span className="slash-glyph-text">H3</span>;
+  if (glyph === "qa") return <span className="slash-glyph-text">Q</span>;
+  if (glyph === "bullet") return <IconListBullet size={15} />;
+  if (glyph === "ordered") return <IconListOrdered size={15} />;
+  if (glyph === "todo") return <IconListTodo size={15} />;
+  if (glyph === "codeblock") return <IconCode size={15} />;
+  if (glyph === "quote") return <IconQuote size={15} />;
+  return <IconHr size={15} />;
+}
+
+interface SlashMenuState {
+  query: string;
+  from: number;
+  to: number;
+  left: number;
+  top: number;
+  placement: "bottom" | "top";
+}
+
+/* ==================== Unified NoteEditor Component ==================== */
 export function NoteEditor({
   docKey,
   value,
@@ -209,9 +355,8 @@ export function NoteEditor({
   allowExpand = true,
   expandTitle,
   expandBadge,
-  placeholder = "记录问到的项目深挖、底层原理、算法手撕或复盘要点…",
+  placeholder = "输入 / 唤起命令菜单，或直接写 Markdown（# 标题、- 列表、**加粗**）…",
   onChange,
-  onModeChange,
   onSaveShortcut,
 }: {
   docKey: string;
@@ -229,10 +374,90 @@ export function NoteEditor({
   const [mdView, setMdView] = useState<"wysiwyg" | "source">("wysiwyg");
   const [expanded, setExpanded] = useState(false);
   const [, setSelectionTick] = useState(0);
+  const [slashState, setSlashState] = useState<SlashMenuState | null>(null);
+  const [slashIndex, setSlashIndex] = useState(0);
+
   const lastEmittedRef = useRef<string>(value);
   const sourceRef = useRef<HTMLTextAreaElement>(null);
+  const slashMenuRef = useRef<HTMLDivElement>(null);
+  const dismissedFromRef = useRef<number | null>(null);
   const saveRef = useRef(onSaveShortcut);
   saveRef.current = onSaveShortcut;
+
+  const filteredSlashItems = useMemo(() => {
+    if (!slashState) return [];
+    const q = slashState.query.trim().toLowerCase();
+    if (!q) return SLASH_COMMANDS;
+    return SLASH_COMMANDS.filter(
+      (item) =>
+        item.label.toLowerCase().includes(q) ||
+        item.desc.toLowerCase().includes(q) ||
+        item.keywords.some((kw) => kw.toLowerCase().includes(q)),
+    );
+  }, [slashState]);
+
+  // Keep live refs so ProseMirror handleKeyDown never reads stale React closures
+  const slashRef = useRef<SlashMenuState | null>(null);
+  slashRef.current = slashState;
+  const slashItemsRef = useRef<SlashCommandItem[]>([]);
+  slashItemsRef.current = filteredSlashItems;
+  const slashIdxRef = useRef(0);
+  slashIdxRef.current = slashIndex;
+
+  useEffect(() => {
+    setSlashIndex(0);
+  }, [slashState?.query, slashState?.from]);
+
+  // Keep active slash item scrolled smoothly into view
+  useEffect(() => {
+    if (!slashState || !slashMenuRef.current) return;
+    const activeEl = slashMenuRef.current.querySelector<HTMLElement>(".slash-item.is-active");
+    activeEl?.scrollIntoView({ block: "nearest" });
+  }, [slashIndex, slashState]);
+
+  function updateSlashFromEditor(ed: Editor) {
+    const sel = ed.state.selection;
+    if (!sel.empty || ed.isActive("codeBlock")) {
+      dismissedFromRef.current = null;
+      setSlashState(null);
+      return;
+    }
+    const { $from } = sel;
+    const textBefore = $from.parent.textBetween(0, $from.parentOffset, "\n", "\0");
+    // Only trigger at start of line or after whitespace (never inside URLs like https:// or Java/Go)
+    const match = textBefore.match(/(?:^|\s)\/([^\s/]{0,20})$/);
+    if (!match) {
+      dismissedFromRef.current = null;
+      setSlashState(null);
+      return;
+    }
+
+    const query = match[1];
+    const tokenLen = match[0].startsWith("/") ? match[0].length : match[0].length - 1;
+    const from = $from.pos - tokenLen;
+    const to = $from.pos;
+
+    if (dismissedFromRef.current === from) {
+      return;
+    }
+
+    try {
+      const coords = ed.view.coordsAtPos(from);
+      const menuW = 264;
+      const menuEstH = 326;
+      const spaceBelow = window.innerHeight - coords.bottom;
+      const placement: "bottom" | "top" =
+        spaceBelow < menuEstH && coords.top > menuEstH ? "top" : "bottom";
+      const left = Math.max(12, Math.min(coords.left, window.innerWidth - menuW - 12));
+      const top =
+        placement === "bottom"
+          ? coords.bottom + 6
+          : Math.max(12, coords.top - menuEstH - 6);
+      setSlashState({ query, from, to, left, top, placement });
+    } catch {
+      setSlashState(null);
+    }
+  }
 
   const editor = useEditor({
     extensions: [
@@ -242,10 +467,7 @@ export function NoteEditor({
       TaskList,
       TaskItem.configure({ nested: true }),
       Placeholder.configure({
-        placeholder:
-          mode === "markdown"
-            ? "支持所见即所得 Markdown：输入 # 标题、- 列表、[ ] 待办、**粗体** 或 `代码` 即时渲染…"
-            : placeholder,
+        placeholder,
       }),
     ],
     content: markdownToHtml(value),
@@ -260,6 +482,42 @@ export function NoteEditor({
           saveRef.current?.();
           return true;
         }
+        // Respect active Chinese IME composition
+        if (event.isComposing || event.keyCode === 229) {
+          return false;
+        }
+        const activeSlash = slashRef.current;
+        if (activeSlash) {
+          const items = slashItemsRef.current;
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            dismissedFromRef.current = activeSlash.from;
+            setSlashState(null);
+            return true;
+          }
+          if (items.length > 0) {
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              setSlashIndex((i) => (i + 1) % items.length);
+              return true;
+            }
+            if (event.key === "ArrowUp") {
+              event.preventDefault();
+              setSlashIndex((i) => (i - 1 + items.length) % items.length);
+              return true;
+            }
+            if (event.key === "Enter" || event.key === "Tab") {
+              event.preventDefault();
+              const chosen = items[slashIdxRef.current] || items[0];
+              if (chosen && editorRef.current) {
+                chosen.run(editorRef.current, { from: activeSlash.from, to: activeSlash.to });
+                setSlashState(null);
+              }
+              return true;
+            }
+          }
+        }
         return false;
       },
     },
@@ -268,17 +526,31 @@ export function NoteEditor({
       lastEmittedRef.current = md;
       onChange(md);
       setSelectionTick((n) => n + 1);
+      updateSlashFromEditor(ed);
     },
-    onSelectionUpdate: () => {
+    onSelectionUpdate: ({ editor: ed }) => {
       setSelectionTick((n) => n + 1);
+      updateSlashFromEditor(ed);
+    },
+    onBlur: () => {
+      // Allow menu item mousedown/click to fire cleanly before hiding
+      setTimeout(() => {
+        if (!slashMenuRef.current?.contains(document.activeElement)) {
+          setSlashState(null);
+        }
+      }, 120);
     },
   });
+
+  const editorRef = useRef<Editor | null>(null);
+  editorRef.current = editor;
 
   // Sync external doc change (switching note or editing raw markdown source)
   useEffect(() => {
     if (!editor) return;
     if (value === lastEmittedRef.current) return;
     lastEmittedRef.current = value;
+    setSlashState(null);
     editor.commands.setContent(markdownToHtml(value), { emitUpdate: false });
   }, [editor, docKey, value]);
 
@@ -293,11 +565,19 @@ export function NoteEditor({
     }
   }, [mode, mdView, editor, value]);
 
-  // Capture Esc when expanded so parent modals stay open cleanly
+  // Capture Esc when expanded so parent modals stay open cleanly (yields to open slash menu first)
   useEffect(() => {
     if (!expanded) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        if (slashRef.current) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          dismissedFromRef.current = slashRef.current.from;
+          setSlashState(null);
+          return;
+        }
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
@@ -307,6 +587,12 @@ export function NoteEditor({
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, [expanded]);
+
+  function executeSlash(item: SlashCommandItem) {
+    if (!editor || !slashState) return;
+    item.run(editor, { from: slashState.from, to: slashState.to });
+    setSlashState(null);
+  }
 
   function toggleExpand(next: boolean) {
     setExpanded(next);
@@ -525,6 +811,56 @@ export function NoteEditor({
           <EditorContent editor={editor} />
         </div>
       )}
+
+      {mdView === "wysiwyg" &&
+        slashState &&
+        createPortal(
+          <div
+            ref={slashMenuRef}
+            className={`slash-menu placement-${slashState.placement}`}
+            style={{ left: `${slashState.left}px`, top: `${slashState.top}px` }}
+            role="listbox"
+            aria-label="插入内容块"
+            onMouseDown={(e) => e.preventDefault()}
+          >
+            <div className="slash-menu-head">
+              <span>插入内容块</span>
+              {slashState.query && <span className="slash-menu-query">/{slashState.query}</span>}
+            </div>
+            <div className="slash-menu-list">
+              {filteredSlashItems.length === 0 ? (
+                <div className="slash-menu-empty">未找到匹配项，按 Esc 关闭</div>
+              ) : (
+                filteredSlashItems.map((item, idx) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="option"
+                    aria-selected={idx === slashIndex}
+                    className={`slash-item${idx === slashIndex ? " is-active" : ""}`}
+                    onMouseEnter={() => setSlashIndex(idx)}
+                    onClick={() => executeSlash(item)}
+                  >
+                    <span className="slash-item-ico" aria-hidden="true">
+                      <SlashGlyph glyph={item.glyph} />
+                    </span>
+                    <span className="slash-item-body">
+                      <span className="slash-item-label">{item.label}</span>
+                      <span className="slash-item-desc">{item.desc}</span>
+                    </span>
+                    <span className="slash-item-hint">{item.hint}</span>
+                  </button>
+                ))
+              )}
+            </div>
+            <div className="slash-menu-foot">
+              <span>↑↓ 选择</span>
+              <span>Enter 插入</span>
+              <span>Esc 关闭</span>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 
