@@ -35,12 +35,17 @@
 <br />
 
 <div align="center">
-  <img src="docs/assets/preview-home.png" alt="OfferLine 概览工作台" width="100%" />
+  <img src="docs/assets/offerline-demo.gif" alt="OfferLine 功能全景演示" width="100%" />
 </div>
 
 ---
 
 ## 界面预览
+
+<p><strong>概览工作台</strong><br /><sub>下一场面试实时倒计时、投递转化漏斗、待确认邮箱日程与 7 天节奏带</sub></p>
+<img src="docs/assets/preview-home.png" alt="OfferLine 概览工作台" width="100%" />
+
+<br />
 
 <table>
   <tr>

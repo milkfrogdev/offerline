@@ -34,12 +34,17 @@
 <br />
 
 <div align="center">
-  <img src="docs/assets/preview-home.png" alt="OfferLine Overview Dashboard" width="100%" />
+  <img src="docs/assets/offerline-demo.gif" alt="OfferLine Product Walkthrough" width="100%" />
 </div>
 
 ---
 
 ## Preview
+
+<p><strong>Overview Dashboard</strong><br /><sub>Next-interview countdown, application funnel, pending email queue, and 7-day schedule strip</sub></p>
+<img src="docs/assets/preview-home.png" alt="OfferLine Overview Dashboard" width="100%" />
+
+<br />
 
 <table>
   <tr>
