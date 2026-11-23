@@ -1347,7 +1347,7 @@ export function MailSettingsModal({
                 checked={llmEnabled}
                 onChange={(e) => setLlmEnabled(e.target.checked)}
               />
-              <span>启用个人大模型增强（IMAP 同步与粘贴解析自动共用，未配 IMAP 也能单独开启）</span>
+              <span>启用可选大模型增强（默认本地规则已可完整解析，未配 IMAP 也能单独用于粘贴解析）</span>
             </label>
           </div>
 

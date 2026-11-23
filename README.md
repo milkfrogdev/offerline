@@ -105,14 +105,14 @@
 | **6 重前置门控** | 零 Token 规则层直接拦截验证码/账单、专家平台、面试体验/满意度调研、校招直播与热招宣传、**拒信/流程终止**（不污染日程）以及纯投递回执 |
 | **三态时间与去重** | 区分 `固定时刻 (scheduled)` / `截止日期 (deadline)` / `时间自定 (flexible)`；同一场考试连发多封提醒自动语义去重合并字段；`.ics` 订阅跳过时间自定项、截止项转为全天提醒 |
 | **非破坏性单活关联** | **绝不自动篡改投递时间线或静默建新记录**，按「同公司+岗位 → 同公司唯一进行中流程 → 同集团唯一进行中流程」只读推断关联岗位，附带一键直达更新与三合一编辑兜底弹窗 |
-| **可选个人大模型** | 独立「大模型增强」页签（不连 IMAP 也能单独保存给粘贴解析使用），内置 DeepSeek、通义千问、智谱 GLM、Kimi、OpenAI、自定义兼容 6 项预设，支持智能 URL 归一化、实时连通测速、`response_format` 降级与 DNS/私网 SSRF 防护 |
+| **可选大模型增强** | 独立「大模型增强」页签（默认零 Token 本地规则已可完整解析；按需开启大模型增强，不连 IMAP 也能单独保存给粘贴解析使用），内置 DeepSeek、通义千问、智谱 GLM、Kimi、OpenAI、自定义兼容 6 项预设，支持智能 URL 归一化、实时连通测速、`response_format` 降级与 DNS/私网 SSRF 防护 |
 
 ---
 
 ## 隐私与安全设计
 
 - **账号与会话**：`crypto.scrypt` 加随机盐哈希密码，`HttpOnly` + `SameSite=Lax` Cookie 会话，写请求强制同源 `Origin` 校验与限流。
-- **服务端凭据加密**：IMAP 授权码与个人大模型 API Key 经 `AES-256-GCM` 密文落库，接口永不回传明文。
+- **服务端凭据加密**：IMAP 授权码与可选大模型 API Key 经 `AES-256-GCM` 密文落库，接口永不回传明文。
 - **浏览器端零知识保险箱**：单条投递支持在浏览器侧以 `WebCrypto PBKDF2-SHA256 + AES-256-GCM` 加密敏感薪资/备注后仅上传密文。
 - **网络与出站隔离**：Docker 部署下 MySQL 锁在 `internal` 内网不暴露宿主机端口；官网图标代理与大模型出站均做 DNS + IPv4/IPv6 私网及云元数据拦截（自托管连本地 Ollama 可通过 `ALLOW_LOCAL_LLM=true` 显式放行）。
 
@@ -172,7 +172,7 @@ ALLOW_HTTP=true APP_ORIGIN=http://127.0.0.1:3002 npm start
 更详细的工程设计可查阅仓库内文档：
 
 - [系统架构与安全设计（docs/architecture.md）](docs/architecture.md) — 整体分层、MySQL 8.4 8 表模型与零停机增量迁移、SSRF 与网络隔离边界。
-- [求职邮件解析与日程同步设计（docs/mail-parsing-design.md）](docs/mail-parsing-design.md) — 7 阶段解析管道、12 类真实异常 Case 对策、去自动改时间线取舍、三态时间模型与个人大模型适配。
+- [求职邮件解析与日程同步设计（docs/mail-parsing-design.md）](docs/mail-parsing-design.md) — 7 阶段解析管道、12 类真实异常 Case 对策、去自动改时间线取舍、三态时间模型与可选大模型增强适配。
 
 ## 开发与测试
 
