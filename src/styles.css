@@ -1,38 +1,8 @@
-@font-face {
-  font-family: "Inter";
-  src: url("/fonts/InterVariable.woff2") format("woff2");
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: fallback;
-}
-
-@font-face {
-  font-family: "HarmonyOS Sans SC";
-  src: url("/fonts/HarmonyOS_Sans_SC_400.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: fallback;
-}
-
-@font-face {
-  font-family: "HarmonyOS Sans SC";
-  src: url("/fonts/HarmonyOS_Sans_SC_500.woff2") format("woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: fallback;
-}
-
-@font-face {
-  font-family: "HarmonyOS Sans SC";
-  src: url("/fonts/HarmonyOS_Sans_SC_700.woff2") format("woff2");
-  font-weight: 600 700;
-  font-style: normal;
-  font-display: fallback;
-}
+@import "./fonts.css";
 
 :root {
   color-scheme: light;
-  --font-sans: "Inter", "HarmonyOS Sans SC", "Microsoft YaHei", Arial, sans-serif;
+  --font-sans: "Inter", "HarmonyOS Sans SC", "HarmonyOS Sans SC Fallback", "Microsoft YaHei", Arial, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Code", Consolas, monospace;
 
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
