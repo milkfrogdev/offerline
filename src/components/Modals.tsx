@@ -17,6 +17,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { matchBrandEntry } from "../../shared/companies";
 import {
   createDefaultStageDrafts,
   createStageDraftsFromNames,
@@ -54,6 +55,7 @@ import {
   IconMail,
   IconPlus,
   IconRefresh,
+  IconSearch,
   IconSpark,
   IconTrash,
 } from "./Icons";
@@ -1619,6 +1621,122 @@ export function MailSettingsModal({
   );
 }
 
+/* ==================== 通用：带搜索过滤的关联投递选择器 ==================== */
+function guessInterviewStage(rec: ApplicationRecord): string {
+  const cur = rec.stages.find((s) => s.status === "current");
+  if (cur && cur.type === "interview") return cur.name;
+  const lastInterviewPass = [...rec.stages].reverse().find((s) => s.type === "interview" && s.status === "pass");
+  if (lastInterviewPass) return lastInterviewPass.name;
+  return cur?.name || "一面";
+}
+
+function RecordPicker({
+  records,
+  selectedId,
+  onSelect,
+  onManualFallback,
+}: {
+  records: ApplicationRecord[];
+  selectedId: string;
+  onSelect: (rec: ApplicationRecord) => void;
+  onManualFallback?: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const trimmed = query.trim().toLowerCase();
+
+  const filtered = useMemo(() => {
+    if (!trimmed) return records;
+    return records.filter((rec) => {
+      const stageHint = guessInterviewStage(rec).toLowerCase();
+      if (
+        rec.company.toLowerCase().includes(trimmed) ||
+        rec.position.toLowerCase().includes(trimmed) ||
+        stageHint.includes(trimmed)
+      ) {
+        return true;
+      }
+      const brand = matchBrandEntry(rec.company);
+      return Boolean(brand?.keywords.some((kw) => kw.toLowerCase().includes(trimmed)));
+    });
+  }, [records, trimmed]);
+
+  return (
+    <div className="record-picker-wrap">
+      {records.length > 4 && (
+        <div className="record-picker-search">
+          <IconSearch size={13} />
+          <input
+            type="text"
+            className="search-input"
+            placeholder="搜索公司、缩写或岗位（如 字节、zj、java）…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (filtered.length > 0) {
+                  onSelect(filtered[0]);
+                }
+              }
+            }}
+            aria-label="筛选关联投递"
+          />
+          {trimmed && (
+            <>
+              <span className="record-picker-count">
+                {filtered.length}/{records.length}
+              </span>
+              <button
+                type="button"
+                className="search-clear"
+                onClick={() => setQuery("")}
+                aria-label="清空搜索"
+              >
+                <IconClose size={12} />
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      <div className="record-picker-grid" role="listbox" aria-label="选择关联投递">
+        {filtered.length > 0 ? (
+          filtered.map((rec) => {
+            const active = selectedId === rec.id;
+            const stageHint = guessInterviewStage(rec);
+            return (
+              <button
+                key={rec.id}
+                type="button"
+                role="option"
+                aria-selected={active}
+                className={`record-pick-chip${active ? " active" : ""}`}
+                onClick={() => onSelect(rec)}
+              >
+                <CompanyLogo company={rec.company} url={rec.url} size="sm" />
+                <span className="record-pick-text">
+                  <span className="record-pick-company">{rec.company}</span>
+                  <span className="record-pick-pos">{rec.position}</span>
+                </span>
+                <span className="record-pick-stage">{stageHint}</span>
+              </button>
+            );
+          })
+        ) : (
+          <div className="record-picker-empty">
+            <span>未找到匹配「{query.trim()}」的投递</span>
+            {onManualFallback && (
+              <button type="button" className="btn-link" onClick={onManualFallback}>
+                直接手动填写
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ==================== 3. 新建 / 编辑日程（支持一键关联与核对） ==================== */
 const STAGE_QUICK_CHIPS = [
   "一面",
@@ -1852,29 +1970,12 @@ export function EventModal({
             </div>
 
             {pickerOpen && (
-              <div className="record-picker-grid" role="listbox" aria-label="选择关联投递">
-                {records.map((rec) => {
-                  const active = selectedRecordId === rec.id;
-                  const stageHint = guessInterviewStage(rec);
-                  return (
-                    <button
-                      key={rec.id}
-                      type="button"
-                      role="option"
-                      aria-selected={active}
-                      className={`record-pick-chip${active ? " active" : ""}`}
-                      onClick={() => pickRecord(rec)}
-                    >
-                      <CompanyLogo company={rec.company} url={rec.url} size="sm" />
-                      <span className="record-pick-text">
-                        <span className="record-pick-company">{rec.company}</span>
-                        <span className="record-pick-pos">{rec.position}</span>
-                      </span>
-                      <span className="record-pick-stage">{stageHint}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              <RecordPicker
+                records={records}
+                selectedId={selectedRecordId}
+                onSelect={pickRecord}
+                onManualFallback={() => setPickerOpen(false)}
+              />
             )}
           </div>
         )}
@@ -2138,14 +2239,6 @@ export function CalendarSubscribeModal({ onClose }: { onClose: () => void }) {
 /* ==================== 5. 面经记录写作 / 编辑（支持一键关联已有投递） ==================== */
 const QUICK_ROUNDS = ["一面", "二面", "三面", "HR面", "笔试"] as const;
 
-function guessInterviewStage(rec: ApplicationRecord): string {
-  const cur = rec.stages.find((s) => s.status === "current");
-  if (cur && cur.type === "interview") return cur.name;
-  const lastInterviewPass = [...rec.stages].reverse().find((s) => s.type === "interview" && s.status === "pass");
-  if (lastInterviewPass) return lastInterviewPass.name;
-  return cur?.name || "一面";
-}
-
 export function NoteModal({
   editing,
   preset,
@@ -2262,29 +2355,15 @@ export function NoteModal({
             </div>
 
             {!manualMode && (
-              <div className="record-picker-grid" role="listbox" aria-label="选择关联投递">
-                {records.map((rec) => {
-                  const active = selectedRecordId === rec.id;
-                  const stageHint = guessInterviewStage(rec);
-                  return (
-                    <button
-                      key={rec.id}
-                      type="button"
-                      role="option"
-                      aria-selected={active}
-                      className={`record-pick-chip${active ? " active" : ""}`}
-                      onClick={() => pickRecord(rec)}
-                    >
-                      <CompanyLogo company={rec.company} url={rec.url} size="sm" />
-                      <span className="record-pick-text">
-                        <span className="record-pick-company">{rec.company}</span>
-                        <span className="record-pick-pos">{rec.position}</span>
-                      </span>
-                      <span className="record-pick-stage">{stageHint}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              <RecordPicker
+                records={records}
+                selectedId={selectedRecordId}
+                onSelect={pickRecord}
+                onManualFallback={() => {
+                  setManualMode(true);
+                  setSelectedRecordId("");
+                }}
+              />
             )}
           </div>
         )}

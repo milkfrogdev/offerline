@@ -6186,6 +6186,38 @@ textarea {
   gap: 7px;
 }
 
+.record-picker-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.record-picker-search {
+  height: 34px;
+  padding: 0 8px 0 10px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-3);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+
+.record-picker-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+  color: var(--text);
+}
+
+.record-picker-count {
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
 .record-picker-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -6195,6 +6227,17 @@ textarea {
   padding: 2px;
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;
+}
+
+.record-picker-empty {
+  grid-column: 1 / -1;
+  padding: 18px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--text-3);
 }
 
 .record-pick-chip {
