@@ -614,3 +614,18 @@ export function IconUpload({ size = 14 }: IconProps) {
     </svg>
   );
 }
+
+export function IconKey({ size = 15 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="8.5" cy="14.5" r="4" stroke="currentColor" strokeWidth="1.7" />
+      <path
+        d="m11.5 11.5 8-8M16.5 6.5l2.5 2.5M14 9l2 2"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}

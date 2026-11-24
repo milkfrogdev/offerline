@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import type {
   ApplicationRecord,
   InterviewNote,
@@ -10,6 +11,7 @@ import type {
   UserProfile,
 } from "../shared/types";
 import { api } from "./api";
+import { AccountView } from "./components/AccountView";
 import { AuthView } from "./components/AuthView";
 import { HomeView } from "./components/HomeView";
 import { IconAlertCircle, IconCheckCircle } from "./components/Icons";
@@ -19,7 +21,6 @@ import {
   MailSettingsModal,
   NoteModal,
   RecordModal,
-  VaultModal,
 } from "./components/Modals";
 import { NotesView } from "./components/NotesView";
 import { PipelineView } from "./components/PipelineView";
@@ -80,7 +81,6 @@ export function App() {
     preset?: { recordId?: string; company?: string; position?: string; stageName?: string };
   }>({ open: false, editing: null });
   const [subscribeOpen, setSubscribeOpen] = useState(false);
-  const [vaultOpen, setVaultOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
 
   const showToast = useCallback((text: string, kind: "ok" | "err" = "ok") => {
@@ -96,6 +96,38 @@ export function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem(THEME_KEY, theme);
+  }, [theme]);
+
+  const handleToggleTheme = useCallback(() => {
+    const next = theme === "dark" ? "light" : "dark";
+    const root = document.documentElement;
+    const prefersReduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const docWithVt = document as Document & {
+      startViewTransition?: (cb: () => void) => { finished: Promise<void> };
+    };
+
+    const commitTheme = () => {
+      root.classList.add("theme-switching");
+      root.dataset.theme = next;
+      localStorage.setItem(THEME_KEY, next);
+      flushSync(() => {
+        setTheme(next);
+      });
+    };
+
+    if (typeof docWithVt.startViewTransition === "function" && !prefersReduced) {
+      const transition = docWithVt.startViewTransition(commitTheme);
+      void transition.finished.finally(() => {
+        root.classList.remove("theme-switching");
+      });
+    } else {
+      commitTheme();
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          root.classList.remove("theme-switching");
+        });
+      });
+    }
   }, [theme]);
 
   const loadAllData = useCallback(async () => {
@@ -354,7 +386,7 @@ export function App() {
         <AuthView
           registrationOpen={registrationOpen}
           theme={theme}
-          onToggleTheme={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+          onToggleTheme={handleToggleTheme}
           onLogin={handleLogin}
           onRegister={handleRegister}
         />
@@ -375,9 +407,8 @@ export function App() {
         noteCount={notes.length}
         mailConfig={mailConfig}
         theme={theme}
-        onToggleTheme={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+        onToggleTheme={handleToggleTheme}
         onOpenMailModal={() => setMailModal({ open: true, tab: "imap" })}
-        onOpenVaultModal={() => setVaultOpen(true)}
         onLogout={() => void handleLogout()}
       />
 
@@ -510,6 +541,20 @@ export function App() {
             onDeleteNote={(n) => void handleDeleteNote(n)}
           />
         )}
+
+        {activeTab === "account" && (
+          <AccountView
+            user={user}
+            records={records}
+            events={events}
+            notes={notes}
+            mailConfig={mailConfig}
+            onMailConfigUpdated={setMailConfig}
+            onImported={loadAllData}
+            onShowToast={showToast}
+            onLogout={() => void handleLogout()}
+          />
+        )}
         </div>
       </main>
 
@@ -583,14 +628,6 @@ export function App() {
             if (!isEdit) setLatestNoteId(saved.id);
             showToast(isEdit ? "已更新面经记录" : "已保存面经记录");
           }}
-        />
-      )}
-
-      {vaultOpen && (
-        <VaultModal
-          records={records}
-          onClose={() => setVaultOpen(false)}
-          onImported={loadAllData}
         />
       )}
 

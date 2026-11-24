@@ -15,9 +15,9 @@ import {
   detectLlmPreset,
   LLM_PRESET_ORDER,
   LLM_PRESETS,
-  ModalShell,
   type LlmProviderKey,
-} from "./Modals";
+} from "./LlmConfigPanel";
+import { ModalShell } from "./Modals";
 
 type ConflictPolicy = "skip" | "update" | "append";
 

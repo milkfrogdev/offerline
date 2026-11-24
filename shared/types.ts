@@ -180,5 +180,5 @@ export interface UserProfile {
 }
 
 export type SortMode = "progress" | "visited" | "created" | "updated" | "company";
-export type MainTab = "home" | "pipeline" | "schedule" | "notes";
+export type MainTab = "home" | "pipeline" | "schedule" | "notes" | "account";
 export type MetricFilter = "all" | "active" | "interview" | "offer" | "failed";

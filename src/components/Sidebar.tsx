@@ -11,7 +11,6 @@ import {
   IconMoon,
   IconNote,
   IconPipeline,
-  IconShield,
   IconSun,
 } from "./Icons";
 
@@ -29,7 +28,6 @@ export function Sidebar({
   theme,
   onToggleTheme,
   onOpenMailModal,
-  onOpenVaultModal,
   onLogout,
 }: {
   user: UserProfile;
@@ -43,7 +41,6 @@ export function Sidebar({
   theme: "light" | "dark";
   onToggleTheme: () => void;
   onOpenMailModal: () => void;
-  onOpenVaultModal: () => void;
   onLogout: () => void;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -67,7 +64,11 @@ export function Sidebar({
     const nav = desktopNavRef.current;
     if (!nav) return;
     const measure = () => {
-      const idx = Math.max(0, NAV_ORDER.indexOf(activeTab));
+      const idx = NAV_ORDER.indexOf(activeTab);
+      if (idx === -1) {
+        setPillGeom((prev) => ({ ...prev, ready: false }));
+        return;
+      }
       const buttons = nav.querySelectorAll<HTMLButtonElement>("button.side-item");
       const target = buttons[idx];
       if (!target) return;
@@ -213,29 +214,22 @@ export function Sidebar({
             )}
           </button>
 
-          <button
-            type="button"
-            className="side-item side-item-sub"
-            onClick={() => {
-              setMobileOpen(false);
-              onOpenVaultModal();
-            }}
-          >
-            <span className="side-item-ico">
-              <IconShield size={16} />
-            </span>
-            <span className="side-item-label">数据与加密</span>
-          </button>
-
           <div className="sidebar-user">
-            <div className="sidebar-user-info">
+            <button
+              type="button"
+              className={`sidebar-user-trigger${activeTab === "account" ? " is-active" : ""}`}
+              onClick={() => selectTab("account")}
+              data-tip="打开账号个人主页（API Key / 密码 / 备份）"
+              aria-label="打开账号个人主页"
+            >
               <span className="user-avatar" aria-hidden="true">
                 {userInitial}
               </span>
-              <span className="sidebar-username">
-                {user.username}
+              <span className="sidebar-user-meta">
+                <span className="sidebar-username">{user.username}</span>
+                <span className="sidebar-user-sub">个人主页</span>
               </span>
-            </div>
+            </button>
             <button
               type="button"
               className="sidebar-ghost-icon"
@@ -287,6 +281,14 @@ export function Sidebar({
             aria-label="切换昼夜主题"
           >
             {theme === "dark" ? <IconSun size={15} /> : <IconMoon size={15} />}
+          </button>
+          <button
+            type="button"
+            className={`icon-btn mobile-account-btn${activeTab === "account" ? " is-active" : ""}`}
+            onClick={() => selectTab("account")}
+            aria-label="账号个人主页"
+          >
+            {userInitial}
           </button>
         </div>
       </header>
