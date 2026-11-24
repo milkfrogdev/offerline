@@ -602,9 +602,9 @@ export function startMailScheduler(store: Store, masterKey: Buffer): () => void 
       const accounts = await store.listEnabledMailAccounts();
       const now = Date.now();
       for (const acc of accounts) {
-        const intervalMs = Math.max(5, acc.pollIntervalMin || 10) * 60_000;
+        const intervalMs = Math.max(1, acc.pollIntervalMin || 10) * 60_000;
         const lastMs = acc.lastSyncedAt ? Date.parse(acc.lastSyncedAt) : 0;
-        if (lastMs && now - lastMs < intervalMs) continue;
+        if (lastMs && now - lastMs + 3_000 < intervalMs) continue;
         try {
           await syncUserMailbox(store, acc.userId, masterKey);
         } catch {
@@ -620,7 +620,7 @@ export function startMailScheduler(store: Store, masterKey: Buffer): () => void 
 
   const timer = setInterval(() => {
     void tick();
-  }, 60_000);
+  }, 30_000);
   timer.unref();
 
   return () => clearInterval(timer);

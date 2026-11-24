@@ -22,7 +22,7 @@ vi.mock("imapflow", () => ({
   },
 }));
 
-const { syncUserMailbox } = await import("../server/mail-sync");
+const { startMailScheduler, syncUserMailbox } = await import("../server/mail-sync");
 
 describe("syncUserMailbox 从现在起（lookbackDays=0）行为测试", () => {
   beforeEach(() => {
@@ -120,5 +120,53 @@ describe("syncUserMailbox 从现在起（lookbackDays=0）行为测试", () => {
     expect(summary.created).toBe(1);
     expect(summary.lastUid).toBe(1501);
     await store.close();
+  });
+
+  it("调度器尊重 1 分钟高频检查间隔而不是强行卡在 5 分钟", async () => {
+    vi.useFakeTimers();
+    try {
+      const store = new JsonFileStore(null);
+      const masterKey = deriveMasterKey("test-scheduler-1m");
+      const user = await store.createUser("sched1m", "hash", "user");
+      vi.setSystemTime(new Date("2026-11-24T10:00:00.000Z"));
+      await store.upsertMailAccount({
+        userId: user.id,
+        enabled: true,
+        provider: "qq",
+        host: "imap.qq.com",
+        port: 993,
+        secure: true,
+        email: "fast@qq.com",
+        passwordEnc: encryptSecret("authcode123", masterKey),
+        folder: "INBOX",
+        pollIntervalMin: 1,
+        lookbackDays: 0,
+        lastUid: 1500,
+        llmEnabled: false,
+        llmBaseUrl: "",
+        llmModel: "",
+        llmKeyEnc: "",
+        lastSyncedAt: "2026-11-24T09:59:35.000Z",
+        lastMatchedCount: 0,
+        updatedAt: "2026-11-24T09:59:35.000Z",
+      });
+
+      mockSearch.mockResolvedValue([]);
+      const stop = startMailScheduler(store, masterKey);
+      try {
+        // 30s tick at 10:00:30 (only 55s elapsed -> should wait cleanly)
+        await vi.advanceTimersByTimeAsync(30_000);
+        expect(mockConnect).toHaveBeenCalledTimes(0);
+
+        // 60s tick at 10:01:00 (85s >= 60s -> should trigger!)
+        await vi.advanceTimersByTimeAsync(30_000);
+        expect(mockConnect).toHaveBeenCalledTimes(1);
+      } finally {
+        stop();
+        await store.close();
+      }
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

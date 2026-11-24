@@ -197,7 +197,7 @@ const mailConfigSchema = z
     email: z.string().trim().min(3, "请填写邮箱地址").max(160),
     password: z.string().max(256).optional(),
     folder: z.string().trim().min(1).max(64).default("INBOX"),
-    pollIntervalMin: z.number().int().min(5).max(180).default(10),
+    pollIntervalMin: z.number().int().min(1).max(180).default(10),
     lookbackDays: z.number().int().min(0).max(30).default(7),
     llmEnabled: z.boolean().optional(),
     llmBaseUrl: z.string().trim().max(240).optional(),

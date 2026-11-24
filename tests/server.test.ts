@@ -335,7 +335,7 @@ describe("OfferLine 服务端安全、日程、邮箱与面经集成测试", () 
       });
       expect(getCfg.json().lookbackDays).toBe(0);
 
-      // 2. 保持 lookbackDays=0 仅修改检查频率：不重复推进基准水位，避免漏收刚到邮件
+      // 2. 保持 lookbackDays=0 且放开高频检查 1 分钟：不重复推进基准水位，避免漏收刚到邮件
       const editPoll = await app.inject({
         method: "PUT",
         url: "/api/mail/config",
@@ -348,11 +348,12 @@ describe("OfferLine 服务端安全、日程、邮箱与面经集成测试", () 
           secure: true,
           email: "zero@qq.com",
           folder: "INBOX",
-          pollIntervalMin: 5,
+          pollIntervalMin: 1,
           lookbackDays: 0,
         },
       });
       expect(editPoll.statusCode).toBe(200);
+      expect(editPoll.json().pollIntervalMin).toBe(1);
       expect(probeCount).toBe(1);
       expect((await store.getMailAccount(userId))?.lastUid).toBe(1410);
 

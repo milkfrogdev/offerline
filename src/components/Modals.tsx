@@ -918,6 +918,11 @@ export function MailSettingsModal({
     );
   }, [lookbackDays]);
 
+  const pollChoices = useMemo(() => {
+    const base = [1, 2, 5, 10, 15, 30];
+    return base.includes(pollIntervalMin) ? base : [...base, pollIntervalMin].sort((a, b) => a - b);
+  }, [pollIntervalMin]);
+
   function parseValidPort(): number | null {
     const n = Number.parseInt(portInput.trim(), 10);
     if (Number.isNaN(n) || n < 1 || n > 65535 || String(n) !== portInput.trim().replace(/^0+(?=\d)/, "")) {
@@ -1321,7 +1326,7 @@ export function MailSettingsModal({
               <div className="field">
                 <span className="field-label">自动检查频率</span>
                 <div className="provider-row">
-                  {[5, 10, 15, 30].map((min) => (
+                  {pollChoices.map((min) => (
                     <button
                       key={min}
                       type="button"
@@ -1332,6 +1337,11 @@ export function MailSettingsModal({
                     </button>
                   ))}
                 </div>
+                <p className="field-micro-hint">
+                  {pollIntervalMin <= 2
+                    ? "高频短连适合 QQ / Gmail 个人单账号；若遇 163 邮箱或官方短暂频控，可调回 5 分钟以上。"
+                    : "只读检查新邮件位置，无新邮件时不下载正文；如需更快收到通知可选 1–2 分钟。"}
+                </p>
               </div>
             </div>
           )}
