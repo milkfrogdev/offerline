@@ -93,7 +93,7 @@ function formatImapError(err: unknown, host: string): string {
   const raw = err instanceof Error ? err.message : String(err);
   if (/auth|login|credentials|invalid|command failed/i.test(raw)) {
     if (/qq\.com/i.test(host)) {
-      return "邮箱认证失败：QQ 邮箱需在网页端「设置 → 账户」开启 IMAP 服务，并填入 16 位授权码（非登录密码）。";
+      return "邮箱认证失败：QQ 邮箱需在网页端「设置 → 账号与安全 → 安全管理 → POP3/IMAP」开启 IMAP 服务，并填入 16 位授权码（非登录密码）。";
     }
     if (/163\.com|126\.com/i.test(host)) {
       return "邮箱认证失败：网易邮箱需开启 IMAP 服务并使用授权密码。";

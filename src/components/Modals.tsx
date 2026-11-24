@@ -83,7 +83,7 @@ const PROVIDER_PRESETS: Record<
     authPlaceholder: "粘贴 QQ 邮箱 16 位 IMAP 授权码",
     guideUrl: "https://mail.qq.com",
     guideLabel: "前往 QQ 邮箱",
-    tip: "进入 QQ 邮箱网页端「设置 → 账户 → POP3/IMAP」，开启 IMAP 后复制 16 位授权码即可。",
+    tip: "在 QQ 邮箱网页端「设置 → 账号与安全 → 安全管理 → POP3/IMAP」开启服务并复制 16 位授权码。",
   },
   "163": {
     label: "网易 163",
