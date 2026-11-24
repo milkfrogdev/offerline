@@ -17,7 +17,7 @@ export const BRAND_DIRECTORY: BrandEntry[] = [
   {
     name: "腾讯音乐",
     slug: "tme",
-    group: "tencent",
+    group: "tme",
     keywords: ["tme", "txyy", "qq音乐", "tencent music"],
     match: /腾讯音乐|tme\b|tencent\s*music/i,
     domains: ["tencentmusic.com"],
@@ -234,7 +234,7 @@ export const BRAND_DIRECTORY: BrandEntry[] = [
   {
     name: "搜狐畅游",
     slug: "changyou",
-    group: "sohu",
+    group: "changyou",
     keywords: ["cy", "changyou"],
     match: /畅游|changyou/i,
     domains: ["cyou-inc.com"],
@@ -357,7 +357,7 @@ export const BRAND_DIRECTORY: BrandEntry[] = [
   {
     name: "沐瞳科技",
     slug: "moonton",
-    group: "bytedance",
+    group: "moonton",
     keywords: ["mt", "moonton", "沐瞳"],
     match: /沐瞳|moonton/i,
     domains: ["moonton.com"],

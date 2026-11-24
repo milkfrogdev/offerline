@@ -8,6 +8,7 @@ import {
 } from "../../shared/import-parser";
 import type { ApplicationRecord, MailAccountPublic } from "../../shared/types";
 import { api } from "../api";
+import { copyText } from "../clipboard";
 import { readImportFileAsText } from "../spreadsheet";
 import { CompanyLogo } from "./CompanyLogo";
 import { IconCopy, IconExternal, IconSpark, IconUpload } from "./Icons";
@@ -80,6 +81,7 @@ export function SmartImportModal({
   const [parsing, setParsing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [feedback, setFeedback] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const [manualCopyText, setManualCopyText] = useState<string | null>(null);
 
   const [previewRows, setPreviewRows] = useState<PreviewRow[]>([]);
   const [conflictPolicy, setConflictPolicy] = useState<ConflictPolicy>("skip");
@@ -120,19 +122,24 @@ export function SmartImportModal({
 
   async function handleCopyPrompt() {
     setFeedback(null);
+    setManualCopyText(null);
     const content = rawText.trim()
       ? `${BATCH_TIMELINE_IMPORT_PROMPT}${rawText.trim()}`
       : `${BATCH_TIMELINE_IMPORT_PROMPT}[在这里粘贴你的 Excel / CSV / 备忘录投递清单]`;
-    try {
-      await navigator.clipboard.writeText(content);
+    const ok = await copyText(content);
+    if (ok) {
       setFeedback({
         kind: "ok",
         text: rawText.trim()
-          ? "已复制提示词与内容，贴到豆包 / DeepSeek 网页版后把 JSON 粘回上方即可。"
+          ? "已复制提示词与内容，贴到豆包 / DeepSeek 网页版后把 JSON 粘回上方框内即可。"
           : "已复制提示词，贴给豆包 / DeepSeek 网页版整理后把 JSON 粘回上方框内。",
       });
-    } catch {
-      setFeedback({ kind: "err", text: "写入剪贴板失败，请检查浏览器权限。" });
+    } else {
+      setManualCopyText(content);
+      setFeedback({
+        kind: "err",
+        text: "当前浏览器阻止自动复制，请在下方选区按 Ctrl+C 手动复制：",
+      });
     }
   }
 
@@ -171,7 +178,7 @@ export function SmartImportModal({
     if (useTransientOrEditedLlm && (!llmBaseUrl.trim() || !llmModel.trim() || (!llmApiKey.trim() && !hasSavedLlm))) {
       setFeedback({
         kind: "err",
-        text: "填写模型 API Key 即可一键解析；不想填 Key 可点左下角「复制提示词」用豆包/DeepSeek 免费转换。",
+        text: "填写模型 API Key 即可一键解析；不想填 Key 可点上方「复制提示词（免 API Key 导入）」免费转换。",
       });
       return;
     }
@@ -289,14 +296,24 @@ export function SmartImportModal({
                   setRawText(SAMPLE_BULK_TEXT);
                   setFileSummary("");
                   setFeedback(null);
+                  setManualCopyText(null);
                 }}
               >
                 <IconSpark size={13} />
                 <span>填入示例</span>
               </button>
             </div>
-            {fileSummary && <span className="field-micro-hint">{fileSummary}</span>}
+            <button
+              type="button"
+              className="btn btn-soft btn-sm"
+              onClick={() => void handleCopyPrompt()}
+              data-tip="复制提示词与内容，贴到网页版 AI 转 JSON 后粘回"
+            >
+              <IconCopy size={13} />
+              <span>复制提示词（免 API Key 导入）</span>
+            </button>
           </div>
+          {fileSummary && <div className="field-micro-hint">{fileSummary}</div>}
 
           <textarea
             className="textarea"
@@ -313,7 +330,7 @@ export function SmartImportModal({
                 <span className="field-label">
                   {hasSavedLlm && !showLlmEditor
                     ? `直接解析模型：${mailConfig?.llmModel}`
-                    : "大模型 API 配置（选填，不填可走下方免 Key 复制提示词）"}
+                    : "大模型 API 配置（选填，也可点上方「复制提示词」免 API Key 导入）"}
                 </span>
                 {hasSavedLlm && (
                   <button
@@ -407,32 +424,34 @@ export function SmartImportModal({
             </div>
           )}
 
-          <div className="modal-actions between">
+          {manualCopyText && (
+            <textarea
+              className="textarea mono"
+              rows={4}
+              readOnly
+              value={manualCopyText}
+              onFocus={(e) => e.currentTarget.select()}
+              onClick={(e) => e.currentTarget.select()}
+              aria-label="请按 Ctrl+C 复制提示词"
+            />
+          )}
+
+          <div className="modal-actions">
+            <button type="button" className="btn btn-soft" onClick={onClose}>
+              取消
+            </button>
             <button
               type="button"
-              className="btn btn-soft"
-              onClick={() => void handleCopyPrompt()}
+              className="btn btn-primary"
+              disabled={parsing || !rawText.trim()}
+              onClick={() => void handleParse()}
             >
-              <IconCopy size={13} />
-              <span>复制 AI 提示词（免 Key）</span>
+              {parsing
+                ? "解析中…"
+                : isJsonInput
+                  ? "识别 JSON 并预览"
+                  : "一键解析并预览"}
             </button>
-            <div className="modal-actions-right">
-              <button type="button" className="btn btn-soft" onClick={onClose}>
-                取消
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={parsing || !rawText.trim()}
-                onClick={() => void handleParse()}
-              >
-                {parsing
-                  ? "解析中…"
-                  : isJsonInput
-                    ? "识别 JSON 并预览"
-                    : "一键解析并预览"}
-              </button>
-            </div>
           </div>
         </div>
       ) : (

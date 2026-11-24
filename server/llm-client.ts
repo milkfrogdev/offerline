@@ -148,6 +148,14 @@ function formatLlmHttpError(status: number, bodyText: string): string {
   return `模型接口返回错误（HTTP ${status}${snippet ? `：${snippet}` : ""}）。`;
 }
 
+function isStrictReasoningModel(model: string): boolean {
+  return /^(?:gpt-5|o[1-9](?:\b|-)|kimi-k3)/i.test(model.trim());
+}
+
+function usesMaxCompletionTokens(model: string): boolean {
+  return /^(?:gpt-5|o[1-9](?:\b|-))/i.test(model.trim());
+}
+
 export async function callOpenAiCompatibleJson(
   config: LlmEndpointConfig,
   messages: { role: "system" | "user"; content: string }[],
@@ -157,8 +165,9 @@ export async function callOpenAiCompatibleJson(
   if (!endpoint) {
     return { ok: false, error: "API Base URL 格式无效，请填写以 https:// 开头的完整地址。" };
   }
-  if (!config.model.trim()) {
-    return { ok: false, error: "请填写模型名称（例如 deepseek-chat）。" };
+  const modelId = config.model.trim();
+  if (!modelId) {
+    return { ok: false, error: "请填写模型名称（例如 deepseek-flash）。" };
   }
   if (!config.apiKey.trim()) {
     return { ok: false, error: "请填写 API Key。" };
@@ -171,21 +180,29 @@ export async function callOpenAiCompatibleJson(
 
   const timeoutMs = options.timeoutMs ?? 15_000;
   const startedAt = Date.now();
+  const strictReasoning = isStrictReasoningModel(modelId);
+  const maxCompletionTokens = usesMaxCompletionTokens(modelId);
 
-  const attemptOnce = async (useJsonMode: boolean) => {
+  const attemptOnce = async (useJsonMode: boolean, compatMode: boolean) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const payload: Record<string, unknown> = {
-        model: config.model.trim(),
-        temperature: 0,
+        model: modelId,
         messages,
       };
-      if (useJsonMode) {
+      if (!strictReasoning && !compatMode) {
+        payload.temperature = 0;
+      }
+      if (useJsonMode && !compatMode) {
         payload.response_format = { type: "json_object" };
       }
-      if (options.maxTokens) {
-        payload.max_tokens = options.maxTokens;
+      if (options.maxTokens && !compatMode) {
+        if (maxCompletionTokens) {
+          payload.max_completion_tokens = options.maxTokens;
+        } else {
+          payload.max_tokens = options.maxTokens;
+        }
       }
 
       const resp = await fetch(endpoint, {
@@ -208,12 +225,12 @@ export async function callOpenAiCompatibleJson(
 
   try {
     let jsonMode: "native" | "fallback" = "native";
-    let res = await attemptOnce(true);
+    let res = await attemptOnce(true, false);
 
-    // Some third-party OpenAI relays / older models reject response_format with 400/422 -> auto-retry without it
+    // 部分中转或推理模型会因 response_format / temperature / max_tokens 报 400/422 -> 自动降级为极简兼容体重试
     if (!res.ok && (res.status === 400 || res.status === 422)) {
       jsonMode = "fallback";
-      res = await attemptOnce(false);
+      res = await attemptOnce(false, true);
     }
 
     if (!res.ok) {
@@ -281,7 +298,7 @@ export async function testLlmConnection(
         content: "ping",
       },
     ],
-    { timeoutMs: 12_000, maxTokens: 32, allowLocal },
+    { timeoutMs: 20_000, maxTokens: 512, allowLocal },
   );
 
   if (!res.ok) {

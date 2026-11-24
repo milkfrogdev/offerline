@@ -3,10 +3,18 @@ import type { MailAccountPublic } from "../../shared/types";
 import { api } from "../api";
 import { IconExternal } from "./Icons";
 
-export type LlmProviderKey = "deepseek" | "qwen" | "zhipu" | "kimi" | "openai" | "custom";
+export type LlmProviderKey =
+  | "deepseek"
+  | "doubao"
+  | "qwen"
+  | "zhipu"
+  | "kimi"
+  | "openai"
+  | "custom";
 
 export const LLM_PRESET_ORDER: LlmProviderKey[] = [
   "deepseek",
+  "doubao",
   "qwen",
   "zhipu",
   "kimi",
@@ -29,61 +37,71 @@ export const LLM_PRESETS: Record<
 > = {
   deepseek: {
     label: "DeepSeek",
-    baseUrl: "https://api.deepseek.com/v1",
-    model: "deepseek-chat",
-    placeholderUrl: "https://api.deepseek.com/v1",
-    placeholderModel: "deepseek-chat",
+    baseUrl: "https://api.deepseek.com",
+    model: "deepseek-flash",
+    placeholderUrl: "https://api.deepseek.com",
+    placeholderModel: "deepseek-flash",
     guideUrl: "https://platform.deepseek.com/api_keys",
     guideLabel: "获取 Key",
-    tip: "支持原生 JSON 输出，成本极低",
+    tip: "DeepSeek-V4.1-Flash，支持 JSON 输出与百万上下文",
+  },
+  doubao: {
+    label: "火山豆包",
+    baseUrl: "https://ark.cn-beijing.volces.com/api/v3",
+    model: "doubao-seed-2-0-lite-260428",
+    placeholderUrl: "https://ark.cn-beijing.volces.com/api/v3",
+    placeholderModel: "doubao-seed-2-0-lite-260428 或 ep-...",
+    guideUrl: "https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey",
+    guideLabel: "火山方舟",
+    tip: "填预置 Model ID（如 doubao-seed-2-0-lite-260428）或推理接入点 ep-...",
   },
   qwen: {
     label: "通义千问",
     baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    model: "qwen-plus",
+    model: "qwen-flash",
     placeholderUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    placeholderModel: "qwen-plus",
+    placeholderModel: "qwen-flash",
     guideUrl: "https://bailian.console.aliyun.com/?apiKey=1",
     guideLabel: "阿里云百炼",
-    tip: "阿里云百炼 OpenAI 兼容端点",
+    tip: "支持全局端点或百炼业务空间 *.maas.aliyuncs.com/compatible-mode/v1",
   },
   zhipu: {
     label: "智谱 GLM",
     baseUrl: "https://open.bigmodel.cn/api/paas/v4",
-    model: "glm-4-flash",
+    model: "glm-4.7-flash",
     placeholderUrl: "https://open.bigmodel.cn/api/paas/v4",
-    placeholderModel: "glm-4-flash",
+    placeholderModel: "glm-4.7-flash",
     guideUrl: "https://open.bigmodel.cn/usercenter/apikeys",
     guideLabel: "智谱控制台",
-    tip: "glm-4-flash 响应快，免费额度高",
+    tip: "GLM-4.7-Flash 高并发高性价比；Coding 套餐可用 /api/coding/paas/v4",
   },
   kimi: {
-    label: "月之暗面 Kimi",
+    label: "Kimi",
     baseUrl: "https://api.moonshot.cn/v1",
-    model: "moonshot-v1-8k",
+    model: "kimi-k3.1-pro-highspeed",
     placeholderUrl: "https://api.moonshot.cn/v1",
-    placeholderModel: "moonshot-v1-8k",
-    guideUrl: "https://platform.moonshot.cn/console/api-keys",
-    guideLabel: "Moonshot",
-    tip: "Moonshot OpenAI 兼容接口",
+    placeholderModel: "kimi-k3.1-pro-highspeed",
+    guideUrl: "https://platform.kimi.com/console/api-keys",
+    guideLabel: "Kimi 开放平台",
+    tip: "Kimi K3.1 高速版（也可选 kimi-k3 / kimi-k3.1-pro）",
   },
   openai: {
     label: "OpenAI",
     baseUrl: "https://api.openai.com/v1",
-    model: "gpt-4o-mini",
+    model: "gpt-5-mini",
     placeholderUrl: "https://api.openai.com/v1",
-    placeholderModel: "gpt-4o-mini",
+    placeholderModel: "gpt-5-mini",
     guideUrl: "https://platform.openai.com/api-keys",
     guideLabel: "OpenAI",
-    tip: "需服务器出站网络可访问 api.openai.com",
+    tip: "需服务器出站网络可访问 api.openai.com（可选 gpt-5-nano）",
   },
   custom: {
     label: "自定义兼容",
     baseUrl: "",
     model: "",
-    placeholderUrl: "https://your-gateway.example/v1",
-    placeholderModel: "输入模型 ID",
-    tip: "支持硅基流动、火山方舟、OpenRouter 等兼容接口",
+    placeholderUrl: "https://api.siliconflow.cn/v1",
+    placeholderModel: "deepseek-ai/DeepSeek-V3.2 或模型 ID",
+    tip: "支持硅基流动、OpenRouter、本地 Ollama 等 OpenAI 兼容网关",
   },
 };
 
@@ -91,9 +109,12 @@ export function detectLlmPreset(baseUrl: string): LlmProviderKey {
   const lower = baseUrl.trim().toLowerCase();
   if (!lower) return "deepseek";
   if (lower.includes("deepseek.com")) return "deepseek";
-  if (lower.includes("dashscope.aliyuncs.com")) return "qwen";
+  if (lower.includes("volces.com") || lower.includes("volcengine.com")) return "doubao";
+  if (lower.includes("dashscope.aliyuncs.com") || lower.includes("maas.aliyuncs.com")) return "qwen";
   if (lower.includes("bigmodel.cn")) return "zhipu";
-  if (lower.includes("moonshot.cn")) return "kimi";
+  if (lower.includes("moonshot.cn") || lower.includes("moonshot.ai") || lower.includes("kimi.com")) {
+    return "kimi";
+  }
   if (lower.includes("api.openai.com")) return "openai";
   return "custom";
 }

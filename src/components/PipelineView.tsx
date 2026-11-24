@@ -251,12 +251,19 @@ export function PipelineView({
 
   useEffect(() => {
     if (!popover) return;
+    const openedAt = performance.now();
+    const startScrollY = window.scrollY;
     const onDocDown = (e: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
-        setPopover(null);
-      }
+      const target = e.target as HTMLElement | null;
+      if (popoverRef.current && popoverRef.current.contains(target)) return;
+      if (target?.closest?.(".tl-node")) return;
+      setPopover(null);
     };
-    const onScroll = () => setPopover(null);
+    const onScroll = () => {
+      if (performance.now() - openedAt < 140) return;
+      if (Math.abs(window.scrollY - startScrollY) < 12) return;
+      setPopover(null);
+    };
     document.addEventListener("mousedown", onDocDown);
     window.addEventListener("scroll", onScroll, true);
     return () => {
@@ -356,15 +363,16 @@ export function PipelineView({
   const popoverPlacement = useMemo(() => {
     if (!popover) return null;
     const width = 282;
+    const estHeight = 236;
     const margin = 12;
     let left = popover.rect.left + popover.rect.width / 2 - width / 2;
     left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
     const spaceBelow = window.innerHeight - popover.rect.bottom;
-    const placement: "bottom" | "top" = spaceBelow > 205 ? "bottom" : "top";
+    const placement: "bottom" | "top" = spaceBelow > estHeight + 14 ? "bottom" : "top";
     const top =
       placement === "bottom"
-        ? popover.rect.bottom + 9
-        : Math.max(margin, popover.rect.top - 186);
+        ? Math.min(popover.rect.bottom + 9, window.innerHeight - estHeight - margin)
+        : Math.max(margin, popover.rect.top - estHeight - 9);
     return { style: { left, top, width }, placement };
   }, [popover]);
 

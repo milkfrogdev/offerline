@@ -5,6 +5,7 @@ import type { ApplicationRecord, ScheduleEvent } from "../shared/types";
 import { buildIcsCalendar } from "../server/ics";
 import {
   assertSafeLlmUrl,
+  callOpenAiCompatibleJson,
   extractJsonObject,
   normalizeLlmEndpoint,
 } from "../server/llm-client";
@@ -372,6 +373,23 @@ describe("求职邮件深度解析、去噪、归一化与 ICS 生成", () => {
     expect(bdExact.record?.id).toBe("bd-1");
     expect(bdExact.matchType).toBe("exact");
 
+    // 4.5 独立招聘子公司（如沐瞳科技/腾讯音乐/搜狐畅游）不与字节/腾讯/搜狐交叉误配
+    const endedByte = makeRecord({
+      id: "bd-old",
+      company: "字节跳动",
+      position: "AI Agent",
+      status: "archived",
+    });
+    const moontonActive = makeRecord({
+      id: "mt-1",
+      company: "沐瞳科技",
+      position: "后端",
+      status: "active",
+    });
+    const crossGuard = inferRecordForEmail([endedByte, moontonActive], "字节跳动", "基础架构后端研发");
+    expect(crossGuard.record).toBeUndefined();
+    expect(crossGuard.matchType).toBe("none");
+
     // 5. 同场笔试连发多封提醒 -> 语义去重并合并缺失链接
     const existing: ScheduleEvent = {
       id: "ev-dup-1",
@@ -492,6 +510,12 @@ describe("求职邮件深度解析、去噪、归一化与 ICS 生成", () => {
     expect(normalizeLlmEndpoint("https://generativelanguage.googleapis.com/v1beta/openai")).toBe(
       "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
     );
+    expect(normalizeLlmEndpoint("https://ark.cn-beijing.volces.com/api/v3")).toBe(
+      "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+    );
+    expect(normalizeLlmEndpoint("https://ws123.cn-beijing.maas.aliyuncs.com/compatible-mode/v1")).toBe(
+      "https://ws123.cn-beijing.maas.aliyuncs.com/compatible-mode/v1/chat/completions",
+    );
     expect(normalizeLlmEndpoint("file:///etc/passwd")).toBeNull();
 
     // 默认拦截本机与内网/云元数据 IP，仅显式 allowLocal=true 时放行本地模型
@@ -529,5 +553,52 @@ describe("求职邮件深度解析、去噪、归一化与 ICS 生成", () => {
     });
     expect(parsedRejected.matched).toBe(false);
     expect(parsedRejected.actionHint).toBe("fail");
+  });
+
+  it("推理/固定温度模型省略 temperature=0 并在 400 时降级兼容重试", async () => {
+    const origFetch = globalThis.fetch;
+    const seenPayloads: Record<string, unknown>[] = [];
+    globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body || "{}")) as Record<string, unknown>;
+      seenPayloads.push(body);
+      if (body.model === "custom-relay" && "response_format" in body) {
+        return new Response("response_format not supported", { status: 400 });
+      }
+      return new Response(
+        JSON.stringify({ choices: [{ message: { content: '{"ok":true}' } }] }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }) as typeof fetch;
+
+    try {
+      const r1 = await callOpenAiCompatibleJson(
+        { baseUrl: "https://8.8.8.8/v1", model: "gpt-5-mini", apiKey: "k" },
+        [{ role: "user", content: "json" }],
+        { maxTokens: 512 },
+      );
+      expect(r1.ok).toBe(true);
+      expect("temperature" in seenPayloads[0]).toBe(false);
+      expect(seenPayloads[0].max_completion_tokens).toBe(512);
+
+      const r2 = await callOpenAiCompatibleJson(
+        { baseUrl: "https://8.8.8.8/v1", model: "kimi-k3.1-pro-highspeed", apiKey: "k" },
+        [{ role: "user", content: "json" }],
+        { maxTokens: 512 },
+      );
+      expect(r2.ok).toBe(true);
+      expect("temperature" in seenPayloads[1]).toBe(false);
+
+      const r3 = await callOpenAiCompatibleJson(
+        { baseUrl: "https://8.8.8.8/v1", model: "custom-relay", apiKey: "k" },
+        [{ role: "user", content: "json" }],
+      );
+      expect(r3.ok).toBe(true);
+      if (r3.ok) expect(r3.jsonMode).toBe("fallback");
+      expect(seenPayloads[2].temperature).toBe(0);
+      expect("response_format" in seenPayloads[3]).toBe(false);
+      expect("temperature" in seenPayloads[3]).toBe(false);
+    } finally {
+      globalThis.fetch = origFetch;
+    }
   });
 });

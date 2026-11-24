@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ApplicationRecord, InterviewNote, NoteFeeling } from "../../shared/types";
+import { copyText } from "../clipboard";
 import { CompanyLogo } from "./CompanyLogo";
 import {
   IconCheck,
@@ -245,12 +246,10 @@ export function NotesView({
 
   async function copyNote(note: InterviewNote) {
     const header = [note.company, note.position, note.stageName].filter(Boolean).join(" / ");
-    try {
-      await navigator.clipboard.writeText(`${header}\n\n${draftContent || note.content}`);
+    const ok = await copyText(`${header}\n\n${draftContent || note.content}`);
+    if (ok) {
       setCopiedId(note.id);
       setTimeout(() => setCopiedId((prev) => (prev === note.id ? null : prev)), 1600);
-    } catch {
-      // ignore clipboard errors
     }
   }
 

@@ -41,6 +41,7 @@ import {
   type StageDraft,
 } from "../../shared/types";
 import { api } from "../api";
+import { copyText } from "../clipboard";
 import { CompanyLogo, suggestCompanies } from "./CompanyLogo";
 import { LlmConfigPanel } from "./LlmConfigPanel";
 import { loadSavedEditorMode, NoteEditor, saveEditorMode, type NoteEditorMode } from "./NoteEditor";
@@ -49,16 +50,20 @@ import {
   IconArrowUp,
   IconCheck,
   IconChevron,
+  IconClock,
   IconClose,
   IconCopy,
   IconExternal,
   IconGrip,
   IconMail,
+  IconMapPin,
+  IconPipeline,
   IconPlus,
   IconRefresh,
   IconSearch,
   IconSpark,
   IconTrash,
+  IconVideo,
 } from "./Icons";
 
 const PROVIDER_ORDER: MailProvider[] = ["qq", "163", "126", "gmail", "outlook", "exmail", "custom"];
@@ -801,6 +806,7 @@ export function MailSettingsModal({
   const [rawFrom, setRawFrom] = useState("");
   const [rawText, setRawText] = useState("");
   const [parsing, setParsing] = useState(false);
+  const [manualCopyText, setManualCopyText] = useState<string | null>(null);
   const [preview, setPreview] = useState<EmailParseResult | null>(null);
   const [previewRecord, setPreviewRecord] = useState<{
     id: string;
@@ -964,20 +970,26 @@ export function MailSettingsModal({
   }
 
   async function handleCopyMailPrompt() {
+    setManualCopyText(null);
     const parts = [MAIL_SELF_PARSE_PROMPT];
     if (rawSubject.trim()) parts.push(`主题：${rawSubject.trim()}`);
     if (rawFrom.trim()) parts.push(`发件人：${rawFrom.trim()}`);
     parts.push(rawText.trim() || "[在这里贴入邮件原文]");
-    try {
-      await navigator.clipboard.writeText(parts.join("\n"));
+    const promptPayload = parts.join("\n");
+    const ok = await copyText(promptPayload);
+    if (ok) {
       setFeedback({
         kind: "ok",
         text: rawText.trim()
           ? "已复制提示词与邮件，用网页版 DeepSeek / 豆包生成 JSON 后粘入正文框即可。"
           : "已复制邮箱解析提示词，用网页版大模型生成 JSON 后粘入下方正文框。",
       });
-    } catch {
-      setFeedback({ kind: "err", text: "写入剪贴板失败，请检查浏览器权限。" });
+    } else {
+      setManualCopyText(promptPayload);
+      setFeedback({
+        kind: "err",
+        text: "当前浏览器阻止自动复制，请在下方选区按 Ctrl+C 手动复制：",
+      });
     }
   }
 
@@ -1242,7 +1254,7 @@ export function MailSettingsModal({
                 onClick={() => void handleCopyMailPrompt()}
               >
                 <IconCopy size={13} />
-                <span>复制 AI 提示词</span>
+                <span>复制提示词（免 API Key）</span>
               </button>
               <button
                 type="button"
@@ -1285,73 +1297,132 @@ export function MailSettingsModal({
             <span className="field-label">邮件正文 / 模型输出的 JSON</span>
             <textarea
               className="textarea"
-              rows={6}
+              rows={4}
               placeholder="粘贴邮件正文，或直接粘贴豆包 / DeepSeek 输出的 JSON…"
               value={rawText}
               onChange={(e) => setRawText(e.target.value)}
             />
           </label>
 
-          {preview && preview.matched && (
-            <div className="parse-preview-box">
-              <div className="parse-preview-title">
-                解析结果（{preview.parserSource === "llm" ? "大模型增强" : "本地规则"}，置信度 {preview.confidence}%）
-              </div>
-              <div className="parse-grid">
-                <div>
-                  <span className="parse-k">公司</span>
-                  <span className="parse-v">{preview.company}</span>
-                </div>
-                <div>
-                  <span className="parse-k">岗位</span>
-                  <span className="parse-v">
-                    {preview.position ||
-                      (previewRecord ? `${previewRecord.position}（自动推断）` : "邮件未注明")}
+          {preview && preview.matched && (() => {
+            const posText =
+              preview.position ||
+              (previewRecord ? `${previewRecord.position}（按关联投递补全）` : "邮件未注明岗位");
+            const startD = preview.startAt ? new Date(preview.startAt) : null;
+            const endD = preview.endAt ? new Date(preview.endAt) : null;
+            const hasValidStart = Boolean(startD && !Number.isNaN(startD.getTime()));
+            const hasValidEnd = Boolean(endD && !Number.isNaN(endD.getTime()));
+            const pad2 = (n: number) => String(n).padStart(2, "0");
+            const timeSummary =
+              preview.timeMode === "flexible"
+                ? "时间自定，尽早完成"
+                : preview.timeMode === "deadline" && hasValidStart && startD
+                  ? `截止 ${startD.getFullYear()}/${startD.getMonth() + 1}/${startD.getDate()}`
+                  : hasValidStart && startD
+                    ? `${startD.getFullYear()}/${pad2(startD.getMonth() + 1)}/${pad2(startD.getDate())} ${pad2(startD.getHours())}:${pad2(startD.getMinutes())}${
+                        hasValidEnd && endD
+                          ? ` - ${pad2(endD.getHours())}:${pad2(endD.getMinutes())}`
+                          : ""
+                      }`
+                    : "未提取到具体时间";
+            const isLocUrl = Boolean(preview.location && /^https?:\/\//i.test(preview.location));
+            const matchNote = previewRecord
+              ? previewRecord.matchType === "exact"
+                ? "岗位精确匹配"
+                : previewRecord.matchType === "company_sole_active"
+                  ? "同公司唯一进行中"
+                  : previewRecord.matchType === "group_sole_active"
+                    ? "同集团唯一进行中"
+                    : ""
+              : "";
+            return (
+              <div className="parse-preview-box">
+                <div className="parse-card-head">
+                  <div className="parse-card-ident">
+                    <CompanyLogo company={preview.company} size="md" />
+                    <div className="parse-card-title-col">
+                      <div className="parse-card-title-row">
+                        <strong className="parse-card-company">{preview.company}</strong>
+                        <span className="home-stage-pill tone-active">{preview.stageName}</span>
+                      </div>
+                      <span className="parse-card-pos">{posText}</span>
+                    </div>
+                  </div>
+                  <span className="parse-card-badge">
+                    {preview.parserSource === "llm" ? "大模型增强" : "本地规则"} {preview.confidence}%
                   </span>
                 </div>
-                <div>
-                  <span className="parse-k">阶段</span>
-                  <span className="parse-v">{preview.stageName}</span>
-                </div>
-                <div>
-                  <span className="parse-k">时间</span>
-                  <span className="parse-v">
-                    {preview.timeMode === "flexible"
-                      ? "时间自定，尽早完成"
-                      : preview.timeMode === "deadline" && preview.startAt
-                        ? `截止 ${new Date(preview.startAt).toLocaleDateString("zh-CN")}`
-                        : preview.startAt
-                          ? new Date(preview.startAt).toLocaleString("zh-CN")
-                          : "未提取到具体时间"}
-                  </span>
-                </div>
-                {previewRecord && (
-                  <div className="parse-span-2">
-                    <span className="parse-k">关联投递</span>
-                    <span className="parse-v">
-                      {previewRecord.company} {previewRecord.position}
-                      {previewRecord.matchType === "company_sole_active"
-                        ? "（同公司唯一进行中流程）"
-                        : previewRecord.matchType === "group_sole_active"
-                          ? "（同集团唯一进行中流程）"
-                          : ""}
+
+                <div className="parse-card-rows">
+                  <div className="parse-card-row">
+                    <span className="parse-k">
+                      <IconClock size={13} />
+                      <span>日程时间</span>
                     </span>
+                    <span className="parse-v">{timeSummary}</span>
                   </div>
-                )}
-                {preview.location && (
-                  <div className="parse-span-2">
-                    <span className="parse-k">地点 / 链接</span>
-                    <span className="parse-v">{preview.location}</span>
+
+                  {preview.location && (
+                    <div className="parse-card-row">
+                      <span className="parse-k">
+                        {isLocUrl ? <IconVideo size={13} /> : <IconMapPin size={13} />}
+                        <span>{isLocUrl ? "会议链接" : "面试地点"}</span>
+                      </span>
+                      {isLocUrl ? (
+                        <a
+                          href={preview.location}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="parse-card-link"
+                          data-tip={preview.location}
+                        >
+                          <span className="parse-card-link-text">{preview.location}</span>
+                          <IconExternal size={12} />
+                        </a>
+                      ) : (
+                        <span className="parse-v">{preview.location}</span>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="parse-card-row">
+                    <span className="parse-k">
+                      <IconPipeline size={13} />
+                      <span>关联投递</span>
+                    </span>
+                    {previewRecord ? (
+                      <span className="parse-match-pill">
+                        <CompanyLogo company={previewRecord.company} size="sm" />
+                        <span>
+                          {previewRecord.company} {previewRecord.position}
+                        </span>
+                        {matchNote && <span className="parse-match-tag">{matchNote}</span>}
+                      </span>
+                    ) : (
+                      <span className="parse-v muted">暂无进行中同公司记录（加入日程后可手动绑定）</span>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {feedback && (
             <div className={feedback.kind === "ok" ? "form-ok" : "form-error"}>
               {feedback.text}
             </div>
+          )}
+
+          {manualCopyText && (
+            <textarea
+              className="textarea mono"
+              rows={4}
+              readOnly
+              value={manualCopyText}
+              onFocus={(e) => e.currentTarget.select()}
+              onClick={(e) => e.currentTarget.select()}
+              aria-label="请按 Ctrl+C 复制提示词"
+            />
           )}
 
           <div className="modal-actions">
@@ -1940,9 +2011,11 @@ export function CalendarSubscribeModal({ onClose }: { onClose: () => void }) {
 
   async function handleCopy() {
     if (!url) return;
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
+    const ok = await copyText(url);
+    if (ok) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    }
   }
 
   async function handleRotate() {

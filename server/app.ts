@@ -1089,7 +1089,7 @@ export async function buildApp({
         throw new ApiError(400, "请填写有效的模型 API Base URL（以 https:// 开头）。", "INVALID_LLM_URL");
       }
       if (!body.llmModel.trim()) {
-        throw new ApiError(400, "请填写模型名称（例如 deepseek-chat）。", "LLM_MODEL_REQUIRED");
+        throw new ApiError(400, "请填写模型名称（例如 deepseek-flash）。", "LLM_MODEL_REQUIRED");
       }
       if (!llmKeyEnc) {
         throw new ApiError(400, "启用大模型增强前请填写 API Key。", "LLM_KEY_REQUIRED");
