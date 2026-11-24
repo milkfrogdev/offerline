@@ -1,3 +1,4 @@
+import type { ImportedTimelineRecord } from "../shared/import-parser";
 import type {
   ApplicationRecord,
   EmailParseResult,
@@ -116,6 +117,20 @@ export const api = {
     request<{ ok: boolean; count: number }>("/api/records/import", {
       method: "POST",
       body: JSON.stringify({ data, mode }),
+    }),
+  smartParseRecords: (payload: {
+    text: string;
+    llm?: { baseUrl: string; model: string; apiKey?: string };
+    saveLlmConfig?: boolean;
+  }) =>
+    request<{
+      items: ImportedTimelineRecord[];
+      source: "llm" | "json";
+      model: string;
+      mailConfig?: MailAccountPublic;
+    }>("/api/records/smart-parse", {
+      method: "POST",
+      body: JSON.stringify(payload),
     }),
 
   // Schedule events

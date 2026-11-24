@@ -19,7 +19,6 @@ export const DEFAULT_STAGE_NAMES = [
   "二面",
   "三面",
   "HR面",
-  "Offer评估",
   "谈薪",
   "正式offer",
 ] as const;

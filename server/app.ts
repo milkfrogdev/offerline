@@ -6,6 +6,11 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { z } from "zod";
 import {
+  BATCH_TIMELINE_IMPORT_PROMPT,
+  looksLikeJsonPayload,
+  parseImportedPipelineRecords,
+} from "../shared/import-parser.js";
+import {
   applyStageStatusChange,
   buildInitialStages,
   createDefaultStageDrafts,
@@ -31,7 +36,12 @@ import {
 } from "../shared/types.js";
 import { resolveSiteBrandIcon } from "./brand-icon.js";
 import { buildIcsCalendar } from "./ics.js";
-import { assertSafeLlmUrl, normalizeLlmEndpoint, testLlmConnection } from "./llm-client.js";
+import {
+  assertSafeLlmUrl,
+  callOpenAiCompatibleJson,
+  normalizeLlmEndpoint,
+  testLlmConnection,
+} from "./llm-client.js";
 import { buildEventTitle, parseRecruitmentEmail } from "./mail-parser.js";
 import {
   findDuplicateEmailEvent,
@@ -224,6 +234,7 @@ export type AppOptions = {
   staticRoot?: string;
   mailSecret?: string;
   probeMailboxBaseline?: (creds: ImapCredentials) => Promise<number>;
+  callLlmJson?: typeof callOpenAiCompatibleJson;
 };
 
 function resolveClientEntry(staticRoot: string): string {
@@ -249,6 +260,7 @@ export async function buildApp({
     process.env.SESSION_SECRET ||
     "offerline-local-dev-mail-key",
   probeMailboxBaseline = probeMailboxBaselineUid,
+  callLlmJson = callOpenAiCompatibleJson,
 }: AppOptions) {
   const clientEntry = resolveClientEntry(staticRoot);
   const parsedOrigin = new URL(origin);
@@ -684,6 +696,124 @@ export async function buildApp({
 
     const count = await store.importRecords(user.id, sanitized, body.mode);
     return { ok: true, count };
+  });
+
+  app.post("/api/records/smart-parse", async (req) => {
+    const user = await requireUser(req);
+    await enforceLimit(`smart-parse:${user.id}`, 20, 10 * 60_000);
+    const body = z
+      .object({
+        text: z.string().trim().min(2, "请先上传表格或粘贴待解析内容").max(60_000),
+        llm: z
+          .object({
+            baseUrl: z.string().trim().max(240).default(""),
+            model: z.string().trim().max(100).default(""),
+            apiKey: z.string().max(256).optional(),
+          })
+          .optional(),
+        saveLlmConfig: z.boolean().default(false),
+      })
+      .strict()
+      .parse(req.body);
+
+    if (looksLikeJsonPayload(body.text)) {
+      const direct = parseImportedPipelineRecords(body.text);
+      if (!direct.ok) {
+        throw new ApiError(400, direct.error, "INVALID_IMPORT_JSON");
+      }
+      return { items: direct.items, source: "json" as const, model: "json" };
+    }
+
+    const existing = await store.getMailAccount(user.id);
+    const baseUrl = (body.llm?.baseUrl || existing?.llmBaseUrl || "").trim();
+    const model = (body.llm?.model || existing?.llmModel || "").trim();
+    let apiKey = (body.llm?.apiKey || "").trim();
+    if (!apiKey && existing?.llmKeyEnc) {
+      try {
+        apiKey = decryptSecret(existing.llmKeyEnc, masterKey);
+      } catch {
+        apiKey = "";
+      }
+    }
+
+    if (!baseUrl || !model || !apiKey) {
+      throw new ApiError(
+        400,
+        "请先填写大模型 API Key，或点击「复制提示词」用网页版 DeepSeek / 豆包转成 JSON 后贴回导入。",
+        "LLM_NOT_CONFIGURED",
+      );
+    }
+
+    const endpoint = normalizeLlmEndpoint(baseUrl);
+    if (!endpoint) {
+      throw new ApiError(400, "请填写有效的模型 API Base URL（以 https:// 开头）。", "INVALID_LLM_URL");
+    }
+    const ssrf = await assertSafeLlmUrl(endpoint);
+    if (!ssrf.ok) {
+      throw new ApiError(400, ssrf.error, "LLM_URL_BLOCKED");
+    }
+
+    if (body.saveLlmConfig && body.llm?.baseUrl?.trim() && body.llm?.model?.trim()) {
+      const now = new Date().toISOString();
+      await store.upsertMailAccount({
+        userId: user.id,
+        enabled: existing?.enabled ?? false,
+        provider: existing?.provider ?? "qq",
+        host: existing?.host ?? "",
+        port: existing?.port ?? 993,
+        secure: existing?.secure ?? true,
+        email: existing?.email ?? "",
+        passwordEnc: existing?.passwordEnc ?? "",
+        folder: existing?.folder || "INBOX",
+        pollIntervalMin: existing?.pollIntervalMin ?? 10,
+        lookbackDays: existing?.lookbackDays ?? 7,
+        lastUid: existing?.lastUid ?? 0,
+        llmEnabled: existing?.llmEnabled ?? false,
+        llmBaseUrl: baseUrl,
+        llmModel: model,
+        llmKeyEnc: encryptSecret(apiKey, masterKey),
+        lastSyncedAt: existing?.lastSyncedAt,
+        lastError: existing?.lastError,
+        lastMatchedCount: existing?.lastMatchedCount ?? 0,
+        updatedAt: now,
+      });
+    }
+
+    const systemPrompt =
+      BATCH_TIMELINE_IMPORT_PROMPT.replace(
+        "只输出合法的 JSON 数组（可用 ```json 代码块包裹）",
+        '只输出合法 JSON 对象 {"records": [...]}（不要代码块与解释文字）',
+      ).replace(/\n待整理内容如下：\s*$/, "") +
+      '\n\n再次确认：外层必须是 {"records": [...]} 对象结构，不要输出裸数组。';
+
+    const llmRes = await callLlmJson(
+      { baseUrl, model, apiKey },
+      [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: body.text.slice(0, 45_000) },
+      ],
+      { timeoutMs: 45_000, maxTokens: 4096 },
+    );
+
+    if (!llmRes.ok) {
+      throw new ApiError(400, llmRes.error, "LLM_PARSE_FAILED");
+    }
+
+    const parsed = parseImportedPipelineRecords(llmRes.data);
+    if (!parsed.ok) {
+      throw new ApiError(400, parsed.error, "INVALID_LLM_OUTPUT");
+    }
+
+    const mailConfig = body.saveLlmConfig
+      ? toPublicMailAccount(await store.getMailAccount(user.id))
+      : undefined;
+
+    return {
+      items: parsed.items,
+      source: "llm" as const,
+      model,
+      ...(mailConfig ? { mailConfig } : {}),
+    };
   });
 
   // ===== Schedule Events & ICS =====

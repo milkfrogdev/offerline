@@ -98,6 +98,7 @@ describe("OfferLine 阶段领域模型与分组排序", () => {
     expect(stageProgress(baseStages)).toBeCloseTo(1 / baseStages.length);
 
     expect(STAGE_TEMPLATES.map((t) => t.label)).toEqual(["实习", "校招", "社招"]);
+    expect(STAGE_TEMPLATES.find((t) => t.id === "campus")?.names).not.toContain("Offer评估");
     expect(STAGE_TEMPLATES.find((t) => t.id === "campus")?.names).toContain("谈薪");
     expect(STAGE_TEMPLATES.find((t) => t.id === "social")?.names).toContain("谈薪");
     expect(inferStageType({ name: "谈薪" })).toBe("other");

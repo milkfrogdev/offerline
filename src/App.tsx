@@ -25,6 +25,7 @@ import { NotesView } from "./components/NotesView";
 import { PipelineView } from "./components/PipelineView";
 import { ScheduleView } from "./components/ScheduleView";
 import { Sidebar } from "./components/Sidebar";
+import { SmartImportModal } from "./components/SmartImportModal";
 import { TooltipHost } from "./components/TooltipHost";
 
 const THEME_KEY = "offerline.theme";
@@ -80,6 +81,7 @@ export function App() {
   }>({ open: false, editing: null });
   const [subscribeOpen, setSubscribeOpen] = useState(false);
   const [vaultOpen, setVaultOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const showToast = useCallback((text: string, kind: "ok" | "err" = "ok") => {
     setToast({ kind, text });
@@ -423,6 +425,7 @@ export function App() {
             initialQuery={pipelineQuery}
             onClearInitialQuery={() => setPipelineQuery("")}
             onAddRecord={() => setRecordModal({ open: true, editing: null })}
+            onOpenSmartImport={() => setImportOpen(true)}
             onAddForCompany={(company, url) =>
               setRecordModal({ open: true, editing: null, presetCompany: company, presetUrl: url })
             }
@@ -588,6 +591,19 @@ export function App() {
           records={records}
           onClose={() => setVaultOpen(false)}
           onImported={loadAllData}
+        />
+      )}
+
+      {importOpen && (
+        <SmartImportModal
+          records={records}
+          mailConfig={mailConfig}
+          onClose={() => setImportOpen(false)}
+          onMailConfigUpdated={(cfg) => setMailConfig(cfg)}
+          onImported={async (msg) => {
+            await loadAllData();
+            showToast(msg);
+          }}
         />
       )}
 

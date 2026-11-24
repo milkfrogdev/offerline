@@ -18,6 +18,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { matchBrandEntry } from "../../shared/companies";
+import { MAIL_SELF_PARSE_PROMPT } from "../../shared/import-parser";
 import {
   createDefaultStageDrafts,
   createStageDraftsFromNames,
@@ -82,10 +83,10 @@ const PROVIDER_PRESETS: Record<
     port: 993,
     secure: true,
     placeholder: "例如：123456@qq.com",
-    authPlaceholder: "粘贴 QQ 邮箱 16 位 IMAP 授权码",
+    authPlaceholder: "16 位 IMAP 授权码",
     guideUrl: "https://mail.qq.com",
     guideLabel: "前往 QQ 邮箱",
-    tip: "在 QQ 邮箱网页端「设置 → 账号与安全 → 安全管理 → POP3/IMAP」开启服务并复制 16 位授权码。",
+    tip: "在 QQ 邮箱网页端「设置 → 账号与安全 → 安全管理 → POP3/IMAP」开启并复制授权码",
   },
   "163": {
     label: "网易 163",
@@ -93,10 +94,10 @@ const PROVIDER_PRESETS: Record<
     port: 993,
     secure: true,
     placeholder: "例如：name@163.com",
-    authPlaceholder: "粘贴网易邮箱客户端授权密码",
+    authPlaceholder: "客户端授权密码",
     guideUrl: "https://mail.163.com",
     guideLabel: "前往 163 邮箱",
-    tip: "在网易邮箱「设置 → POP3/SMTP/IMAP」开启 IMAP 并生成客户端授权密码。",
+    tip: "在「设置 → POP3/SMTP/IMAP」开启 IMAP 并生成授权密码",
   },
   "126": {
     label: "网易 126",
@@ -104,10 +105,10 @@ const PROVIDER_PRESETS: Record<
     port: 993,
     secure: true,
     placeholder: "例如：name@126.com",
-    authPlaceholder: "粘贴 126 邮箱客户端授权密码",
+    authPlaceholder: "客户端授权密码",
     guideUrl: "https://mail.126.com",
     guideLabel: "前往 126 邮箱",
-    tip: "在 126 邮箱「设置 → POP3/SMTP/IMAP」开启 IMAP 并生成授权密码。",
+    tip: "在「设置 → POP3/SMTP/IMAP」开启 IMAP 并生成授权密码",
   },
   gmail: {
     label: "Gmail",
@@ -115,10 +116,10 @@ const PROVIDER_PRESETS: Record<
     port: 993,
     secure: true,
     placeholder: "例如：name@gmail.com",
-    authPlaceholder: "粘贴 Google 16 位应用专用密码",
+    authPlaceholder: "16 位应用专用密码",
     guideUrl: "https://myaccount.google.com/apppasswords",
     guideLabel: "创建应用密码",
-    tip: "开启 Google 两步验证后，创建 16 位应用专用密码（App Password）粘贴到下方。",
+    tip: "开启两步验证后，创建 16 位应用专用密码填入",
   },
   outlook: {
     label: "Outlook",
@@ -126,10 +127,10 @@ const PROVIDER_PRESETS: Record<
     port: 993,
     secure: true,
     placeholder: "例如：name@outlook.com",
-    authPlaceholder: "粘贴邮箱密码或应用密码",
+    authPlaceholder: "邮箱密码或应用密码",
     guideUrl: "https://outlook.live.com",
     guideLabel: "前往 Outlook",
-    tip: "已自动预填 Outlook IMAP 993 加密端口，填入邮箱与密码即可接入。",
+    tip: "已预填 993 加密端口，填入邮箱与密码即可",
   },
   exmail: {
     label: "腾讯企业邮",
@@ -137,10 +138,10 @@ const PROVIDER_PRESETS: Record<
     port: 993,
     secure: true,
     placeholder: "例如：name@company.com",
-    authPlaceholder: "粘贴企业邮箱客户端专用密码",
+    authPlaceholder: "客户端专用密码",
     guideUrl: "https://exmail.qq.com",
     guideLabel: "前往企业邮",
-    tip: "在企业邮「设置 → 微信绑定/安全设置」生成客户端专用密码后填入。",
+    tip: "在「设置 → 安全设置」生成客户端专用密码",
   },
   custom: {
     label: "自定义 IMAP",
@@ -148,8 +149,8 @@ const PROVIDER_PRESETS: Record<
     port: 993,
     secure: true,
     placeholder: "例如：name@domain.com",
-    authPlaceholder: "填入邮箱密码或授权码",
-    tip: "支持任意标准 IMAP 邮箱，请在下方补全服务器地址与端口。",
+    authPlaceholder: "邮箱密码或授权码",
+    tip: "请在下方高级设置填写 IMAP 服务器与端口",
   },
 };
 
@@ -165,11 +166,11 @@ function detectProviderFromEmail(addr: string): MailProvider | null {
   return null;
 }
 
-type LlmProviderKey = "deepseek" | "qwen" | "zhipu" | "kimi" | "openai" | "custom";
+export type LlmProviderKey = "deepseek" | "qwen" | "zhipu" | "kimi" | "openai" | "custom";
 
-const LLM_PRESET_ORDER: LlmProviderKey[] = ["deepseek", "qwen", "zhipu", "kimi", "openai", "custom"];
+export const LLM_PRESET_ORDER: LlmProviderKey[] = ["deepseek", "qwen", "zhipu", "kimi", "openai", "custom"];
 
-const LLM_PRESETS: Record<
+export const LLM_PRESETS: Record<
   LlmProviderKey,
   {
     label: string;
@@ -189,8 +190,8 @@ const LLM_PRESETS: Record<
     placeholderUrl: "https://api.deepseek.com/v1",
     placeholderModel: "deepseek-chat",
     guideUrl: "https://platform.deepseek.com/api_keys",
-    guideLabel: "获取 DeepSeek Key",
-    tip: "性价比极高且支持原生 JSON 输出，100 封日常邮箱解析成本不到几分钱。",
+    guideLabel: "获取 Key",
+    tip: "支持原生 JSON 输出，成本极低",
   },
   qwen: {
     label: "通义千问",
@@ -199,8 +200,8 @@ const LLM_PRESETS: Record<
     placeholderUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
     placeholderModel: "qwen-plus",
     guideUrl: "https://bailian.console.aliyun.com/?apiKey=1",
-    guideLabel: "前往阿里云百炼",
-    tip: "阿里云百炼 OpenAI 兼容端点，推荐 qwen-plus 或 qwen-turbo。",
+    guideLabel: "阿里云百炼",
+    tip: "阿里云百炼 OpenAI 兼容端点",
   },
   zhipu: {
     label: "智谱 GLM",
@@ -209,8 +210,8 @@ const LLM_PRESETS: Record<
     placeholderUrl: "https://open.bigmodel.cn/api/paas/v4",
     placeholderModel: "glm-4-flash",
     guideUrl: "https://open.bigmodel.cn/usercenter/apikeys",
-    guideLabel: "前往智谱开放平台",
-    tip: "智谱开放平台兼容接口，glm-4-flash 响应快且支持高免费额度。",
+    guideLabel: "智谱控制台",
+    tip: "glm-4-flash 响应快，免费额度高",
   },
   kimi: {
     label: "月之暗面 Kimi",
@@ -219,8 +220,8 @@ const LLM_PRESETS: Record<
     placeholderUrl: "https://api.moonshot.cn/v1",
     placeholderModel: "moonshot-v1-8k",
     guideUrl: "https://platform.moonshot.cn/console/api-keys",
-    guideLabel: "前往 Moonshot 控制台",
-    tip: "Moonshot OpenAI 兼容接口，长中文邮件正文理解稳定。",
+    guideLabel: "Moonshot",
+    tip: "Moonshot OpenAI 兼容接口",
   },
   openai: {
     label: "OpenAI",
@@ -229,8 +230,8 @@ const LLM_PRESETS: Record<
     placeholderUrl: "https://api.openai.com/v1",
     placeholderModel: "gpt-4o-mini",
     guideUrl: "https://platform.openai.com/api-keys",
-    guideLabel: "前往 OpenAI",
-    tip: "需服务器出站网络可访问 api.openai.com，推荐轻量快速的 gpt-4o-mini。",
+    guideLabel: "OpenAI",
+    tip: "需服务器出站网络可访问 api.openai.com",
   },
   custom: {
     label: "自定义兼容",
@@ -238,11 +239,11 @@ const LLM_PRESETS: Record<
     model: "",
     placeholderUrl: "https://your-gateway.example/v1",
     placeholderModel: "输入模型 ID",
-    tip: "支持硅基流动、火山方舟、OpenRouter、自建聚合网关等任意 OpenAI 兼容接口；自动兼容省略 /v1 或完整路径。",
+    tip: "支持硅基流动、火山方舟、OpenRouter 等兼容接口",
   },
 };
 
-function detectLlmPreset(baseUrl: string): LlmProviderKey {
+export function detectLlmPreset(baseUrl: string): LlmProviderKey {
   const lower = baseUrl.trim().toLowerCase();
   if (!lower) return "deepseek";
   if (lower.includes("deepseek.com")) return "deepseek";
@@ -264,7 +265,7 @@ const SAMPLE_INTERVIEW_EMAIL = {
     "请提前 5 分钟进入会议室调试麦克风与摄像头。",
 };
 
-function ModalShell({
+export function ModalShell({
   title,
   onClose,
   wide = false,
@@ -1125,6 +1126,24 @@ export function MailSettingsModal({
     }
   }
 
+  async function handleCopyMailPrompt() {
+    const parts = [MAIL_SELF_PARSE_PROMPT];
+    if (rawSubject.trim()) parts.push(`主题：${rawSubject.trim()}`);
+    if (rawFrom.trim()) parts.push(`发件人：${rawFrom.trim()}`);
+    parts.push(rawText.trim() || "[在这里贴入邮件原文]");
+    try {
+      await navigator.clipboard.writeText(parts.join("\n"));
+      setFeedback({
+        kind: "ok",
+        text: rawText.trim()
+          ? "已复制提示词与邮件，用网页版 DeepSeek / 豆包生成 JSON 后粘入正文框即可。"
+          : "已复制邮箱解析提示词，用网页版大模型生成 JSON 后粘入下方正文框。",
+      });
+    } catch {
+      setFeedback({ kind: "err", text: "写入剪贴板失败，请检查浏览器权限。" });
+    }
+  }
+
   return (
     <ModalShell title="邮箱监听与智能日程" onClose={onClose} wide>
       <div className="modal-tabs">
@@ -1164,7 +1183,7 @@ export function MailSettingsModal({
       {tab === "imap" ? (
         <form className="modal-form" onSubmit={handleSave}>
           <div className="field">
-            <span className="field-label">选择常用邮箱（输入邮箱地址也会自动识别预填）</span>
+            <span className="field-label">选择常用邮箱</span>
             <div className="provider-row">
               {PROVIDER_ORDER.map((p) => (
                 <button
@@ -1207,15 +1226,13 @@ export function MailSettingsModal({
               />
             </label>
             <label className="field">
-              <span className="field-label">
-                IMAP 授权码 {config?.hasPassword ? "（已加密保存，留空不改）" : ""}
-              </span>
+              <span className="field-label">IMAP 授权码</span>
               <input
                 type="password"
                 className="input"
                 placeholder={
                   config?.hasPassword
-                    ? "已加密保存，如需更换请重新填写"
+                    ? "已保存，留空不修改"
                     : PROVIDER_PRESETS[provider].authPlaceholder
                 }
                 value={password}
@@ -1226,7 +1243,7 @@ export function MailSettingsModal({
           </div>
 
           <div className="field">
-            <span className="field-label">接入时邮件扫描范围</span>
+            <span className="field-label">邮件扫描起点</span>
             <div className="provider-row">
               {lookbackChoices.map((opt) => (
                 <button
@@ -1241,8 +1258,8 @@ export function MailSettingsModal({
             </div>
             <p className="field-micro-hint">
               {lookbackDays === 0
-                ? "仅记录当前最新邮件位置，保存后只识别从此刻起新收到的邮件，不翻查旧邮件。"
-                : `首次同步（或调大范围）时回溯最近 ${lookbackDays} 天的邮件，之后自动只查新邮件。`}
+                ? "仅监听保存之后新收到的邮件"
+                : `首次同步补扫近 ${lookbackDays} 天，之后只查新邮件`}
             </p>
           </div>
 
@@ -1253,7 +1270,7 @@ export function MailSettingsModal({
                 checked={enabled}
                 onChange={(e) => setEnabled(e.target.checked)}
               />
-              <span>开启后台自动监听（以只读模式扫描新邮件，不改未读状态）</span>
+              <span>开启后台自动监听（只读模式，不改未读状态）</span>
             </label>
           </div>
 
@@ -1337,18 +1354,16 @@ export function MailSettingsModal({
                     </button>
                   ))}
                 </div>
-                <p className="field-micro-hint">
-                  {pollIntervalMin <= 2
-                    ? "高频短连适合 QQ / Gmail 个人单账号；若遇 163 邮箱或官方短暂频控，可调回 5 分钟以上。"
-                    : "只读检查新邮件位置，无新邮件时不下载正文；如需更快收到通知可选 1–2 分钟。"}
-                </p>
+                {pollIntervalMin <= 2 && (
+                  <p className="field-micro-hint">
+                    高频短连适合个人 QQ / Gmail；163 建议 5 分钟以上
+                  </p>
+                )}
               </div>
             </div>
           )}
 
-          <p className="security-note">
-            授权码在服务端使用 AES-256-GCM 加密存储，界面永不回传明文。
-          </p>
+          <p className="security-note">授权码在服务端加密存储，界面不回传明文</p>
 
           {feedback && (
             <div className={feedback.kind === "ok" ? "form-ok" : "form-error"}>
@@ -1378,7 +1393,7 @@ export function MailSettingsModal({
       ) : tab === "llm" ? (
         <form className="modal-form" onSubmit={handleSaveLlm}>
           <div className="field">
-            <span className="field-label">常用厂商预设（任意 OpenAI 兼容接口均适用）</span>
+            <span className="field-label">模型预设</span>
             <div className="provider-row">
               {LLM_PRESET_ORDER.map((p) => (
                 <button
@@ -1415,7 +1430,7 @@ export function MailSettingsModal({
                 checked={llmEnabled}
                 onChange={(e) => setLlmEnabled(e.target.checked)}
               />
-              <span>启用可选大模型增强（默认本地规则已可完整解析，未配 IMAP 也能单独用于粘贴解析）</span>
+              <span>启用个人大模型增强（未配 Key 时仍可用本地规则或复制提示词导入）</span>
             </label>
           </div>
 
@@ -1448,14 +1463,12 @@ export function MailSettingsModal({
           </div>
 
           <label className="field">
-            <span className="field-label">
-              API Key {config?.hasLlmKey ? "（已加密保存，留空不修改）" : ""}
-            </span>
+            <span className="field-label">API Key</span>
             <input
               type="password"
               className="input"
               placeholder={
-                config?.hasLlmKey ? "已加密保存，如需更换请重新填写" : "粘贴个人 API Key（sk-...）"
+                config?.hasLlmKey ? "已保存，留空不修改" : "粘贴个人 API Key（sk-...）"
               }
               value={llmApiKey}
               onChange={(e) => setLlmApiKey(e.target.value)}
@@ -1464,7 +1477,7 @@ export function MailSettingsModal({
           </label>
 
           <p className="security-note">
-            验证码、账单、拒信、调研问卷与宣讲广告由本地规则 0 Token 拦截，仅疑似求职日程邮件才调模型；Key 服务端 AES-256-GCM 密文存储，异常时无损回退本地规则。
+            常规垃圾/拒信由本地规则 0 Token 拦截；Key 加密存服务端，超时回退本地规则
           </p>
 
           {feedback && (
@@ -1496,21 +1509,31 @@ export function MailSettingsModal({
         <div className="modal-form">
           <div className="field-head-inline">
             <p className="field-hint">
-              未接入 IMAP 时，直接粘贴面试或笔试邮件原文，自动提取公司、时间与会议链接。
+              贴原文直接解析，或复制提示词免 Key 转 JSON 贴回：
             </p>
-            <button
-              type="button"
-              className="btn btn-soft btn-sm"
-              onClick={() => {
-                setRawSubject(SAMPLE_INTERVIEW_EMAIL.subject);
-                setRawFrom(SAMPLE_INTERVIEW_EMAIL.from);
-                setRawText(SAMPLE_INTERVIEW_EMAIL.text);
-                setFeedback(null);
-              }}
-            >
-              <IconSpark size={13} />
-              <span>填入示例邮件</span>
-            </button>
+            <div className="inline-actions-pair">
+              <button
+                type="button"
+                className="btn btn-soft btn-sm"
+                onClick={() => void handleCopyMailPrompt()}
+              >
+                <IconCopy size={13} />
+                <span>复制 AI 提示词</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn-soft btn-sm"
+                onClick={() => {
+                  setRawSubject(SAMPLE_INTERVIEW_EMAIL.subject);
+                  setRawFrom(SAMPLE_INTERVIEW_EMAIL.from);
+                  setRawText(SAMPLE_INTERVIEW_EMAIL.text);
+                  setFeedback(null);
+                }}
+              >
+                <IconSpark size={13} />
+                <span>填入示例</span>
+              </button>
+            </div>
           </div>
           <div className="form-row-2">
             <label className="field">
@@ -1535,11 +1558,11 @@ export function MailSettingsModal({
             </label>
           </div>
           <label className="field">
-            <span className="field-label">邮件正文</span>
+            <span className="field-label">邮件正文 / 模型输出的 JSON</span>
             <textarea
               className="textarea"
               rows={6}
-              placeholder="粘贴邮件全文，含时间与腾讯会议 / 飞书会议 / 牛客笔试链接…"
+              placeholder="粘贴邮件正文，或直接粘贴豆包 / DeepSeek 输出的 JSON…"
               value={rawText}
               onChange={(e) => setRawText(e.target.value)}
             />

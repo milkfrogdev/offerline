@@ -1,5 +1,6 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
+import { extractJsonValue } from "../shared/import-parser.js";
 import { isPrivateOrReservedIp } from "./brand-icon.js";
 
 export interface LlmEndpointConfig {
@@ -120,65 +121,13 @@ export async function assertSafeLlmUrl(
 }
 
 /**
- * 容错提取模型返回的 JSON 对象：
- * 自动剥离 <think>...</think> 思考块与 Markdown 代码块围栏，定位首个配对花括号并解析。
+ * 容错提取模型返回的 JSON 对象：复用共享 extractJsonValue 并兼容数组包壳。
  */
 export function extractJsonObject(raw: string): Record<string, unknown> | null {
-  if (!raw || typeof raw !== "string") return null;
-  const cleaned = raw
-    .replace(/<think>[\s\S]*?<\/think>/gi, " ")
-    .replace(/```(?:json)?\s*([\s\S]*?)```/gi, "$1")
-    .trim();
-
-  // Fast path: pure JSON string
-  if (cleaned.startsWith("{") && cleaned.endsWith("}")) {
-    try {
-      const obj = JSON.parse(cleaned);
-      if (obj && typeof obj === "object" && !Array.isArray(obj)) {
-        return obj as Record<string, unknown>;
-      }
-    } catch {
-      // Fall through to balanced-brace scanner
-    }
-  }
-
-  // Balanced-brace scan ignoring string literals
-  const start = cleaned.indexOf("{");
-  if (start === -1) return null;
-  let depth = 0;
-  let inStr = false;
-  let escaped = false;
-  for (let i = start; i < cleaned.length; i++) {
-    const ch = cleaned[i];
-    if (inStr) {
-      if (escaped) {
-        escaped = false;
-      } else if (ch === "\\") {
-        escaped = true;
-      } else if (ch === '"') {
-        inStr = false;
-      }
-      continue;
-    }
-    if (ch === '"') {
-      inStr = true;
-    } else if (ch === "{") {
-      depth++;
-    } else if (ch === "}") {
-      depth--;
-      if (depth === 0) {
-        const candidate = cleaned.slice(start, i + 1);
-        try {
-          const obj = JSON.parse(candidate);
-          if (obj && typeof obj === "object" && !Array.isArray(obj)) {
-            return obj as Record<string, unknown>;
-          }
-        } catch {
-          return null;
-        }
-      }
-    }
-  }
+  const val = extractJsonValue(raw);
+  if (!val) return null;
+  if (Array.isArray(val)) return { records: val };
+  if (typeof val === "object") return val as Record<string, unknown>;
   return null;
 }
 

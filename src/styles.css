@@ -1275,6 +1275,10 @@ textarea {
   filter: invert(1) brightness(1.08);
 }
 
+:root[data-theme="dark"] .company-logo.white-dark .brand-img {
+  filter: brightness(0) invert(0.95);
+}
+
 .company-logo.is-monogram {
   border-radius: 50%;
   border: 1px solid var(--line-strong);
@@ -6842,6 +6846,140 @@ textarea {
   flex-direction: column;
   gap: 14px;
   animation: viewEnter 0.18s var(--ease-out);
+}
+
+/* ==================== Smart Import & Prompt Copy ==================== */
+.inline-actions-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.smart-llm-bar {
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.smart-llm-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.smart-preview-list {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  max-height: 360px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.smart-preview-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--line-soft);
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.smart-preview-row:last-child {
+  border-bottom: none;
+}
+
+.smart-preview-row:hover {
+  background: var(--row-hover);
+}
+
+.smart-preview-row.is-muted {
+  opacity: 0.56;
+}
+
+.smart-preview-row input[type="checkbox"] {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.smart-preview-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.smart-preview-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.smart-preview-company {
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.smart-preview-pos {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.smart-preview-dup {
+  margin-left: auto;
+  padding: 1px 7px;
+  border-radius: 5px;
+  background: var(--star-soft);
+  color: var(--warn);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.smart-preview-stages {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.smart-stage-pill {
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 11.5px;
+  font-weight: 500;
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+.smart-stage-pill.st-pass {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.smart-stage-pill.st-current {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.smart-stage-pill.st-fail,
+.smart-stage-pill.st-rejected {
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+
+.smart-stage-pill.st-skip {
+  background: var(--surface-2);
+  color: var(--text-3);
+  text-decoration: line-through;
 }
 
 /* ==================== Custom Global Portal Tooltip (Zero Native title) ==================== */

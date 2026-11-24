@@ -418,4 +418,85 @@ describe("OfferLine 服务端安全、日程、邮箱与面经集成测试", () 
       rmSync(tmpStatic, { recursive: true, force: true });
     }
   });
+
+  it("支持大模型批量解析导入（直连 Key 与免 Key 贴回 JSON）并加密保存模型配置", async () => {
+    const { app, store } = await createTestApp({
+      callLlmJson: async () => ({
+        ok: true,
+        latencyMs: 120,
+        normalizedEndpoint: "https://api.deepseek.com/v1/chat/completions",
+        jsonMode: "native",
+        data: {
+          records: [
+            {
+              company: "科大讯飞",
+              position: "大模型研发",
+              stages: [
+                { name: "投递", status: "pass" },
+                { name: "一面", status: "pass" },
+                { name: "二面", status: "current" },
+              ],
+            },
+          ],
+        },
+      }),
+    });
+
+    try {
+      const reg = await app.inject({
+        method: "POST",
+        url: "/api/auth/register",
+        headers: { origin: ORIGIN, "content-type": "application/json" },
+        payload: { username: "importer", password: "strong-password-import" },
+      });
+      const cookie = extractCookie(reg.headers["set-cookie"]);
+
+      // 1. 未配置 Key 解析纯文本给出明确提示
+      const noKey = await app.inject({
+        method: "POST",
+        url: "/api/records/smart-parse",
+        headers: { origin: ORIGIN, cookie, "content-type": "application/json" },
+        payload: { text: "字节跳动 后端开发 二面中" },
+      });
+      expect(noKey.statusCode).toBe(400);
+      expect(noKey.json().code).toBe("LLM_NOT_CONFIGURED");
+
+      // 2. 免 Key 直接贴回网页版大模型 JSON 即可识别
+      const directJson = await app.inject({
+        method: "POST",
+        url: "/api/records/smart-parse",
+        headers: { origin: ORIGIN, cookie, "content-type": "application/json" },
+        payload: {
+          text: '[{"company":"美团","position":"后端","stages":[{"name":"投递","status":"pass"},{"name":"一面","status":"current"}]}]',
+        },
+      });
+      expect(directJson.statusCode).toBe(200);
+      expect(directJson.json().source).toBe("json");
+      expect(directJson.json().items[0].company).toBe("美团");
+
+      // 3. 填入个人大模型 API Key 解析原始文本并加密保存配置（不回传明文 Key）
+      const llmParse = await app.inject({
+        method: "POST",
+        url: "/api/records/smart-parse",
+        headers: { origin: ORIGIN, cookie, "content-type": "application/json" },
+        payload: {
+          text: "科大讯飞 大模型研发 过了一面等二面",
+          llm: {
+            baseUrl: "https://api.deepseek.com/v1",
+            model: "deepseek-chat",
+            apiKey: "sk-smart-import-secret-123",
+          },
+          saveLlmConfig: true,
+        },
+      });
+      expect(llmParse.statusCode).toBe(200);
+      expect(llmParse.body).not.toContain("sk-smart-import-secret-123");
+      expect(llmParse.json().source).toBe("llm");
+      expect(llmParse.json().items[0].company).toBe("科大讯飞");
+      expect(llmParse.json().mailConfig.hasLlmKey).toBe(true);
+    } finally {
+      await app.close();
+      await store.close();
+    }
+  });
 });

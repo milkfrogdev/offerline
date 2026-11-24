@@ -11,6 +11,7 @@ import {
 import {
   htmlToCleanText,
   parseIcsEvent,
+  parseRecruitmentEmail,
   parseRecruitmentEmailByRules,
 } from "../server/mail-parser";
 import {
@@ -505,5 +506,28 @@ describe("求职邮件深度解析、去噪、归一化与 ICS 生成", () => {
       extractJsonObject('<think>先分析邮件...</think>\n```json\n{"matched":true,"company":"腾讯"}\n```'),
     ).toEqual({ matched: true, company: "腾讯" });
     expect(extractJsonObject('结果如下：{"ok":true,"n":1} 结束')).toEqual({ ok: true, n: 1 });
+  });
+
+  it("支持无 API Key 时直接贴入网页版大模型输出的 JSON 完成邮箱日程解析", async () => {
+    const parsedOk = await parseRecruitmentEmail({
+      subject: "",
+      from: "",
+      text: '```json\n{"matched":true,"company":"深圳市大疆创新科技有限公司","position":"飞控算法","stageName":"技术二面","kind":"interview","actionHint":"schedule","timeMode":"scheduled","startAt":"2026-11-29T14:00:00+08:00","location":"https://vc.feishu.cn/j/665544"}\n```',
+    });
+    expect(parsedOk.matched).toBe(true);
+    expect(parsedOk.parserSource).toBe("llm");
+    expect(parsedOk.company).toBe("大疆");
+    expect(parsedOk.position).toBe("飞控算法");
+    expect(parsedOk.stageName).toBe("二面");
+    expect(parsedOk.startAt).toBe("2026-11-29T06:00:00.000Z");
+    expect(parsedOk.location).toBe("https://vc.feishu.cn/j/665544");
+
+    const parsedRejected = await parseRecruitmentEmail({
+      subject: "",
+      from: "",
+      text: '{"matched":false,"actionHint":"fail","reason":"感谢信不建日程"}',
+    });
+    expect(parsedRejected.matched).toBe(false);
+    expect(parsedRejected.actionHint).toBe("fail");
   });
 });

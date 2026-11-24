@@ -98,9 +98,14 @@ export function CompanyLogo({
   }, [remoteSrc]);
 
   if (localSrc) {
+    const darkCls = rule?.whiteInDark
+      ? " white-dark"
+      : rule?.invertInDark
+        ? " invert-dark"
+        : "";
     return (
       <span
-        className={`company-logo company-logo-${size}${rule?.invertInDark ? " invert-dark" : ""}`}
+        className={`company-logo company-logo-${size}${darkCls}`}
         aria-hidden="true"
       >
         <img src={localSrc} alt="" className="brand-img" loading="lazy" decoding="async" />

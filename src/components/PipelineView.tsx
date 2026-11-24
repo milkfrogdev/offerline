@@ -32,6 +32,7 @@ import {
   IconSort,
   IconStar,
   IconTrash,
+  IconUpload,
 } from "./Icons";
 
 interface PopoverTarget {
@@ -123,6 +124,7 @@ export function PipelineView({
   initialQuery,
   onClearInitialQuery,
   onAddRecord,
+  onOpenSmartImport,
   onAddForCompany,
   onEditRecord,
   onDeleteRecord,
@@ -140,6 +142,7 @@ export function PipelineView({
   initialQuery?: string;
   onClearInitialQuery?: () => void;
   onAddRecord: () => void;
+  onOpenSmartImport: () => void;
   onAddForCompany: (company: string, url?: string) => void;
   onEditRecord: (record: ApplicationRecord) => void;
   onDeleteRecord: (record: ApplicationRecord) => void;
@@ -653,6 +656,11 @@ export function PipelineView({
               </div>
             )}
           </div>
+
+          <button type="button" className="btn btn-ghost" onClick={onOpenSmartImport}>
+            <IconUpload size={14} />
+            <span>智能导入</span>
+          </button>
 
           <button type="button" className="btn btn-primary" onClick={onAddRecord}>
             <IconPlus size={14} />

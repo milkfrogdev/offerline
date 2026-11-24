@@ -6,6 +6,7 @@ export interface BrandEntry {
   match: RegExp;
   domains?: string[];
   invertInDark?: boolean;
+  whiteInDark?: boolean;
 }
 
 /**
@@ -90,6 +91,7 @@ export const BRAND_DIRECTORY: BrandEntry[] = [
     keywords: ["kdxf", "xf", "iflytek", "讯飞"],
     match: /科大讯飞|讯飞|iflytek/i,
     domains: ["iflytek.com"],
+    whiteInDark: true,
   },
   {
     name: "滴滴",
