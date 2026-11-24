@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ApplicationRecord,
   InterviewNote,
@@ -54,6 +54,8 @@ export function App() {
   const [initialNoteId, setInitialNoteId] = useState<string | null>(null);
   const [latestNoteId, setLatestNoteId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const lastVersionCheckRef = useRef(0);
 
   // Modals
   const [recordModal, setRecordModal] = useState<{
@@ -107,10 +109,21 @@ export function App() {
     setMailConfig(mailRes);
   }, []);
 
+  const checkClientVersion = useCallback((serverClientEntry?: string) => {
+    if (!serverClientEntry) return;
+    const running = document
+      .querySelector('script[type="module"][src*="/assets/index-"]')
+      ?.getAttribute("src");
+    if (running && running !== serverClientEntry) {
+      setUpdateAvailable(true);
+    }
+  }, []);
+
   useEffect(() => {
     void api
       .session()
       .then(async (res) => {
+        checkClientVersion(res.clientEntry);
         setUser(res.user);
         setRegistrationOpen(res.registrationOpen);
         if (res.user) {
@@ -118,7 +131,26 @@ export function App() {
         }
       })
       .finally(() => setLoading(false));
-  }, [loadAllData]);
+  }, [checkClientVersion, loadAllData]);
+
+  useEffect(() => {
+    const checkOnWake = () => {
+      if (document.visibilityState && document.visibilityState !== "visible") return;
+      const now = Date.now();
+      if (now - lastVersionCheckRef.current < 60_000) return;
+      lastVersionCheckRef.current = now;
+      void api
+        .session()
+        .then((res) => checkClientVersion(res.clientEntry))
+        .catch(() => {});
+    };
+    window.addEventListener("focus", checkOnWake);
+    document.addEventListener("visibilitychange", checkOnWake);
+    return () => {
+      window.removeEventListener("focus", checkOnWake);
+      document.removeEventListener("visibilitychange", checkOnWake);
+    };
+  }, [checkClientVersion]);
 
   const existingCompanies = useMemo(() => {
     const map = new Map<string, string | undefined>();
@@ -309,6 +341,14 @@ export function App() {
   if (!user) {
     return (
       <>
+        {updateAvailable && (
+          <div className="version-update-bar" role="status">
+            <span>页面已发布新版，刷新后切换最新版本</span>
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => window.location.reload()}>
+              立即刷新
+            </button>
+          </div>
+        )}
         <AuthView
           registrationOpen={registrationOpen}
           theme={theme}
@@ -549,6 +589,15 @@ export function App() {
           onClose={() => setVaultOpen(false)}
           onImported={loadAllData}
         />
+      )}
+
+      {updateAvailable && (
+        <div className="version-update-bar" role="status">
+          <span>页面已发布新版，刷新后切换最新版本</span>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => window.location.reload()}>
+            立即刷新
+          </button>
+        </div>
       )}
 
       {toast && (

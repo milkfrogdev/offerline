@@ -6911,6 +6911,26 @@ textarea {
   color: #ffffff;
 }
 
+.version-update-bar {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translate3d(-50%, 0, 0);
+  z-index: 120;
+  padding: 7px 10px 7px 14px;
+  border-radius: 99px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--popover-shadow);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  animation: toastIn 0.24s var(--ease-out);
+}
+
 /* ==================== Responsive ==================== */
 @media (max-width: 1180px) {
   .schedule-layout,

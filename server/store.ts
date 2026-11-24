@@ -913,7 +913,7 @@ export class MysqlStore implements Store {
        ON DUPLICATE KEY UPDATE
        enabled = VALUES(enabled), provider = VALUES(provider), host = VALUES(host), port = VALUES(port),
        secure = VALUES(secure), email = VALUES(email), password_enc = VALUES(password_enc), folder = VALUES(folder),
-       poll_interval_min = VALUES(poll_interval_min), lookback_days = VALUES(lookback_days),
+       poll_interval_min = VALUES(poll_interval_min), lookback_days = VALUES(lookback_days), last_uid = VALUES(last_uid),
        llm_enabled = VALUES(llm_enabled), llm_base_url = VALUES(llm_base_url), llm_model = VALUES(llm_model),
        llm_key_enc = VALUES(llm_key_enc), updated_at = VALUES(updated_at)`,
       [
@@ -1302,8 +1302,8 @@ export class JsonFileStore implements Store {
 
   async upsertMailAccount(account: StoredMailAccount) {
     const idx = this.data.mailAccounts.findIndex((m) => m.userId === account.userId);
-    if (idx === -1) this.data.mailAccounts.push(account);
-    else this.data.mailAccounts[idx] = { ...account, lastUid: this.data.mailAccounts[idx].lastUid };
+    if (idx === -1) this.data.mailAccounts.push({ ...account });
+    else this.data.mailAccounts[idx] = { ...account };
     await this.persist();
   }
 

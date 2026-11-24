@@ -2,7 +2,7 @@ import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import cookie from "@fastify/cookie";
 import staticFiles from "@fastify/static";
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { z } from "zod";
 import {
@@ -37,8 +37,10 @@ import {
   findDuplicateEmailEvent,
   inferRecordForEmail,
   mergeDuplicateEvent,
+  probeMailboxBaselineUid,
   syncUserMailbox,
   testImapConnection,
+  type ImapCredentials,
 } from "./mail-sync.js";
 import {
   decryptSecret,
@@ -196,7 +198,7 @@ const mailConfigSchema = z
     password: z.string().max(256).optional(),
     folder: z.string().trim().min(1).max(64).default("INBOX"),
     pollIntervalMin: z.number().int().min(5).max(180).default(10),
-    lookbackDays: z.number().int().min(1).max(30).default(7),
+    lookbackDays: z.number().int().min(0).max(30).default(7),
     llmEnabled: z.boolean().optional(),
     llmBaseUrl: z.string().trim().max(240).optional(),
     llmModel: z.string().trim().max(100).optional(),
@@ -221,7 +223,20 @@ export type AppOptions = {
   registrationOpen?: boolean;
   staticRoot?: string;
   mailSecret?: string;
+  probeMailboxBaseline?: (creds: ImapCredentials) => Promise<number>;
 };
+
+function resolveClientEntry(staticRoot: string): string {
+  const indexPath = resolve(staticRoot, "index.html");
+  if (!existsSync(indexPath)) return "";
+  try {
+    const html = readFileSync(indexPath, "utf8");
+    const match = html.match(/src="(\/assets\/index-[^"']+\.js)"/);
+    return match ? match[1] : "";
+  } catch {
+    return "";
+  }
+}
 
 export async function buildApp({
   store,
@@ -233,7 +248,9 @@ export async function buildApp({
   mailSecret = process.env.MAIL_ENCRYPTION_KEY ||
     process.env.SESSION_SECRET ||
     "offerline-local-dev-mail-key",
+  probeMailboxBaseline = probeMailboxBaselineUid,
 }: AppOptions) {
+  const clientEntry = resolveClientEntry(staticRoot);
   const parsedOrigin = new URL(origin);
   const https = parsedOrigin.protocol === "https:";
   if (
@@ -369,6 +386,7 @@ export async function buildApp({
   app.get("/api/session", async (req) => ({
     user: await currentUser(req),
     registrationOpen,
+    ...(clientEntry ? { clientEntry } : {}),
   }));
 
   app.post("/api/auth/register", async (req, reply) => {
@@ -849,6 +867,55 @@ export async function buildApp({
     const nextLlmBaseUrl = body.llmBaseUrl ?? existing?.llmBaseUrl ?? "";
     const nextLlmModel = body.llmModel ?? existing?.llmModel ?? "";
 
+    const sameMailbox = Boolean(
+      existing &&
+        existing.email.toLowerCase() === body.email.toLowerCase() &&
+        existing.host.toLowerCase() === body.host.toLowerCase() &&
+        (existing.folder || "INBOX") === (body.folder || "INBOX"),
+    );
+
+    let effectivePassword = body.password?.trim() || "";
+    if (!effectivePassword && sameMailbox && existing?.passwordEnc) {
+      try {
+        effectivePassword = decryptSecret(existing.passwordEnc, masterKey);
+      } catch {
+        effectivePassword = "";
+      }
+    }
+
+    let nextLastUid = sameMailbox ? (existing?.lastUid ?? 0) : 0;
+    if (body.lookbackDays === 0) {
+      const shouldProbeBaseline =
+        !sameMailbox ||
+        !existing ||
+        existing.lookbackDays !== 0 ||
+        nextLastUid === 0 ||
+        (!existing.enabled && body.enabled);
+      if (shouldProbeBaseline) {
+        if (effectivePassword) {
+          try {
+            const probed = await probeMailboxBaseline({
+              host: body.host,
+              port: body.port,
+              secure: body.secure,
+              email: body.email,
+              password: effectivePassword,
+              folder: body.folder || "INBOX",
+            });
+            nextLastUid = Math.max(nextLastUid, probed);
+          } catch {
+            if (!sameMailbox || (existing && existing.lookbackDays !== 0)) {
+              nextLastUid = 0;
+            }
+          }
+        } else {
+          nextLastUid = 0;
+        }
+      }
+    } else if (!sameMailbox || !existing || body.lookbackDays > existing.lookbackDays) {
+      nextLastUid = 0;
+    }
+
     const now = new Date().toISOString();
     await store.upsertMailAccount({
       userId: user.id,
@@ -862,7 +929,7 @@ export async function buildApp({
       folder: body.folder || "INBOX",
       pollIntervalMin: body.pollIntervalMin,
       lookbackDays: body.lookbackDays,
-      lastUid: existing?.lastUid ?? 0,
+      lastUid: nextLastUid,
       llmEnabled: nextLlmEnabled,
       llmBaseUrl: nextLlmBaseUrl,
       llmModel: nextLlmModel,
@@ -1208,12 +1275,27 @@ export async function buildApp({
   });
 
   if (existsSync(staticRoot)) {
-    await app.register(staticFiles, { root: staticRoot, prefix: "/" });
+    await app.register(staticFiles, {
+      root: staticRoot,
+      prefix: "/",
+      setHeaders(res, filePath) {
+        const normalized = filePath.replace(/\\/g, "/");
+        if (normalized.includes("/assets/")) {
+          res.header("Cache-Control", "public, max-age=31536000, immutable");
+        } else {
+          res.header("Cache-Control", "no-store, no-cache, must-revalidate");
+          res.header("Pragma", "no-cache");
+        }
+      },
+    });
     app.setNotFoundHandler((req, reply) => {
       if (req.url.startsWith("/api/")) {
         return reply.status(404).send({ error: "接口不存在。", code: "NOT_FOUND" });
       }
-      return reply.sendFile("index.html");
+      return reply
+        .header("Cache-Control", "no-store, no-cache, must-revalidate")
+        .header("Pragma", "no-cache")
+        .sendFile("index.html");
     });
   }
 

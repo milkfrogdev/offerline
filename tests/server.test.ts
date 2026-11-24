@@ -1,10 +1,13 @@
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildApp } from "../server/app";
 import { JsonFileStore } from "../server/store";
 
 const ORIGIN = "http://127.0.0.1:3002";
 
-async function createTestApp() {
+async function createTestApp(extraOpts: Partial<Parameters<typeof buildApp>[0]> = {}) {
   const store = new JsonFileStore(null);
   const app = await buildApp({
     store,
@@ -12,6 +15,7 @@ async function createTestApp() {
     production: true,
     allowHttp: true,
     mailSecret: "unit-test-mail-secret",
+    ...extraOpts,
   });
   return { app, store };
 }
@@ -258,6 +262,159 @@ describe("OfferLine 服务端安全、日程、邮箱与面经集成测试", () 
     } finally {
       await app.close();
       await store.close();
+    }
+  });
+
+  it("支持 lookbackDays=0（从现在起只看新邮件）基准 UID 记录与防重复探测，以及 HTML 禁缓存策略", async () => {
+    const tmpStatic = mkdtempSync(join(tmpdir(), "offerline-static-"));
+    mkdirSync(join(tmpStatic, "assets"), { recursive: true });
+    writeFileSync(
+      join(tmpStatic, "index.html"),
+      '<!doctype html><html><head><script type="module" src="/assets/index-TEST1234.js"></script></head><body></body></html>',
+    );
+    writeFileSync(join(tmpStatic, "assets", "index-TEST1234.js"), "console.log('ok');");
+
+    let probeCount = 0;
+    const { app, store } = await createTestApp({
+      staticRoot: tmpStatic,
+      probeMailboxBaseline: async () => {
+        probeCount++;
+        return 1400 + probeCount * 10;
+      },
+    });
+    try {
+      const reg = await app.inject({
+        method: "POST",
+        url: "/api/auth/register",
+        headers: { origin: ORIGIN, "content-type": "application/json" },
+        payload: { username: "mailzero", password: "strong-password-zero" },
+      });
+      expect(reg.statusCode).toBe(201);
+      const cookie = extractCookie(reg.headers["set-cookie"]);
+      const userId = reg.json().user.id as number;
+
+      // 静态资源与 index.html 缓存策略 + clientEntry 下发
+      const htmlRes = await app.inject({ method: "GET", url: "/" });
+      expect(htmlRes.statusCode).toBe(200);
+      expect(htmlRes.headers["cache-control"]).toContain("no-store");
+
+      const assetRes = await app.inject({ method: "GET", url: "/assets/index-TEST1234.js" });
+      expect(assetRes.statusCode).toBe(200);
+      expect(assetRes.headers["cache-control"]).toContain("immutable");
+
+      const sess = await app.inject({ method: "GET", url: "/api/session", headers: { cookie } });
+      expect(sess.json().clientEntry).toBe("/assets/index-TEST1234.js");
+
+      // 1. 首次保存 lookbackDays=0：应立即记录基准 UID，且 GET 原样返回 0
+      const saveZero = await app.inject({
+        method: "PUT",
+        url: "/api/mail/config",
+        headers: { origin: ORIGIN, cookie, "content-type": "application/json" },
+        payload: {
+          enabled: true,
+          provider: "qq",
+          host: "imap.qq.com",
+          port: 993,
+          secure: true,
+          email: "zero@qq.com",
+          password: "secret-auth-code-zero",
+          folder: "INBOX",
+          pollIntervalMin: 10,
+          lookbackDays: 0,
+        },
+      });
+      expect(saveZero.statusCode).toBe(200);
+      expect(saveZero.json().lookbackDays).toBe(0);
+      expect(probeCount).toBe(1);
+      expect((await store.getMailAccount(userId))?.lastUid).toBe(1410);
+
+      const getCfg = await app.inject({
+        method: "GET",
+        url: "/api/mail/config",
+        headers: { cookie },
+      });
+      expect(getCfg.json().lookbackDays).toBe(0);
+
+      // 2. 保持 lookbackDays=0 仅修改检查频率：不重复推进基准水位，避免漏收刚到邮件
+      const editPoll = await app.inject({
+        method: "PUT",
+        url: "/api/mail/config",
+        headers: { origin: ORIGIN, cookie, "content-type": "application/json" },
+        payload: {
+          enabled: true,
+          provider: "qq",
+          host: "imap.qq.com",
+          port: 993,
+          secure: true,
+          email: "zero@qq.com",
+          folder: "INBOX",
+          pollIntervalMin: 5,
+          lookbackDays: 0,
+        },
+      });
+      expect(editPoll.statusCode).toBe(200);
+      expect(probeCount).toBe(1);
+      expect((await store.getMailAccount(userId))?.lastUid).toBe(1410);
+
+      // 3. 大模型独立保存不破坏已有 lastUid
+      await app.inject({
+        method: "PUT",
+        url: "/api/mail/llm-config",
+        headers: { origin: ORIGIN, cookie, "content-type": "application/json" },
+        payload: {
+          llmEnabled: false,
+          llmBaseUrl: "https://api.deepseek.com/v1",
+          llmModel: "deepseek-chat",
+          llmApiKey: "sk-keep-uid-test",
+        },
+      });
+      expect((await store.getMailAccount(userId))?.lastUid).toBe(1410);
+
+      // 4. 切换为回看近 7 天：重置 lastUid=0 以便下次同步回溯近 7 天
+      const switchSeven = await app.inject({
+        method: "PUT",
+        url: "/api/mail/config",
+        headers: { origin: ORIGIN, cookie, "content-type": "application/json" },
+        payload: {
+          enabled: true,
+          provider: "qq",
+          host: "imap.qq.com",
+          port: 993,
+          secure: true,
+          email: "zero@qq.com",
+          folder: "INBOX",
+          pollIntervalMin: 5,
+          lookbackDays: 7,
+        },
+      });
+      expect(switchSeven.statusCode).toBe(200);
+      expect(switchSeven.json().lookbackDays).toBe(7);
+      expect((await store.getMailAccount(userId))?.lastUid).toBe(0);
+
+      // 5. 从 7 天切回 0 天：再次记录新基准 UID
+      const backZero = await app.inject({
+        method: "PUT",
+        url: "/api/mail/config",
+        headers: { origin: ORIGIN, cookie, "content-type": "application/json" },
+        payload: {
+          enabled: true,
+          provider: "qq",
+          host: "imap.qq.com",
+          port: 993,
+          secure: true,
+          email: "zero@qq.com",
+          folder: "INBOX",
+          pollIntervalMin: 5,
+          lookbackDays: 0,
+        },
+      });
+      expect(backZero.statusCode).toBe(200);
+      expect(probeCount).toBe(2);
+      expect((await store.getMailAccount(userId))?.lastUid).toBe(1420);
+    } finally {
+      await app.close();
+      await store.close();
+      rmSync(tmpStatic, { recursive: true, force: true });
     }
   });
 });

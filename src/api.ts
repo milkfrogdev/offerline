@@ -47,7 +47,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  session: () => request<{ user: UserProfile | null; registrationOpen: boolean }>("/api/session"),
+  session: () =>
+    request<{ user: UserProfile | null; registrationOpen: boolean; clientEntry?: string }>(
+      "/api/session",
+    ),
   register: (username: string, password: string) =>
     request<{ user: UserProfile }>("/api/auth/register", {
       method: "POST",

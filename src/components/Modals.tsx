@@ -842,6 +842,15 @@ export function RecordModal({
 }
 
 /* ==================== 2. 邮箱监听与粘贴解析 ==================== */
+const LOOKBACK_PRESETS: { days: number; label: string }[] = [
+  { days: 0, label: "从现在起，只看新邮件" },
+  { days: 1, label: "近 1 天" },
+  { days: 3, label: "近 3 天" },
+  { days: 7, label: "近 7 天" },
+  { days: 14, label: "近 14 天" },
+  { days: 30, label: "近 30 天" },
+];
+
 export function MailSettingsModal({
   config,
   initialTab = "imap",
@@ -856,16 +865,16 @@ export function MailSettingsModal({
   onEventCreated: (ev: ScheduleEvent) => void;
 }) {
   const [tab, setTab] = useState<"imap" | "llm" | "parse">(initialTab);
-  const [enabled, setEnabled] = useState(config?.enabled ?? true);
+  const [enabled, setEnabled] = useState(config?.configured ? config.enabled : true);
   const [provider, setProvider] = useState<MailProvider>(config?.provider || "qq");
   const [host, setHost] = useState(config?.host || PROVIDER_PRESETS.qq.host);
-  const [port, setPort] = useState(config?.port || 993);
+  const [portInput, setPortInput] = useState(String(config?.port || 993));
   const [secure, setSecure] = useState(config?.secure ?? true);
   const [email, setEmail] = useState(config?.email || "");
   const [password, setPassword] = useState("");
   const [folder, setFolder] = useState(config?.folder || "INBOX");
   const [pollIntervalMin, setPollIntervalMin] = useState(config?.pollIntervalMin || 10);
-  const [lookbackDays, setLookbackDays] = useState(config?.lookbackDays || 7);
+  const [lookbackDays, setLookbackDays] = useState(config?.lookbackDays ?? 7);
 
   // 独立大模型增强状态
   const [llmPreset, setLlmPreset] = useState<LlmProviderKey>(() =>
@@ -898,11 +907,28 @@ export function MailSettingsModal({
     matchType: string;
   } | null>(null);
 
+  const lookbackChoices = useMemo(() => {
+    if (LOOKBACK_PRESETS.some((item) => item.days === lookbackDays)) {
+      return LOOKBACK_PRESETS;
+    }
+    return [...LOOKBACK_PRESETS, { days: lookbackDays, label: `近 ${lookbackDays} 天` }].sort(
+      (a, b) => a.days - b.days,
+    );
+  }, [lookbackDays]);
+
+  function parseValidPort(): number | null {
+    const n = Number.parseInt(portInput.trim(), 10);
+    if (Number.isNaN(n) || n < 1 || n > 65535 || String(n) !== portInput.trim().replace(/^0+(?=\d)/, "")) {
+      return null;
+    }
+    return n;
+  }
+
   function selectProvider(p: MailProvider) {
     setProvider(p);
     if (p !== "custom") {
       setHost(PROVIDER_PRESETS[p].host);
-      setPort(PROVIDER_PRESETS[p].port);
+      setPortInput(String(PROVIDER_PRESETS[p].port));
       setSecure(PROVIDER_PRESETS[p].secure);
     } else {
       setAdvancedOpen(true);
@@ -915,18 +941,24 @@ export function MailSettingsModal({
     if (detected && detected !== provider) {
       setProvider(detected);
       setHost(PROVIDER_PRESETS[detected].host);
-      setPort(PROVIDER_PRESETS[detected].port);
+      setPortInput(String(PROVIDER_PRESETS[detected].port));
       setSecure(PROVIDER_PRESETS[detected].secure);
     }
   }
 
   async function handleTest() {
     setFeedback(null);
+    const parsedPort = parseValidPort();
+    if (!parsedPort) {
+      setAdvancedOpen(true);
+      setFeedback({ kind: "err", text: "IMAP 端口需为 1–65535 之间的整数（SSL 通常为 993）。" });
+      return;
+    }
     setTesting(true);
     try {
       const res = await api.testMailConfig({
         host: host.trim(),
-        port: Number(port) || 993,
+        port: parsedPort,
         secure,
         email: email.trim(),
         password: password.trim() || undefined,
@@ -949,23 +981,41 @@ export function MailSettingsModal({
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setFeedback(null);
+    const parsedPort = parseValidPort();
+    if (!parsedPort) {
+      setAdvancedOpen(true);
+      setFeedback({ kind: "err", text: "IMAP 端口需为 1–65535 之间的整数（SSL 通常为 993）。" });
+      return;
+    }
+    const rawLookback = Number(lookbackDays);
+    const normalizedLookback = Number.isFinite(rawLookback)
+      ? Math.max(0, Math.min(30, Math.trunc(rawLookback)))
+      : 7;
     setSaving(true);
     try {
       const saved = await api.saveMailConfig({
         enabled,
         provider,
         host: host.trim(),
-        port: Number(port) || 993,
+        port: parsedPort,
         secure,
         email: email.trim(),
         password: password.trim() || undefined,
         folder: folder.trim() || "INBOX",
         pollIntervalMin: Number(pollIntervalMin) || 10,
-        lookbackDays: Number(lookbackDays) || 7,
+        lookbackDays: normalizedLookback,
       });
       onConfigUpdated(saved);
+      setLookbackDays(saved.lookbackDays);
+      setPortInput(String(saved.port));
       setPassword("");
-      setFeedback({ kind: "ok", text: "邮箱监听配置已加密保存。" });
+      setFeedback({
+        kind: "ok",
+        text:
+          saved.lookbackDays === 0
+            ? "邮箱监听配置已加密保存，将仅识别从现在起新收到的邮件。"
+            : `邮箱监听配置已加密保存，首次同步将回溯近 ${saved.lookbackDays} 天邮件。`,
+      });
     } catch (err) {
       setFeedback({
         kind: "err",
@@ -1168,20 +1218,54 @@ export function MailSettingsModal({
             </label>
           </div>
 
+          <div className="field">
+            <span className="field-label">接入时邮件扫描范围</span>
+            <div className="provider-row">
+              {lookbackChoices.map((opt) => (
+                <button
+                  key={opt.days}
+                  type="button"
+                  className={`provider-chip${lookbackDays === opt.days ? " active" : ""}`}
+                  onClick={() => setLookbackDays(opt.days)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <p className="field-micro-hint">
+              {lookbackDays === 0
+                ? "仅记录当前最新邮件位置，保存后只识别从此刻起新收到的邮件，不翻查旧邮件。"
+                : `首次同步（或调大范围）时回溯最近 ${lookbackDays} 天的邮件，之后自动只查新邮件。`}
+            </p>
+          </div>
+
+          <div className="switch-row">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={enabled}
+                onChange={(e) => setEnabled(e.target.checked)}
+              />
+              <span>开启后台自动监听（以只读模式扫描新邮件，不改未读状态）</span>
+            </label>
+          </div>
+
           {/* 极简细线高级参数摘要（无灰底块、无中圆点） */}
           <div className="mail-preset-row">
             <div className="mail-preset-specs">
               <span className="mail-spec-item">
                 <span className="mail-spec-k">服务器</span>
-                <span className="mail-spec-v">{host || "待填写"}:{port}</span>
+                <span className="mail-spec-v">
+                  {host || "待填写"}:{portInput.trim() || "993"}
+                </span>
               </span>
               <span className="mail-spec-item">
-                <span className="mail-spec-k">频率</span>
-                <span className="mail-spec-v">{pollIntervalMin} 分钟</span>
+                <span className="mail-spec-k">检查频率</span>
+                <span className="mail-spec-v">每 {pollIntervalMin} 分钟</span>
               </span>
               <span className="mail-spec-item">
-                <span className="mail-spec-k">首次扫描</span>
-                <span className="mail-spec-v">近 {lookbackDays} 天</span>
+                <span className="mail-spec-k">文件夹</span>
+                <span className="mail-spec-v">{folder.trim() || "INBOX"}</span>
               </span>
             </div>
             <button
@@ -1211,10 +1295,12 @@ export function MailSettingsModal({
                 <label className="field">
                   <span className="field-label">端口</span>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     className="input"
-                    value={port}
-                    onChange={(e) => setPort(Number(e.target.value))}
+                    placeholder="993"
+                    value={portInput}
+                    onChange={(e) => setPortInput(e.target.value.replace(/[^\d]/g, ""))}
                     required
                   />
                 </label>
@@ -1230,50 +1316,20 @@ export function MailSettingsModal({
                 </label>
               </div>
 
-              <div className="form-row-2">
-                <div className="field">
-                  <span className="field-label">自动检查频率</span>
-                  <div className="provider-row">
-                    {[5, 10, 15, 30].map((min) => (
-                      <button
-                        key={min}
-                        type="button"
-                        className={`provider-chip${pollIntervalMin === min ? " active" : ""}`}
-                        onClick={() => setPollIntervalMin(min)}
-                      >
-                        {min} 分钟
-                      </button>
-                    ))}
-                  </div>
+              <div className="field">
+                <span className="field-label">自动检查频率</span>
+                <div className="provider-row">
+                  {[5, 10, 15, 30].map((min) => (
+                    <button
+                      key={min}
+                      type="button"
+                      className={`provider-chip${pollIntervalMin === min ? " active" : ""}`}
+                      onClick={() => setPollIntervalMin(min)}
+                    >
+                      {min} 分钟
+                    </button>
+                  ))}
                 </div>
-
-                <div className="field">
-                  <span className="field-label">历史邮件扫描范围</span>
-                  <div className="provider-row">
-                    {[3, 7, 14, 30].map((days) => (
-                      <button
-                        key={days}
-                        type="button"
-                        className={`provider-chip${lookbackDays === days ? " active" : ""}`}
-                        onClick={() => setLookbackDays(days)}
-                      >
-                        近 {days} 天
-                      </button>
-                    ))}
-                  </div>
-                  <p className="field-micro-hint">仅首次连接邮箱时向前翻找这段时间的历史邀约邮件，之后只查新邮件。</p>
-                </div>
-              </div>
-
-              <div className="switch-row">
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={enabled}
-                    onChange={(e) => setEnabled(e.target.checked)}
-                  />
-                  <span>开启后台自动监听（以只读模式扫描新邮件，不改未读状态）</span>
-                </label>
               </div>
             </div>
           )}

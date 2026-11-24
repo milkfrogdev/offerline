@@ -37,7 +37,7 @@ export interface RecordInferenceResult {
   matchType: RecordMatchType;
 }
 
-function createImapClient(creds: ImapCredentials) {
+function createImapClient(creds: ImapCredentials, timeoutMs?: number) {
   return new ImapFlow({
     host: creds.host,
     port: creds.port,
@@ -47,10 +47,46 @@ function createImapClient(creds: ImapCredentials) {
       pass: creds.password,
     },
     logger: false,
-    connectionTimeout: 12_000,
-    greetingTimeout: 10_000,
-    socketTimeout: 25_000,
+    connectionTimeout: timeoutMs ?? 12_000,
+    greetingTimeout: timeoutMs ?? 10_000,
+    socketTimeout: timeoutMs ?? 25_000,
   });
+}
+
+async function readLockedMailboxBaselineUid(client: ImapFlow): Promise<number> {
+  const mb = client.mailbox && typeof client.mailbox === "object" ? client.mailbox : null;
+  if (mb && typeof mb.uidNext === "number" && Number.isFinite(mb.uidNext) && mb.uidNext > 1) {
+    return mb.uidNext - 1;
+  }
+  if (mb && typeof mb.exists === "number" && mb.exists > 0) {
+    const latest = await client.fetchOne(String(mb.exists), { uid: true });
+    if (latest && typeof latest.uid === "number" && latest.uid > 0) {
+      return latest.uid;
+    }
+  }
+  return 0;
+}
+
+export async function probeMailboxBaselineUid(
+  creds: ImapCredentials,
+  timeoutMs = 4_000,
+): Promise<number> {
+  const client = createImapClient(creds, timeoutMs);
+  try {
+    await client.connect();
+    const lock = await client.getMailboxLock(creds.folder || "INBOX", { readOnly: true });
+    try {
+      return await readLockedMailboxBaselineUid(client);
+    } finally {
+      lock.release();
+    }
+  } finally {
+    try {
+      await client.logout();
+    } catch {
+      client.close();
+    }
+  }
 }
 
 function formatImapError(err: unknown, host: string): string {
@@ -380,6 +416,18 @@ export async function syncUserMailbox(
     // Always open mailbox strictly read-only (IMAP EXAMINE) so unread flags are never altered
     const lock = await client.getMailboxLock(account.folder || "INBOX", { readOnly: true });
     try {
+      // lookbackDays === 0 means listen strictly from current moment onward without fetching historical mail
+      if (account.lastUid === 0 && account.lookbackDays <= 0) {
+        const baselineUid = await readLockedMailboxBaselineUid(client);
+        await store.updateMailSyncState(userId, {
+          lastUid: baselineUid,
+          lastSyncedAt: nowIso,
+          lastError: null,
+          lastMatchedCount: 0,
+        });
+        return { scanned: 0, created: 0, merged: 0, skipped: 0, lastUid: baselineUid, syncedAt: nowIso };
+      }
+
       const records = await store.listRecords(userId);
       const existingEvents = await store.listEvents(userId);
       const sinceDate = new Date(Date.now() - Math.max(1, account.lookbackDays) * 86400_000);
@@ -392,6 +440,9 @@ export async function syncUserMailbox(
       const uids = Array.isArray(uidsRaw)
         ? uidsRaw.filter((u) => u > account.lastUid).slice(-120)
         : [];
+      if (uids.length === 0 && account.lastUid === 0) {
+        maxUid = await readLockedMailboxBaselineUid(client);
+      }
 
       for (const uid of uids) {
         if (uid > maxUid) maxUid = uid;
