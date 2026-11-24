@@ -601,4 +601,19 @@ describe("求职邮件深度解析、去噪、归一化与 ICS 生成", () => {
       globalThis.fetch = origFetch;
     }
   });
+
+  it("华为无换行同行键值邮件不吞入面试链接正文，并准确识别专业面试1为一面", () => {
+    const res = parseRecruitmentEmailByRules({
+      subject: "面试邀请函",
+      from: '"华为招聘" <campus@huawei.com>',
+      text: "亲爱的同学，您好！诚邀您参加华为公司招聘 面试信息 面试时间： (UTC+08:00)Beijing 2026-11-26 10:00 (建议预留前后各1小时) 面试环节： 专业面试1 面试方式： 远程 面试职位： AI技术应用 面试链接： 进入面试请点击此链接 （如涉及双机位远程面试，两部终端设备均点击此链接进入） 确认参加 https://career.huawei.com/reccampportal/interview/interview.html?interviewId=3607008",
+      date: new Date("2026-11-24T09:00:00+08:00"),
+    });
+    expect(res.matched).toBe(true);
+    expect(res.company).toBe("华为");
+    expect(res.position).toBe("AI技术应用");
+    expect(res.stageName).toBe("一面");
+    expect(res.startAt).toBe("2026-11-26T02:00:00.000Z");
+    expect(res.location).toContain("career.huawei.com");
+  });
 });

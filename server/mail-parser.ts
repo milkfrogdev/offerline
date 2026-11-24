@@ -371,6 +371,11 @@ export function cleanPosition(raw: string, company?: string): string {
   if (!raw) return "";
   let s = raw
     .replace(/[\r\n\t]+/g, " ")
+    // 截断同行无换行粘连的后续邮件字段或操作提示（如华为 HTML 邮件的「AI技术应用 面试链接：...」）
+    .replace(
+      /\s*(?:【?(?:面试|笔试|测评|会议|预约|报到|签到|工作|投递|应聘|申请|联系)?(?:链接|地址|地点|时间|日期|环节|轮次|方式|形式|官|说明|提醒|须知|编号|密码|房间|入口|会议室|联系人|电话|邮箱|工具|准备|注意事项|备注|城市|部门)】?\s*[:：]|(?:进入面试|进入笔试|进入测评|点击(?:此|下方)?链接|确认参加|请提前|温馨提示|如涉及|https?:\/\/)).*$/i,
+      "",
+    )
     .replace(/^[\s"'「『《【\[:：\-—|]+/, "")
     .replace(/[\s"'」』》】\]。，,；;！!|]+$/, "")
     .replace(/^了\s+/, "")
@@ -461,10 +466,10 @@ export function normalizeStageName(raw: string | undefined, kind: EventKind): st
   if (kind === "assessment") return "测评";
   if (kind === "interview") {
     if (/hr\s*面|人力|人事/i.test(s)) return "HR面";
-    if (/终面|四面|总监|vp|final/i.test(s)) return "终面";
-    if (/三面|第三轮|round\s*3|third/i.test(s)) return "三面";
-    if (/二面|第二轮|复试|round\s*2|second/i.test(s)) return "二面";
-    if (/一面|初试|第一轮|round\s*1|first/i.test(s)) return "一面";
+    if (/终面|四面|总监|主管面|业务主管面试|vp|final/i.test(s)) return "终面";
+    if (/三面|第三轮|(?:专业|技术|业务|综合)面试\s*3(?![0-9:：月日点分])|round\s*3|third/i.test(s)) return "三面";
+    if (/二面|第二轮|复试|(?:专业|技术|业务|综合)面试\s*2(?![0-9:：月日点分])|round\s*2|second/i.test(s)) return "二面";
+    if (/一面|初试|第一轮|(?:专业|技术|业务|综合)面试\s*1(?![0-9:：月日点分])|round\s*1|first/i.test(s)) return "一面";
     return "面试";
   }
   if ((CANONICAL_STAGES as readonly string[]).includes(s)) return s;
@@ -492,10 +497,10 @@ function classifyEvent(
   // 2. Subject-driven disambiguation first (prevents assessment/exam emails that mention "进入面试" in body from misclassifying)
   const detectInterviewRound = (text: string): string => {
     if (/hr\s*面|人力.*面|人事面/i.test(text)) return "HR面";
-    if (/四面|终面|总监面|vp\s*面|final\s*(?:round|interview)/i.test(text)) return "终面";
-    if (/三面|第三轮|round\s*3|third\s*round/i.test(text)) return "三面";
-    if (/二面|第二轮|复试|round\s*2|second\s*round/i.test(text)) return "二面";
-    if (/一面|初试|第一轮|round\s*1|first\s*round/i.test(text)) return "一面";
+    if (/四面|终面|总监面|主管面|业务主管面试|vp\s*面|final\s*(?:round|interview)/i.test(text)) return "终面";
+    if (/三面|第三轮|(?:专业|技术|业务|综合)面试\s*3(?![0-9:：月日点分])|round\s*3|third\s*round/i.test(text)) return "三面";
+    if (/二面|第二轮|复试|(?:专业|技术|业务|综合)面试\s*2(?![0-9:：月日点分])|round\s*2|second\s*round/i.test(text)) return "二面";
+    if (/一面|初试|第一轮|(?:专业|技术|业务|综合)面试\s*1(?![0-9:：月日点分])|round\s*1|first\s*round/i.test(text)) return "一面";
     return "面试";
   };
 

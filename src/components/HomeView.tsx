@@ -81,16 +81,28 @@ function formatFriendlyDay(iso: string, nowMs: number): string {
 }
 
 function formatCountdown(startIso: string, nowMs: number): { text: string; urgent: boolean } {
-  const diffMin = Math.round((Date.parse(startIso) - nowMs) / 60_000);
-  if (diffMin <= 0 && diffMin > -45) return { text: "正在进行", urgent: true };
+  const startMs = Date.parse(startIso);
+  const diffMin = Math.round((startMs - nowMs) / 60_000);
+  if (diffMin <= -45) return { text: "已开始", urgent: false };
+  if (diffMin <= 0) return { text: "正在进行", urgent: true };
   if (diffMin <= 60) return { text: `${Math.max(1, diffMin)} 分钟后开始`, urgent: true };
   if (diffMin < 24 * 60) {
     const h = Math.floor(diffMin / 60);
     const m = diffMin % 60;
     return { text: m > 0 ? `${h} 小时 ${m} 分后` : `${h} 小时后`, urgent: h <= 3 };
   }
-  const days = Math.floor(diffMin / (24 * 60));
-  return { text: days === 1 ? "明天开始" : `${days} 天后`, urgent: false };
+  const startDate = new Date(startMs);
+  const nowDate = new Date(nowMs);
+  const startDayMs = new Date(
+    startDate.getFullYear(),
+    startDate.getMonth(),
+    startDate.getDate(),
+  ).getTime();
+  const nowDayMs = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate()).getTime();
+  const calDays = Math.max(1, Math.round((startDayMs - nowDayMs) / 86_400_000));
+  if (calDays === 1) return { text: "明天开始", urgent: false };
+  if (calDays === 2) return { text: "后天开始", urgent: false };
+  return { text: `${calDays} 天后`, urgent: false };
 }
 
 function meetingActionMeta(url: string, kind: EventKind): { label: string; isExam: boolean } {
