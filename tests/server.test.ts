@@ -268,11 +268,13 @@ describe("OfferLine 服务端安全、日程、邮箱与面经集成测试", () 
   it("支持 lookbackDays=0（从现在起只看新邮件）基准 UID 记录与防重复探测，以及 HTML 禁缓存策略", async () => {
     const tmpStatic = mkdtempSync(join(tmpdir(), "offerline-static-"));
     mkdirSync(join(tmpStatic, "assets"), { recursive: true });
+    mkdirSync(join(tmpStatic, "fonts"), { recursive: true });
     writeFileSync(
       join(tmpStatic, "index.html"),
       '<!doctype html><html><head><script type="module" src="/assets/index-TEST1234.js"></script></head><body></body></html>',
     );
     writeFileSync(join(tmpStatic, "assets", "index-TEST1234.js"), "console.log('ok');");
+    writeFileSync(join(tmpStatic, "fonts", "test.woff2"), "wOF2");
 
     let probeCount = 0;
     const { app, store } = await createTestApp({
@@ -301,6 +303,10 @@ describe("OfferLine 服务端安全、日程、邮箱与面经集成测试", () 
       const assetRes = await app.inject({ method: "GET", url: "/assets/index-TEST1234.js" });
       expect(assetRes.statusCode).toBe(200);
       expect(assetRes.headers["cache-control"]).toContain("immutable");
+
+      const fontRes = await app.inject({ method: "GET", url: "/fonts/test.woff2" });
+      expect(fontRes.statusCode).toBe(200);
+      expect(fontRes.headers["cache-control"]).toContain("immutable");
 
       const sess = await app.inject({ method: "GET", url: "/api/session", headers: { cookie } });
       expect(sess.json().clientEntry).toBe("/assets/index-TEST1234.js");

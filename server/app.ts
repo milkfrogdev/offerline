@@ -1410,7 +1410,7 @@ export async function buildApp({
       prefix: "/",
       setHeaders(res, filePath) {
         const normalized = filePath.replace(/\\/g, "/");
-        if (normalized.includes("/assets/")) {
+        if (normalized.includes("/assets/") || normalized.includes("/fonts/")) {
           res.header("Cache-Control", "public, max-age=31536000, immutable");
         } else {
           res.header("Cache-Control", "no-store, no-cache, must-revalidate");
