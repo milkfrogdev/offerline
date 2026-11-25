@@ -37,6 +37,15 @@ describe("OfferLine 服务端安全、日程、邮箱与面经集成测试", () 
       });
       expect(badOrigin.statusCode).toBe(403);
 
+      // 本地回环 127.0.0.1 与 localhost（同协议同端口）自动互通，防止本地误拦
+      const localhostPort = new URL(ORIGIN).port;
+      const loopbackOk = await app.inject({
+        method: "POST",
+        url: "/api/auth/logout",
+        headers: { origin: `http://localhost:${localhostPort}` },
+      });
+      expect(loopbackOk.statusCode).toBe(200);
+
       const reg = await app.inject({
         method: "POST",
         url: "/api/auth/register",

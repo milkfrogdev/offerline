@@ -249,6 +249,24 @@ function resolveClientEntry(staticRoot: string): string {
   }
 }
 
+function isAllowedRequestOrigin(reqOrigin: string | undefined, expectedOrigin: string): boolean {
+  if (!reqOrigin) return false;
+  if (reqOrigin === expectedOrigin) return true;
+  try {
+    const reqUrl = new URL(reqOrigin);
+    const expUrl = new URL(expectedOrigin);
+    const loopbackHosts = new Set(["127.0.0.1", "localhost", "[::1]"]);
+    return (
+      loopbackHosts.has(reqUrl.hostname) &&
+      loopbackHosts.has(expUrl.hostname) &&
+      reqUrl.protocol === expUrl.protocol &&
+      reqUrl.port === expUrl.port
+    );
+  } catch {
+    return false;
+  }
+}
+
 export async function buildApp({
   store,
   origin,
@@ -340,7 +358,7 @@ export async function buildApp({
     if (req.url.startsWith("/api/")) {
       reply.header("Cache-Control", "no-store");
       if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) {
-        if (req.headers.origin !== origin) {
+        if (!isAllowedRequestOrigin(req.headers.origin, origin)) {
           throw new ApiError(403, "请求来源校验失败，请刷新页面后重试。", "BAD_ORIGIN");
         }
         const hasBody =

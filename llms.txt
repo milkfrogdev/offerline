@@ -17,7 +17,8 @@
 
 ## Documentation
 
-- [Chinese README](README.md): Main documentation with animated walkthrough, timeline & email parser overview, comparison table, FAQ, and Docker/Node quick start.
+- [Chinese README](README.md): Main documentation with animated walkthrough, timeline & email parser overview, comparison table, FAQ, and AI/Node/Docker quick start.
+- [AI Agent Auto-Install Runbook](docs/ai-install.md): Cross-platform step-by-step installation guide written specifically for AI coding agents (zero-Docker Node.js + JSON mode by default, plus Docker option).
 - [English README](README.en.md): Full English documentation, feature comparison, FAQ, and quick start.
 - [System Architecture & Security](docs/architecture.md): Service architecture, 8-table MySQL 8.4 schema, idempotent migrations, encryption, and SSRF isolation (Chinese).
 - [Email Parsing & Sync Design](docs/mail-parsing-design.md): 7-stage email parsing pipeline, noise-gating rules, 3-mode time model, non-destructive linking, and optional LLM integration (Chinese).

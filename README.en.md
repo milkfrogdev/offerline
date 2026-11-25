@@ -127,9 +127,31 @@ Shows your next confirmed interview with a live countdown, one-click meeting lin
 
 ---
 
-## 5. Quick Start
+## 5. Quick Start (Lightweight Local or Docker)
 
-### Option 1: Docker Compose (Recommended)
+Choose either zero-database local Node.js startup or full Docker Compose + MySQL 8.4 deployment.
+
+### Option 1: Let an AI Agent Install It Automatically
+
+Paste this prompt into **Claude Code, Codex, WorkBuddy, Cursor, or Doubao**:
+
+> Please install OfferLine (`https://github.com/milkfrogdev/offerline`) for me by following `docs/ai-install.md` using the lightweight Node.js mode (no Docker), verify the health check passes, and give me the local URL.
+
+Full step-by-step agent runbook: **[docs/ai-install.md](docs/ai-install.md)**.
+
+### Option 2: Lightweight Local Run (Node.js ≥ 22, No Docker or Database Needed)
+
+```bash
+git clone https://github.com/milkfrogdev/offerline.git
+cd offerline
+npm install
+npm run build
+npm start
+```
+
+Without `DATABASE_URL`, OfferLine automatically stores data in an atomic local JSON file (`./data/offerline.json`). Open `http://127.0.0.1:3002` (or `http://localhost:3002`) and register.
+
+### Option 3: Docker Compose + MySQL 8.4 (Server Hosting)
 
 ```bash
 git clone https://github.com/milkfrogdev/offerline.git
@@ -148,16 +170,6 @@ docker compose up -d --build
 ```
 
 The container listens on port `3002` behind your reverse proxy (Nginx / Caddy with HTTPS).
-
-### Option 2: Run Locally (Node.js ≥ 22, No Database Required)
-
-```bash
-npm install
-npm run build
-ALLOW_HTTP=true APP_ORIGIN=http://127.0.0.1:3002 npm start
-```
-
-Without `MYSQL_HOST`, OfferLine falls back to atomic local JSON storage. Open `http://127.0.0.1:3002` and register.
 
 ---
 
@@ -180,12 +192,13 @@ Works for internships, campus recruiting, and experienced job searches with cust
 No. Built-in local rules plus `.ics` attachment parsing handle standard interview and assessment emails at zero cost. Bringing your own OpenAI-compatible API key (DeepSeek, Qwen, Zhipu GLM, Kimi, OpenAI, or local Ollama) is strictly optional.
 
 **Can I run it locally without Docker or MySQL?**
-Yes. With Node.js 22+, run `npm install && npm run build && npm start`. When `MYSQL_HOST` is omitted, OfferLine automatically stores data in an atomic local JSON file.
+Yes. With Node.js 22+, run `npm install && npm run build && npm start`. When `DATABASE_URL` is omitted, OfferLine automatically stores data in an atomic local JSON file (`./data/offerline.json`).
 
 ---
 
-## Design Docs
+## Design & Install Docs
 
+- [AI Agent Auto-Install Runbook (docs/ai-install.md)](docs/ai-install.md)
 - [System Architecture & Security (docs/architecture.md)](docs/architecture.md) (Chinese)
 - [Email Parsing & Schedule Sync Design (docs/mail-parsing-design.md)](docs/mail-parsing-design.md) (Chinese)
 - [AI Crawler & LLM Summary Index (llms.txt)](llms.txt)

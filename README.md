@@ -27,9 +27,9 @@
     &nbsp;&nbsp;/&nbsp;&nbsp;
     <a href="#4-隐私与数据安全">数据安全</a>
     &nbsp;&nbsp;/&nbsp;&nbsp;
-    <a href="#5-快速部署">快速部署</a>
+    <a href="#5-快速部署无需-docker-或-docker-自由选">快速部署</a>
     &nbsp;&nbsp;/&nbsp;&nbsp;
-    <a href="#技术栈与设计文档">设计文档</a>
+    <a href="docs/ai-install.md">AI 自动安装指南</a>
   </p>
 </div>
 
@@ -127,9 +127,33 @@
 
 ---
 
-## 5. 快速部署
+## 5. 快速部署（无需 Docker 或 Docker 自由选）
 
-### 方式一：Docker Compose 自托管（推荐）
+支持**零 Docker 零数据库本机直启**与 **Docker Compose + MySQL** 两种方式，按需任选。
+
+### 让 AI 助手自动帮你装好（推荐新手）
+
+把下面这段话直接复制给 **豆包、Claude Code、Codex、WorkBuddy、Cursor** 等任意 AI 工具：
+
+> 请帮我自动安装开源项目 OfferLine（`https://github.com/milkfrogdev/offerline`）。先读取项目里的 `docs/ai-install.md`，按里面的**无 Docker 轻量本机直装方案**自动检查 Node.js 环境、安装构建并验证启动后，把本地访问地址发给我。
+
+AI 专用的完整检查清单、防踩坑参数与跨平台指令见：**[docs/ai-install.md](docs/ai-install.md)**。
+
+### 方式一：本机轻量直启（Node.js ≥ 22，无需 Docker 与数据库）
+
+不设置 `DATABASE_URL` 时，会自动将数据原子保存在 `./data/offerline.json`，装好 Node.js 就能跑（Windows / macOS / Linux 通用）：
+
+```bash
+git clone https://github.com/milkfrogdev/offerline.git
+cd offerline
+npm install
+npm run build
+npm start
+```
+
+默认无需额外配置，启动后浏览器打开 `http://127.0.0.1:3002`（或 `http://localhost:3002`）注册账号就能用。若需自定端口或生成随机邮箱密钥 `.env`，参考 [docs/ai-install.md](docs/ai-install.md)。
+
+### 方式二：Docker Compose + MySQL 8.4（适合服务器长期托管）
 
 ```bash
 git clone https://github.com/milkfrogdev/offerline.git
@@ -149,37 +173,29 @@ docker compose up -d --build
 
 服务监听容器内 `3002` 端口，前置 Nginx 或 Caddy 反代并配好 HTTPS 即可访问。
 
-### 方式二：本机直接体验（Node.js ≥ 22，不用装数据库）
-
-```bash
-npm install
-npm run build
-ALLOW_HTTP=true APP_ORIGIN=http://127.0.0.1:3002 npm start
-```
-
-不填 `MYSQL_HOST` 时会自动回落到本地 JSON 文件存储，浏览器打开 `http://127.0.0.1:3002` 注册就能用。
-
 ### 环境变量
 
 | 变量名 | 默认值 | 说明 |
 |---|---|---|
 | `APP_PORT` | `3002` | 服务监听端口 |
-| `APP_ORIGIN` | `http://127.0.0.1:3002` | 对外访问地址，用于同源校验和 `.ics` 日历订阅链接 |
-| `ALLOW_HTTP` | `false` | 本机或纯 HTTP 局域网访问时设为 `true` |
+| `APP_ORIGIN` | `http://127.0.0.1:3002` | 对外访问地址，用于同源校验和 `.ics` 日历订阅链接（本机回环已自动兼容 `localhost`） |
+| `ALLOW_HTTP` | `false` | 本机 `NODE_ENV=production` 且走纯 HTTP 访问时设为 `true` |
+| `DATA_DIR` | `./data` | 未配 `DATABASE_URL` 时本地 JSON 数据文件所在目录 |
 | `REGISTRATION_OPEN` | `true` | 自己注册完账号后改为 `false` 即可禁止他人注册 |
 | `MAIL_ENCRYPTION_KEY` | — | 加密邮箱授权码和模型 Key 的 32 字节随机密钥 |
 | `ALLOW_LOCAL_LLM` | `false` | 需要连接本机或内网 Ollama / vLLM 时设为 `true` |
-| `MYSQL_HOST` / `MYSQL_DATABASE` / `MYSQL_USER` / `MYSQL_PASSWORD` | — | MySQL 8.4 连接配置（留空则走本地 JSON 存储） |
+| `DATABASE_URL` | — | MySQL 连接串（如 `mysql://user:pass@host:3306/offerline`；留空则用本地 JSON 文件存储） |
 
 ---
 
 ## 技术栈与设计文档
 
 - **前端**：React 19 / TypeScript / Vite / Tiptap v3 / `@dnd-kit`（离线内置 `Inter` + `HarmonyOS Sans SC`）
-- **后端**：Node.js 24 / Fastify 5 / Zod / MySQL 8.4（`mysql2`）/ `imapflow` / `mailparser`
+- **后端**：Node.js 24 / Fastify 5 / Zod / MySQL 8.4 或零依赖本地 JSON / `imapflow` / `mailparser`
 
-更细的实现取舍与表结构见仓库文档：
+更细的安装与架构文档见：
 
+- [AI 自动安装指导（docs/ai-install.md）](docs/ai-install.md)
 - [系统架构与安全设计（docs/architecture.md）](docs/architecture.md)
 - [求职邮件解析与日程同步设计（docs/mail-parsing-design.md）](docs/mail-parsing-design.md)
 - [AI 检索摘要索引（llms.txt）](llms.txt)
