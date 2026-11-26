@@ -7274,6 +7274,79 @@ textarea {
   font-weight: 600;
 }
 
+.account-oss-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--card-ring);
+  padding: 18px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.account-oss-main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: 1;
+  min-width: 260px;
+}
+
+.account-oss-ico {
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  background: var(--surface-2);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.account-oss-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.account-oss-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.account-oss-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+
+.account-oss-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.account-oss-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.account-oss-link {
+  text-decoration: none;
+}
+
 @media (max-width: 1080px) {
   .account-bento-grid {
     grid-template-columns: 1fr;
@@ -7410,6 +7483,114 @@ textarea {
   font-weight: 500;
   white-space: nowrap;
   animation: toastIn 0.24s var(--ease-out);
+}
+
+/* ==================== 24h Non-Blocking GitHub Star Prompt ==================== */
+@keyframes starCardIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.star-prompt-card {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 95;
+  width: 364px;
+  max-width: calc(100vw - 32px);
+  padding: 16px 18px;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--popover-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  animation: starCardIn 0.22s var(--ease-out);
+}
+
+.star-prompt-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.star-prompt-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.star-prompt-ico {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--star-soft);
+  color: var(--star);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.star-prompt-title {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.star-prompt-close {
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  width: 28px;
+  height: 28px;
+}
+
+.star-prompt-close:hover {
+  background: var(--surface-2);
+}
+
+.star-prompt-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.58;
+  color: var(--text-2);
+}
+
+.star-prompt-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.star-prompt-link {
+  text-decoration: none;
+}
+
+@media (max-width: 640px) {
+  .account-oss-main {
+    align-items: flex-start;
+  }
+
+  .star-prompt-card {
+    right: 16px;
+    left: 16px;
+    bottom: 16px;
+    width: auto;
+  }
 }
 
 /* ==================== Responsive ==================== */

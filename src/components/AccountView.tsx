@@ -8,7 +8,16 @@ import type {
 } from "../../shared/types";
 import { api } from "../api";
 import { canUseWebCrypto, decryptJson, encryptJson } from "../crypto";
-import { IconCheck, IconKey, IconLogout, IconShield } from "./Icons";
+import { GITHUB_ISSUES_URL, GITHUB_REPO_URL } from "../starPrompt";
+import {
+  IconCheck,
+  IconExternal,
+  IconGitHub,
+  IconKey,
+  IconLogout,
+  IconShield,
+  IconStar,
+} from "./Icons";
 import { LlmConfigPanel } from "./LlmConfigPanel";
 
 export function AccountView({
@@ -20,6 +29,7 @@ export function AccountView({
   onMailConfigUpdated,
   onImported,
   onShowToast,
+  onStarred,
   onLogout,
 }: {
   user: UserProfile;
@@ -30,6 +40,7 @@ export function AccountView({
   onMailConfigUpdated: (cfg: MailAccountPublic) => void;
   onImported: () => Promise<void>;
   onShowToast: (text: string, kind?: "ok" | "err") => void;
+  onStarred: () => void;
   onLogout: () => void;
 }) {
   const [passphrase, setPassphrase] = useState("");
@@ -302,6 +313,47 @@ export function AccountView({
           </section>
         </div>
       </div>
+
+      {/* 开源支持与 GitHub Star 横卡 */}
+      <section className="account-oss-card" aria-label="支持 OfferLine 开源项目">
+        <div className="account-oss-main">
+          <span className="account-oss-ico" aria-hidden="true">
+            <IconGitHub size={22} />
+          </span>
+          <div className="account-oss-copy">
+            <div className="account-oss-title-row">
+              <h2 className="account-oss-title">喜欢 OfferLine？去 GitHub 点个 Star</h2>
+              <span className="account-role-tag">MIT 开源</span>
+            </div>
+            <p className="account-oss-desc">
+              OfferLine 坚持免费开源、数据归你自己掌握。如果它帮你理顺了投递与面试节奏，顺手点一颗 Star 就是对持续维护最大的鼓励。
+            </p>
+          </div>
+        </div>
+
+        <div className="account-oss-actions">
+          <a
+            className="btn btn-soft btn-sm account-oss-link"
+            href={GITHUB_ISSUES_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span>提建议或反馈</span>
+            <IconExternal size={12} />
+          </a>
+          <a
+            className="btn btn-primary btn-sm account-oss-link"
+            href={GITHUB_REPO_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={onStarred}
+          >
+            <IconStar size={14} filled />
+            <span>去点个 Star</span>
+            <IconExternal size={12} />
+          </a>
+        </div>
+      </section>
     </div>
   );
 }

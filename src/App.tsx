@@ -27,7 +27,9 @@ import { PipelineView } from "./components/PipelineView";
 import { ScheduleView } from "./components/ScheduleView";
 import { Sidebar } from "./components/Sidebar";
 import { SmartImportModal } from "./components/SmartImportModal";
+import { StarPromptCard } from "./components/StarPromptCard";
 import { TooltipHost } from "./components/TooltipHost";
+import { dismissStarPrompt, getStarPromptRemainingMs } from "./starPrompt";
 
 const THEME_KEY = "offerline.theme";
 
@@ -57,6 +59,7 @@ export function App() {
   const [latestNoteId, setLatestNoteId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [starPromptOpen, setStarPromptOpen] = useState(false);
   const lastVersionCheckRef = useRef(0);
 
   // Modals
@@ -185,6 +188,54 @@ export function App() {
       document.removeEventListener("visibilitychange", checkOnWake);
     };
   }, [checkClientVersion]);
+
+  useEffect(() => {
+    if (!user) {
+      setStarPromptOpen(false);
+      return;
+    }
+
+    let timer: number | undefined;
+    const evaluateStarPrompt = () => {
+      const remaining = getStarPromptRemainingMs(user.createdAt);
+      if (remaining === null) {
+        setStarPromptOpen(false);
+        return;
+      }
+      if (remaining <= 0) {
+        setStarPromptOpen(true);
+        return;
+      }
+      setStarPromptOpen(false);
+      if (timer !== undefined) window.clearTimeout(timer);
+      timer = window.setTimeout(evaluateStarPrompt, Math.min(remaining, 60 * 60 * 1000));
+    };
+
+    evaluateStarPrompt();
+    const onWake = () => {
+      if (!document.visibilityState || document.visibilityState === "visible") {
+        evaluateStarPrompt();
+      }
+    };
+    window.addEventListener("focus", onWake);
+    document.addEventListener("visibilitychange", onWake);
+    return () => {
+      if (timer !== undefined) window.clearTimeout(timer);
+      window.removeEventListener("focus", onWake);
+      document.removeEventListener("visibilitychange", onWake);
+    };
+  }, [user]);
+
+  const handleDismissStarPrompt = useCallback(() => {
+    dismissStarPrompt();
+    setStarPromptOpen(false);
+  }, []);
+
+  const handleStarPromptClick = useCallback(() => {
+    dismissStarPrompt();
+    setStarPromptOpen(false);
+    showToast("感谢支持 OfferLine");
+  }, [showToast]);
 
   const existingCompanies = useMemo(() => {
     const map = new Map<string, string | undefined>();
@@ -552,6 +603,7 @@ export function App() {
             onMailConfigUpdated={setMailConfig}
             onImported={loadAllData}
             onShowToast={showToast}
+            onStarred={handleStarPromptClick}
             onLogout={() => void handleLogout()}
           />
         )}
@@ -643,6 +695,16 @@ export function App() {
           }}
         />
       )}
+
+      {starPromptOpen &&
+        !recordModal.open &&
+        !mailModal.open &&
+        !eventModal.open &&
+        !noteModal.open &&
+        !subscribeOpen &&
+        !importOpen && (
+          <StarPromptCard onStar={handleStarPromptClick} onDismiss={handleDismissStarPrompt} />
+        )}
 
       {updateAvailable && (
         <div className="version-update-bar" role="status">
