@@ -144,12 +144,22 @@ function timeGreeting(now: Date): string {
   return "晚上好";
 }
 
+function hasExplicitDeadlineClock(iso: string): boolean {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return false;
+  const h = d.getHours();
+  const m = d.getMinutes();
+  return !(h === 23 && m === 59) && !(h === 0 && m === 0);
+}
+
 function formatEventShortTime(ev: ScheduleEvent, nowMs: number): string {
   if (ev.timeMode === "flexible") return "时间自定";
   if (ev.timeMode === "deadline") {
     const d = new Date(ev.startAt);
     if (Number.isNaN(d.getTime())) return "待定截止";
-    return `截止 ${d.getMonth() + 1}月${d.getDate()}日`;
+    return hasExplicitDeadlineClock(ev.startAt)
+      ? `截止 ${d.getMonth() + 1}月${d.getDate()}日 ${formatClock(ev.startAt)}`
+      : `截止 ${d.getMonth() + 1}月${d.getDate()}日`;
   }
   return formatFriendlyDay(ev.startAt, nowMs);
 }
@@ -433,16 +443,29 @@ export function HomeView({
 
               <div className="spotlight-specs">
                 <div className="spotlight-spec">
-                  <span className="spotlight-spec-k">开始时间</span>
+                  <span className="spotlight-spec-k">
+                    {nextUpcoming.timeMode === "deadline" ? "截止时间" : "开始时间"}
+                  </span>
                   <span className="spotlight-spec-v">
-                    {formatFriendlyDay(nextUpcoming.startAt, nowMs)}
-                    {nextUpcoming.endAt ? ` – ${formatClock(nextUpcoming.endAt)}` : ""}
+                    {nextUpcoming.timeMode === "deadline"
+                      ? (() => {
+                          const d = new Date(nextUpcoming.startAt);
+                          if (Number.isNaN(d.getTime())) return "待定截止";
+                          return hasExplicitDeadlineClock(nextUpcoming.startAt)
+                            ? `${d.getMonth() + 1}月${d.getDate()}日 ${formatClock(nextUpcoming.startAt)} 前`
+                            : `${d.getMonth() + 1}月${d.getDate()}日 当日内`;
+                        })()
+                      : `${formatFriendlyDay(nextUpcoming.startAt, nowMs)}${nextUpcoming.endAt ? ` – ${formatClock(nextUpcoming.endAt)}` : ""}`}
                   </span>
                 </div>
                 <div className="spotlight-spec">
-                  <span className="spotlight-spec-k">预计时长</span>
+                  <span className="spotlight-spec-k">
+                    {nextUpcoming.timeMode === "deadline" ? "完成方式" : "预计时长"}
+                  </span>
                   <span className="spotlight-spec-v">
-                    {formatDurationShort(nextUpcoming.startAt, nextUpcoming.endAt)}
+                    {nextUpcoming.timeMode === "deadline"
+                      ? "限期内自选时间"
+                      : formatDurationShort(nextUpcoming.startAt, nextUpcoming.endAt)}
                   </span>
                 </div>
                 <div className="spotlight-spec">

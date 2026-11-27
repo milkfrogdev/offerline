@@ -193,12 +193,22 @@ function buildMonthGrid(year: number, month: number): { date: Date; key: string;
   return cells;
 }
 
+function hasExplicitDeadlineClock(iso: string): boolean {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return false;
+  const h = d.getHours();
+  const m = d.getMinutes();
+  return !(h === 23 && m === 59) && !(h === 0 && m === 0);
+}
+
 function formatInboxTimeLabel(ev: ScheduleEvent): string {
   if (ev.timeMode === "flexible") return "时间自定，尽早完成";
   if (ev.timeMode === "deadline") {
     const d = new Date(ev.startAt);
     if (Number.isNaN(d.getTime())) return "截止时间待定";
-    return `截止 ${d.getMonth() + 1}月${d.getDate()}日`;
+    return hasExplicitDeadlineClock(ev.startAt)
+      ? `截止 ${d.getMonth() + 1}月${d.getDate()}日 ${formatClock(ev.startAt)}`
+      : `截止 ${d.getMonth() + 1}月${d.getDate()}日`;
   }
   return `${formatQuickDateTime(ev.startAt)}${ev.endAt ? `–${formatClock(ev.endAt)}` : ""}`;
 }
@@ -618,10 +628,17 @@ export function ScheduleView({
                                   <span className="agenda-end">尽早完成</span>
                                 </>
                               ) : ev.timeMode === "deadline" ? (
-                                <>
-                                  <span className="agenda-start">截止</span>
-                                  <span className="agenda-end">当日内</span>
-                                </>
+                                hasExplicitDeadlineClock(ev.startAt) ? (
+                                  <>
+                                    <span className="agenda-start">{formatClock(ev.startAt)}</span>
+                                    <span className="agenda-end">前截止</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="agenda-start">截止</span>
+                                    <span className="agenda-end">当日内</span>
+                                  </>
+                                )
                               ) : (
                                 <>
                                   <span className="agenda-start">{formatClock(ev.startAt)}</span>

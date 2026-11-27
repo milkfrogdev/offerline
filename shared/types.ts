@@ -168,8 +168,10 @@ export interface EmailParseResult {
   timeMode?: EventTimeMode;
   location?: string;
   snippet: string;
+  notes?: string;
   reason?: string;
   parserSource?: "rules" | "llm";
+  templateId?: string;
 }
 
 export interface UserProfile {

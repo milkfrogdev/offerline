@@ -1354,7 +1354,7 @@ export async function buildApp({
       mailSnippet: parsed.snippet,
       status: "confirmed",
       syncedToRecord: false,
-      notes: "",
+      notes: parsed.notes || "",
       createdAt: now,
       updatedAt: now,
     };

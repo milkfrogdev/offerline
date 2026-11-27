@@ -61,6 +61,10 @@ export function App() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [starPromptOpen, setStarPromptOpen] = useState(false);
   const lastVersionCheckRef = useRef(0);
+  const lastEventsRefreshRef = useRef(0);
+  const knownPendingIdsRef = useRef<Set<string> | null>(null);
+  const eventsDigestRef = useRef("");
+  const mailDigestRef = useRef("");
 
   // Modals
   const [recordModal, setRecordModal] = useState<{
@@ -144,7 +148,46 @@ export function App() {
     setEvents(evRes.items);
     setNotes(noteRes.items);
     setMailConfig(mailRes);
+    eventsDigestRef.current = JSON.stringify(evRes.items);
+    mailDigestRef.current = JSON.stringify(mailRes);
+    knownPendingIdsRef.current = new Set(
+      evRes.items.filter((e) => e.status === "pending_confirm").map((e) => e.id),
+    );
+    lastEventsRefreshRef.current = Date.now();
   }, []);
+
+  const refreshEventsSilently = useCallback(
+    async (force = false) => {
+      const now = Date.now();
+      if (!force && now - lastEventsRefreshRef.current < 15_000) return;
+      lastEventsRefreshRef.current = now;
+      try {
+        const [evRes, mailRes] = await Promise.all([api.listEvents(), api.getMailConfig()]);
+        const nextEvDigest = JSON.stringify(evRes.items);
+        if (nextEvDigest !== eventsDigestRef.current) {
+          eventsDigestRef.current = nextEvDigest;
+          const prevKnown = knownPendingIdsRef.current;
+          const nextPending = evRes.items.filter((e) => e.status === "pending_confirm");
+          if (prevKnown) {
+            const addedCount = nextPending.filter((e) => !prevKnown.has(e.id)).length;
+            if (addedCount > 0) {
+              showToast(`邮箱监听发现 ${addedCount} 条新待确认日程`);
+            }
+          }
+          knownPendingIdsRef.current = new Set(nextPending.map((e) => e.id));
+          setEvents(evRes.items);
+        }
+        const nextMailDigest = JSON.stringify(mailRes);
+        if (nextMailDigest !== mailDigestRef.current) {
+          mailDigestRef.current = nextMailDigest;
+          setMailConfig(mailRes);
+        }
+      } catch {
+        // 后台静默刷新失败不弹出打扰用户的报错提示
+      }
+    },
+    [showToast],
+  );
 
   const checkClientVersion = useCallback((serverClientEntry?: string) => {
     if (!serverClientEntry) return;
@@ -173,6 +216,9 @@ export function App() {
   useEffect(() => {
     const checkOnWake = () => {
       if (document.visibilityState && document.visibilityState !== "visible") return;
+      if (user) {
+        void refreshEventsSilently();
+      }
       const now = Date.now();
       if (now - lastVersionCheckRef.current < 60_000) return;
       lastVersionCheckRef.current = now;
@@ -187,7 +233,16 @@ export function App() {
       window.removeEventListener("focus", checkOnWake);
       document.removeEventListener("visibilitychange", checkOnWake);
     };
-  }, [checkClientVersion]);
+  }, [checkClientVersion, refreshEventsSilently, user]);
+
+  useEffect(() => {
+    if (!user || !mailConfig?.enabled) return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState && document.visibilityState !== "visible") return;
+      void refreshEventsSilently(true);
+    }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [mailConfig?.enabled, refreshEventsSilently, user]);
 
   useEffect(() => {
     if (!user) {
@@ -327,6 +382,12 @@ export function App() {
       const res = await api.syncMailNow();
       setMailConfig(res.config);
       setEvents(res.events);
+      eventsDigestRef.current = JSON.stringify(res.events);
+      mailDigestRef.current = JSON.stringify(res.config);
+      knownPendingIdsRef.current = new Set(
+        res.events.filter((e) => e.status === "pending_confirm").map((e) => e.id),
+      );
+      lastEventsRefreshRef.current = Date.now();
       const { created, merged, scanned } = res.summary;
       if (created > 0 && merged > 0) {
         showToast(`同步完成，新发现 ${created} 条日程，已合并 ${merged} 封重复提醒`);

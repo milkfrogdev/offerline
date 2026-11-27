@@ -305,6 +305,7 @@ export function mergeDuplicateEvent(
     location?: string;
     mailSubject?: string;
     mailSnippet?: string;
+    notes?: string;
   },
   nowIso: string,
 ): { merged: ScheduleEvent; changed: boolean } {
@@ -321,6 +322,10 @@ export function mergeDuplicateEvent(
   }
   if (!next.location && incoming.location) {
     next.location = incoming.location;
+    changed = true;
+  }
+  if (!next.notes && incoming.notes) {
+    next.notes = incoming.notes;
     changed = true;
   }
   if (!next.endAt && incoming.endAt) {
@@ -524,6 +529,7 @@ export async function syncUserMailbox(
               location: extracted.location,
               mailSubject: subjectText.slice(0, 280),
               mailSnippet: extracted.snippet,
+              notes: extracted.notes,
             },
             nowIso,
           );
@@ -556,7 +562,7 @@ export async function syncUserMailbox(
           mailSnippet: extracted.snippet,
           status: "pending_confirm",
           syncedToRecord: false,
-          notes: "",
+          notes: extracted.notes || "",
           createdAt: nowIso,
           updatedAt: nowIso,
         };

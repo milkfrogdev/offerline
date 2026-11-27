@@ -616,4 +616,121 @@ describe("求职邮件深度解析、去噪、归一化与 ICS 生成", () => {
     expect(res.startAt).toBe("2026-11-26T02:00:00.000Z");
     expect(res.location).toContain("career.huawei.com");
   });
+
+  it("专属大厂模板特判：字节 People AI 在线初评精准识别为笔试+精确截止时刻+完整岗位+结构化备注", () => {
+    const res = parseRecruitmentEmailByRules({
+      subject: "字节跳动校园招聘在线初评邀请 — Agent研发工程师 - 抖音用户增长",
+      from: '"People AI" <people_ai_interview@mail.bytedance.net>',
+      text: [
+        "字节跳动校园招聘在线初评邀请",
+        "[https://lf3-static.bytednsdoc.com/obj/eden-cn/demo/banner.jpg]",
+        "同学你好，诚邀你参加字节跳动校园招聘- Agent研发工程师 - 抖音用户增长 岗位的在线初评环节。你可登录字节跳动校招官网（https://jobs.bytedance.com/campus）了解岗位相关信息。",
+        "【初评信息】",
+        "* 初评形式：在线问答 + AI 能力测评（电脑端进行，需开启摄像头和麦克风）",
+        "* 初评时长：约 65 分钟",
+        "* 初评内容：可能涵盖过往经历、岗位能力、基于 Trae Agent 开发模式 的 AI 能力测评等",
+        "* 初评链接：https://jobs.bytedance.com/interview/demo123456",
+        "* 有效期：请在 2026-11-30 11:51:37 之前完成，逾期链接将自动失效",
+        "初评开始后不可切换屏幕。",
+      ].join("\n"),
+      date: "2026-11-27T03:52:26.000Z",
+    });
+
+    expect(res.matched).toBe(true);
+    expect(res.templateId).toBe("bytedance-online-screening");
+    expect(res.company).toBe("字节跳动");
+    expect(res.position).toBe("Agent研发工程师 - 抖音用户增长");
+    expect(res.kind).toBe("written_test");
+    expect(res.stageName).toBe("笔试");
+    expect(res.timeMode).toBe("deadline");
+    expect(res.startAt).toBe("2026-11-30T03:51:00.000Z");
+    expect(res.endAt).toBeUndefined();
+    expect(res.location).toBe("https://jobs.bytedance.com/interview/demo123456");
+    expect(res.notes).toContain("约 65 分钟");
+    expect(res.notes).toContain("不可切屏");
+    expect(res.snippet).not.toContain(".jpg");
+  });
+
+  it("专属模板与通用防呆：牛客 AI 面试/跨天笔试窗口、ICS 占位符过滤、阿里试做链接防抢、腾讯48h测评与调研拦截", () => {
+    // 1. 牛客笔试：ICS LOCATION="以邮件正文为准" 不劫持正文真实考试地址，且从试卷名称提岗位
+    const pdd = parseRecruitmentEmailByRules({
+      subject: "拼多多集团-PDD校招邀请你参加在线技术笔试",
+      from: '"拼多多集团-PDD" <support@batchmail.nowcoder.net>',
+      text: "感谢投递拼多多集团-PDD。\n试卷名称：2027届服务端研发工程师笔试（0906）\n考试时间：(北京时间,UTC+08:00)2026-09-06 19:00:00 -- 21:00:00\n考试时长：120分钟\n考试地址：https://hr.nowcoder.com/v1/s/demoExam#\n点击确认是否参加考试 (https://hr.nowcoder.com/v1/s/demoConfirm#)",
+      icsText:
+        "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nDTSTART;TZID=Asia/Shanghai:20260906T190000\r\nDTEND;TZID=Asia/Shanghai:20260906T210000\r\nLOCATION:以邮件正文为准\r\nEND:VEVENT\r\nEND:VCALENDAR",
+      date: "2026-09-04T10:00:00Z",
+    });
+    expect(pdd.matched).toBe(true);
+    expect(pdd.company).toBe("拼多多");
+    expect(pdd.position).toBe("服务端研发工程师");
+    expect(pdd.location).toBe("https://hr.nowcoder.com/v1/s/demoExam");
+
+    // 2. 牛客跨天 AI 面试窗口 -> deadline 到截止时刻，且不选确认参加链接
+    const mtAi = parseRecruitmentEmailByRules({
+      subject: "牛客网邀请你参加在线AI面试",
+      from: '"美团" <support@usermail.nowcoder.com>',
+      text: "您投递的 美团 AI面试即将在 1天小时(03-29 16:26)后截止。\n点击确认是否参加面试 (https://hr.nowcoder.com/v1/s/confirm00#)\n面试时间：2026-03-27 16:26 至 2026-03-29 16:26\n面试链接：点击链接进入面试 https://hr.nowcoder.com/v1/s/room99#",
+      date: "2026-03-28T08:11:00Z",
+    });
+    expect(mtAi.matched).toBe(true);
+    expect(mtAi.company).toBe("美团");
+    expect(mtAi.timeMode).toBe("deadline");
+    expect(mtAi.startAt).toBe("2026-03-29T08:26:00.000Z");
+    expect(mtAi.endAt).toBeUndefined();
+    expect(mtAi.location).toBe("https://hr.nowcoder.com/v1/s/room99");
+
+    // 3. 阿里在线笔试含牛客试做链接时，优先正式登录链接并正确提取开考时间
+    const ali = parseRecruitmentEmailByRules({
+      subject: "【阿里巴巴校园招聘】在线笔试邀请",
+      from: "recruiting@alibaba-inc.com",
+      text: "[https://img.alicdn.com/demo-banner.png]\n笔试开始时间：2026-09-02 19:00 (UTC+8)\n考试时长：100/120分钟\n考试题型：选择题/填空题+AI Coding题\n试做链接：https://exam.nowcoder.com/cts/17520846/summary\n登录链接：https://campus-talent.alibaba.com/personal/campus-application",
+      date: "2026-09-02T05:59:00Z",
+    });
+    expect(ali.matched).toBe(true);
+    expect(ali.company).toBe("阿里巴巴");
+    expect(ali.startAt).toBe("2026-09-02T11:00:00.000Z");
+    expect(ali.location).toBe("https://campus-talent.alibaba.com/personal/campus-application");
+    expect(ali.snippet).not.toContain(".png");
+
+    // 4. 腾讯 48 小时综合素质测评提取 sdc.qq.com 与 deadline
+    const txAssess = parseRecruitmentEmailByRules({
+      subject: "腾讯邀请你参加综合素质测评-请在48小时内完成",
+      from: "ceping@ceping.tencent.com",
+      text: "感谢投递腾讯，烦请在收到邮件 48小时内 完成测评。方式2：请复制并在浏览器打开链接： https://sdc.qq.com/s/demo123 进行测试",
+      date: "2026-03-18T07:47:00Z",
+    });
+    expect(txAssess.matched).toBe(true);
+    expect(txAssess.company).toBe("腾讯");
+    expect(txAssess.timeMode).toBe("deadline");
+    expect(txAssess.location).toBe("https://sdc.qq.com/s/demo123");
+
+    // 5. 漏网噪声全部拦截：众安面试体验问卷、牛客用户调研、蚂蚁岗位更名公告与校招启动宣传
+    const noiseCases = [
+      {
+        subject: "今天，您在众安的面试体验如何？",
+        from: '"众安保险" <zhongan-no-reply@mail.mokahr.co>',
+        text: "感谢您参加了众安 2026年4月8日 14:55 的面试，诚邀您花2分钟反馈今天的面试体验。",
+      },
+      {
+        subject: "【牛客网申助手】特邀您进行用户调研，有机会获得50元京东卡",
+        from: '"调研组" <survey@nowcoder.com>',
+        text: "邀请您填写用户调研问卷，抽取京东卡。",
+      },
+      {
+        subject: "【蚂蚁集团】关于校招 AI 技术岗位名称优化的说明",
+        from: '"蚂小招" <anttalent@antgroup.com>',
+        text: "此次仅为名称和分类的优化，部分同学可能会收到 AI Coding 考试的笔试安排。",
+      },
+      {
+        subject: "蚂蚁集团2027校招启动🔥超80%AI岗+笔试可用AI，赶紧冲！",
+        from: '"蚂小招" <anttalent@antgroup.com>',
+        text: "蚂蚁集团2027届校园招聘已经正式启动啦！笔试可放心用AI。",
+      },
+    ];
+    for (const c of noiseCases) {
+      const r = parseRecruitmentEmailByRules({ ...c, date: "2026-09-01T00:00:00Z" });
+      expect(r.matched, `Expected rejected: ${c.subject}`).toBe(false);
+    }
+  });
 });
